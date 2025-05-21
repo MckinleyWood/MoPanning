@@ -1,9 +1,7 @@
 # Prerequisites
 *.d
 
-# Build and JUCE folders
 **/build
-**/JUCE
 **/.DS_Store
 **/.vscode
 

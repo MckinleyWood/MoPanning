@@ -59,8 +59,8 @@ juce_generate_juce_header(MoPanning)
 
 target_sources(MoPanning
     PRIVATE
-        Source/Main.cpp
-        Source/MainComponent.cpp)
+        source/Main.cpp
+        source/MainComponent.cpp)
 
 # `target_compile_definitions` adds some preprocessor definitions to our target. In a Projucer
 # project, these might be passed in the 'Preprocessor Definitions' field. JUCE modules also make use
