@@ -1,25 +1,42 @@
+/* MainComponent
+
+This file handles the main window generation and graphics.
+*/
+
 #pragma once
-
-/* CMake builds don't use an AppConfig.h, so it's safe to include juce 
-module headers directly. */
 #include <JuceHeader.h>
+#include "MainController.h"
+#include "GLVisualizer.h"
+#include "SettingsComponent.h"
 
-//======================================================================
+//=============================================================================
 /* This component lives inside our window, and this is where you should 
 put all your controls and content. */
 class MainComponent final : public juce::Component
 {
 public:
-    //==================================================================
-    MainComponent();
+    //=========================================================================
+    enum class ViewMode { Focus, Split };
 
-    //==================================================================
-    void paint (juce::Graphics&) override;
+    //=========================================================================
+    explicit MainComponent(MainController&);
+
+    //=========================================================================
+    // void paint (juce::Graphics&) override;
     void resized() override;
 
 private:
-    //==================================================================
-    // Private member variables go here...
+    //=========================================================================
+    void toggleView();
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
+    //=========================================================================
+    MainController& controller;
+    GLVisualizer visualiser;
+    SettingsComponent settings;
+    juce::TextButton viewButton { "*" };
+    ViewMode viewMode { ViewMode::Focus };
+
+
+    //=========================================================================
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
 };

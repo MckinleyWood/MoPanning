@@ -1,28 +1,49 @@
 #include "MainComponent.h"
 
-//======================================================================
-MainComponent::MainComponent()
+//=============================================================================
+MainComponent::MainComponent(MainController& c)
+    : controller(c),
+      visualiser(controller),
+      settings(controller)
 {
-    setSize (600, 400);
+    addAndMakeVisible(visualiser);
+    addAndMakeVisible(settings);
+    addAndMakeVisible(viewButton);
+
+    viewButton.onClick = [this] { toggleView(); };
+    settings.setVisible(false);                  // start in Focus mode
+    setSize(1200, 750);
 }
 
-//======================================================================
-void MainComponent::paint (juce::Graphics& g)
-{
-    /* Our component is opaque, so we must completely fill the 
-    background with a solid colour. */
-    g.fillAll (getLookAndFeel().findColour(
-        juce::ResizableWindow::backgroundColourId));
-
-    g.setFont (juce::FontOptions (16.0f));
-    g.setColour (juce::Colours::white);
-    g.drawText ("Hi Owen", getLocalBounds(), 
-        juce::Justification::centred, true);
-}
+//=============================================================================
+/* Since the child components visualiser and settings do all the 
+drawing, we don't need a paint() function here. */
 
 void MainComponent::resized()
 {
-    /* This is called when the MainComponent is resized. If you add any 
-    child components, this is where you should update their positions.
-    */
+    /* This is all just ChatGPT, will change to nice layout */
+    auto r = getLocalBounds();
+    auto btn = r.removeFromTop(28).removeFromRight(28);
+    viewButton.setBounds(btn);
+
+    if (viewMode == ViewMode::Focus)
+    {
+        visualiser.setBounds(r);
+        settings.setVisible(false);
+    }
+    else // ViewMode == Split
+    {
+        const int sidebarW = 260;
+        auto right = r.removeFromRight(sidebarW);
+        settings.setBounds(right.reduced(6));
+        visualiser.setBounds(r);
+        settings.setVisible(true);
+    }
+}
+
+//=============================================================================
+void MainComponent::toggleView()
+{
+    viewMode = (viewMode == ViewMode::Focus ? ViewMode::Split
+                                            : ViewMode::Focus);
 }

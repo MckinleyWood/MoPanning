@@ -1,3 +1,9 @@
+/* Main.cpp
+
+This file handles the app initialization and shutdown things.
+*/
+
+
 #include "MainComponent.h"
 #include <JuceHeader.h>
 
@@ -29,7 +35,9 @@ public:
         // App initialization code goes here.
         juce::ignoreUnused (commandLine);
 
-        mainWindow.reset (new MainWindow (getApplicationName()));
+        controller  = std::make_unique<MainController>();
+        mainWindow.reset(new MainWindow(getApplicationName(),
+                                        *controller));
     }
 
 
@@ -37,7 +45,8 @@ public:
     {
         // App shutdown code goes here.
 
-        mainWindow = nullptr; // (deletes our window)
+        mainWindow = nullptr; // Deletes the window
+        controller = nullptr; // Controller should be destroyed after window
     }
 
     //=========================================================================
@@ -51,9 +60,9 @@ public:
     /* When another instance of the app is launched while this one is 
     running, this method is invoked, and the commandLine parameter tells
     you what the other instance's command-line arguments were. */
-    void anotherInstanceStarted (const juce::String& commandLine) override
+    void anotherInstanceStarted(const juce::String& commandLine) override
     {
-        juce::ignoreUnused (commandLine);
+        juce::ignoreUnused(commandLine);
     }
 
 
@@ -63,23 +72,24 @@ public:
     class MainWindow final : public juce::DocumentWindow
     {
     public:
-        explicit MainWindow (juce::String name)
-            : DocumentWindow (name,
-                              juce::Desktop::getInstance().getDefaultLookAndFeel()
-                                                          .findColour (backgroundColourId),
-                              allButtons)
+        explicit MainWindow(juce::String name, MainController& c)
+            : DocumentWindow(
+                name, 
+                juce::Desktop::getInstance().getDefaultLookAndFeel()
+                    .findColour(backgroundColourId),
+                allButtons)
         {
-            setUsingNativeTitleBar (true);
-            setContentOwned (new MainComponent(), true);
+            setUsingNativeTitleBar(true);
+            setContentOwned(new MainComponent(c), true);
 
            #if JUCE_IOS || JUCE_ANDROID
             setFullScreen (true);
            #else
-            setResizable (true, true);
-            centreWithSize (getWidth(), getHeight());
+            setResizable(true, true);
+            centreWithSize(getWidth(), getHeight());
            #endif
 
-            setVisible (true);
+            setVisible(true);
         }
 
         /* This is called when the user tries to close this window. */
@@ -100,6 +110,7 @@ public:
     };
 
 private:
+    std::unique_ptr<MainController> controller;
     std::unique_ptr<MainWindow> mainWindow;
 };
 
