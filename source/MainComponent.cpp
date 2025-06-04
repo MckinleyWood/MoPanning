@@ -11,7 +11,7 @@ MainComponent::MainComponent(MainController& c)
     addAndMakeVisible(viewButton);
 
     viewButton.onClick = [this] { toggleView(); };
-    settings.setVisible(false);                  // start in Focus mode
+    settings.setVisible(false); // start in Focus mode
     setSize(1200, 750);
 }
 
@@ -46,4 +46,6 @@ void MainComponent::toggleView()
 {
     viewMode = (viewMode == ViewMode::Focus ? ViewMode::Split
                                             : ViewMode::Focus);
+
+    resized(); // Force update view
 }
