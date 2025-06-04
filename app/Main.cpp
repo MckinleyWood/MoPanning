@@ -30,23 +30,41 @@ public:
     }
 
     //=========================================================================
-    void initialise (const juce::String& commandLine) override
+    void initialise(const juce::String& commandLine) override
     {
         // App initialization code goes here.
         juce::ignoreUnused (commandLine);
 
-        controller  = std::make_unique<MainController>();
-        mainWindow.reset(new MainWindow(getApplicationName(),
-                                        *controller));
-    }
+        commandManager = std::make_unique<juce::ApplicationCommandManager>();
+        controller = std::make_unique<MainController>();
 
+       #if JUCE_MAC
+        auto mainComponent = std::make_unique<MainComponent>(*controller, 
+                                                             *commandManager);
+        juce::PopupMenu appleExtras;
+        appleExtras.addCommandItem(&*commandManager,
+                                   MainComponent::cmdToggleSettings);
+        juce::MenuBarModel::setMacMainMenu(mainComponent.get(), &appleExtras);
+        mainWindow = std::make_unique<MainWindow>(getApplicationName(),
+                                                  std::move(mainComponent));
+       #else
+        // Windows/Linux: we can still build inside the window as usual
+        mainWindow = std::make_unique<MainWindow>(
+            getApplicationName(),
+            std::make_unique<MainComponent>(*controller, *commandManager));
+       #endif
+    }
 
     void shutdown() override
     {
         // App shutdown code goes here.
+       #if JUCE_MAC
+        juce::MenuBarModel::setMacMainMenu(nullptr);
+       #endif
 
         mainWindow = nullptr; // Deletes the window
         controller = nullptr; // Controller should be destroyed after window
+        commandManager = nullptr;
     }
 
     //=========================================================================
@@ -56,7 +74,6 @@ public:
         quit();
     }
 
-
     /* When another instance of the app is launched while this one is 
     running, this method is invoked, and the commandLine parameter tells
     you what the other instance's command-line arguments were. */
@@ -65,6 +82,10 @@ public:
         juce::ignoreUnused(commandLine);
     }
 
+    juce::ApplicationCommandManager& getCommandManager() 
+    { 
+        return *commandManager; 
+    }
 
     //=========================================================================
     /* This class implements the desktop window that contains an 
@@ -72,7 +93,8 @@ public:
     class MainWindow final : public juce::DocumentWindow
     {
     public:
-        explicit MainWindow(juce::String name, MainController& c)
+        explicit MainWindow(juce::String name,          
+                            std::unique_ptr<MainComponent>  mc)
             : DocumentWindow(
                 name, 
                 juce::Desktop::getInstance().getDefaultLookAndFeel()
@@ -80,7 +102,7 @@ public:
                 allButtons)
         {
             setUsingNativeTitleBar(true);
-            setContentOwned(new MainComponent(c), true);
+            setContentOwned(mc.release(), true);
 
            #if JUCE_IOS || JUCE_ANDROID
             setFullScreen (true);
@@ -106,14 +128,15 @@ public:
         the superclass's method. */
 
     private:
-        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainWindow)
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainWindow)
     };
 
 private:
+    std::unique_ptr<juce::ApplicationCommandManager> commandManager;
     std::unique_ptr<MainController> controller;
     std::unique_ptr<MainWindow> mainWindow;
 };
 
 //=============================================================================
 // This macro generates the main() routine that launches the app.
-START_JUCE_APPLICATION (GuiAppApplication)
+START_JUCE_APPLICATION(GuiAppApplication)

@@ -15,7 +15,7 @@ void SettingsComponent::paint(juce::Graphics& g)
     g.fillAll(juce::Colours::darkgrey);
     g.setColour(juce::Colours::white);
     g.setFont(14.0f);
-    g.drawFittedText("Settings (placeholder)",
+    g.drawFittedText("Hi Owen",
                      getLocalBounds(),
                      juce::Justification::centred,
                      1);

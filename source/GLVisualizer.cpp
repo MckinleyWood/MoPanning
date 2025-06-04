@@ -11,8 +11,8 @@ GLVisualizer::~GLVisualizer()
 }
 
 //=============================================================================
-void GLVisualizer::initialise()  {}
-void GLVisualizer::shutdown()    {}
+void GLVisualizer::initialise() {}
+void GLVisualizer::shutdown() {}
 
 void GLVisualizer::render()
 {
