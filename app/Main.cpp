@@ -3,9 +3,8 @@
 This file handles the app initialization and shutdown things.
 */
 
-
-#include "MainComponent.h"
 #include <JuceHeader.h>
+#include "MainComponent.h"
 
 //=============================================================================
 class GuiAppApplication final : public juce::JUCEApplication

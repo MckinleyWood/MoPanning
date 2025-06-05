@@ -103,11 +103,12 @@ juce::StringArray MainComponent::getMenuBarNames()
 juce::PopupMenu MainComponent::getMenuForIndex(int topLevelIndex,
                                                const juce::String&)
 {
+    juce::ignoreUnused(topLevelIndex);
     juce::PopupMenu m;
 
    #if JUCE_MAC
     /* Add commands to the Mac menu bar here. Index 0 = File, 1 = Help.
-    For apple menu "MarPanning", you have to add it in Main.cpp. */
+    For apple menu ("MarPanning"), you have to add it in Main.cpp. */
    #else
     /* Add commands to Windows / Linux menu bars here. 
     Indexes are 0 = MarPanning, 1 = File, 2 = Help. */

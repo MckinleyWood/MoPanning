@@ -19,6 +19,8 @@ target_sources(MoPanning
         app/Main.cpp
         source/AudioAnalyzer.cpp
         source/AudioAnalyzer.h
+        source/AudioEngine.cpp
+        source/AudioEngine.h
         source/GLVisualizer.cpp
         source/GLVisualizer.h
         source/MainComponent.cpp
@@ -43,8 +45,9 @@ target_include_directories(MoPanning
 target_link_libraries(MoPanning
     PRIVATE
         # GuiAppData            # If we'd created a binary data target, we'd link to it here
-        juce::juce_gui_extra
+        juce::juce_audio_devices
         juce::juce_dsp
+        juce::juce_gui_extra
         juce::juce_opengl
     PUBLIC
         juce::juce_recommended_config_flags
