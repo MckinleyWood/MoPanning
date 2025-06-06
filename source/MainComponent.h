@@ -34,6 +34,7 @@ public:
 private:
     //=========================================================================
     void toggleView();
+    void launchOpenDialog();
 
     //=========================================================================
     void getAllCommands(juce::Array<juce::CommandID>& commands) override;

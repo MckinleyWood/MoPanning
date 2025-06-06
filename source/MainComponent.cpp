@@ -56,6 +56,39 @@ void MainComponent::toggleView()
     resized(); // Forces a redraw of the subcomponents
 }
 
+
+void MainComponent::launchOpenDialog()
+{
+    // Keep a “last directory” so the chooser re-opens in the same place
+    static juce::File lastDir (juce::File::getSpecialLocation (
+                               juce::File::userDocumentsDirectory));
+
+    // Only highlight audio files we support
+    const juce::String filters = "*.wav;*.aiff;*.mp3;*.flac";
+
+    // Initialize file chooser object
+    auto chooser = std::make_shared<juce::FileChooser>(
+        "Select an audio file to open…",
+        lastDir, filters, /* useNativeDialog */ true);
+
+    /* Asynchronous dialog window - the lambda function is called once 
+    open or cancel is pressed. */
+    chooser->launchAsync(
+        juce::FileBrowserComponent::openMode // Flags
+      | juce::FileBrowserComponent::canSelectFiles,
+        [this, chooser](const juce::FileChooser& fc)
+        {
+            juce::ignoreUnused (chooser);
+            auto file = fc.getResult();
+
+            if (file.existsAsFile())
+            {
+                lastDir = file.getParentDirectory();
+                controller.loadFile(file); // Give file to controller to open
+            }
+        });
+}
+
 //=============================================================================
 void MainComponent::getAllCommands(juce::Array<juce::CommandID>& commands) 
 { 
@@ -86,7 +119,7 @@ void MainComponent::getCommandInfo(juce::CommandID id,
         info.setInfo("Play / Pause", 
                      "Play or pause the currently loaded audio file", 
                      "File", 0);
-        info.addDefaultKeypress(' ', juce::ModifierKeys::commandModifier);
+        info.addDefaultKeypress(' ', juce::ModifierKeys::noModifiers);
     }
 }
 
@@ -102,7 +135,7 @@ bool MainComponent::perform(const InvocationInfo& info)
     }
     if (info.commandID == cmdOpenFile)
     {
-        // controller.loadFile();
+        launchOpenDialog();
         return true;
     }
     if (info.commandID == cmdPlayPause)
