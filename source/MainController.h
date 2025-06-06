@@ -30,7 +30,7 @@ public:
 private:
     //=========================================================================
     AudioEngine engine;
-    // AudioAnalyzer analyzer; // Not implemented yet
+    AudioAnalyzer analyzer;
 
     //=========================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainController)
