@@ -56,7 +56,9 @@ void MainComponent::toggleView()
     resized(); // Forces a redraw of the subcomponents
 }
 
-
+/*  This launches an asynchronous dialog window that allows the user to
+    choose an audio file to load and play back. 
+*/
 void MainComponent::launchOpenDialog()
 {
     // Keep a “last directory” so the chooser re-opens in the same place
@@ -64,11 +66,11 @@ void MainComponent::launchOpenDialog()
                                juce::File::userDocumentsDirectory));
 
     // Only highlight audio files we support
-    const juce::String filters = "*.wav;*.aiff;*.mp3;*.flac";
+    const juce::String filters = "*.wav;*.aiff;*.mp3;*.flac;*.m4a;*.ogg";
 
     // Initialize file chooser object
     auto chooser = std::make_shared<juce::FileChooser>(
-        "Select an audio file to open…",
+        "Select an audio file to open...",
         lastDir, filters, /* useNativeDialog */ true);
 
     /* Asynchronous dialog window - the lambda function is called once 
@@ -140,6 +142,7 @@ bool MainComponent::perform(const InvocationInfo& info)
     }
     if (info.commandID == cmdPlayPause)
     {
+        controller.togglePlayback();
         return true;
     }
     return false;

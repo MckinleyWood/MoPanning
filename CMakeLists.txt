@@ -46,6 +46,7 @@ target_link_libraries(MoPanning
     PRIVATE
         # GuiAppData            # If we'd created a binary data target, we'd link to it here
         juce::juce_audio_devices
+        juce::juce_audio_formats
         juce::juce_dsp
         juce::juce_gui_extra
         juce::juce_opengl

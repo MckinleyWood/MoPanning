@@ -13,6 +13,7 @@ public:
 
     //=========================================================================
     bool loadFile(const juce::File&);
+    void togglePlayback();
 
     //=========================================================================
     void prepareToPlay(int samplesPerBlock, double sampleRate) override;

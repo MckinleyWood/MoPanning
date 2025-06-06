@@ -30,7 +30,7 @@ bool AudioEngine::loadFile(const juce::File& file)
         return false; // unsupported / unreadable
 
     auto newSource = std::make_unique<juce::AudioFormatReaderSource>
-                                            (reader, true /*readerOwned*/);
+                                            (reader, /* readerOwned */ true);
 
     transport.stop();
     transport.setSource(newSource.get(),
@@ -43,6 +43,14 @@ bool AudioEngine::loadFile(const juce::File& file)
     transport.setPosition(0);
     transport.start();
     return true;
+}
+
+void AudioEngine::togglePlayback()
+{
+    if (transport.isPlaying())
+        transport.stop();
+    else
+        transport.start();
 }
 
 //=============================================================================

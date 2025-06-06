@@ -10,6 +10,11 @@ bool MainController::loadFile(const juce::File& f)
     return engine.loadFile(f);
 }
 
+void MainController::togglePlayback()
+{
+    engine.togglePlayback();
+}
+
 //=============================================================================
 void MainController::prepareToPlay(int samplesPerBlock, double sampleRate)
 {
