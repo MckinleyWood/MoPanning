@@ -1,14 +1,12 @@
-/* GLVisualizer
-
-This file handles the OpenGL graphics rendering.
-*/
-
 #pragma once
 #include <JuceHeader.h>
 
 class MainController;
 
 //=============================================================================
+/*  This is the component for the OpenGL canvas. It will handle redering
+    the visualization.
+*/
 class GLVisualizer : public juce::OpenGLAppComponent
 {
 public:

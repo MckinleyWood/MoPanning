@@ -1,6 +1,8 @@
-/* Main.cpp
+/*  Main.cpp
 
-This file handles the app initialization and shutdown things.
+    This file handles the app initialization and shutdown, including 
+    creating/destroying the main window and component, the main 
+    controller, and the command manager.
 */
 
 #include <JuceHeader.h>
@@ -29,34 +31,41 @@ public:
     }
 
     //=========================================================================
+    /*  This is function is called to initialize the application. It 
+        creates the command manager, main controller, and main window,
+        and initializes the initialises the menu bar (mac) or builds the
+        window menu (win/linux).
+    */
     void initialise(const juce::String& commandLine) override
     {
-        // App initialization code goes here.
         juce::ignoreUnused (commandLine);
 
         commandManager = std::make_unique<juce::ApplicationCommandManager>();
         controller = std::make_unique<MainController>();
-
+        mainComponent = std::make_unique<MainComponent>(*controller, 
+                                                        *commandManager);
+        
        #if JUCE_MAC
-        auto mainComponent = std::make_unique<MainComponent>(*controller, 
-                                                             *commandManager);
         juce::PopupMenu appleExtras;
+        
+        // This is where we add command items to the the apple menu.
         appleExtras.addCommandItem(&*commandManager,
                                    MainComponent::cmdToggleSettings);
+
         juce::MenuBarModel::setMacMainMenu(mainComponent.get(), &appleExtras);
+       #else
+        auto bar = std::make_unique<juce::MenuBarComponent>(
+            mainComponent.get());
+        mainWindow->setMenuBarComponent(bar.release());
+       #endif
+
         mainWindow = std::make_unique<MainWindow>(getApplicationName(),
                                                   std::move(mainComponent));
-       #else
-        // Windows/Linux: we can still build inside the window as usual
-        mainWindow = std::make_unique<MainWindow>(
-            getApplicationName(),
-            std::make_unique<MainComponent>(*controller, *commandManager));
-       #endif
     }
 
+    /*  This is called to shut down the application. */
     void shutdown() override
     {
-        // App shutdown code goes here.
        #if JUCE_MAC
         juce::MenuBarModel::setMacMainMenu(nullptr);
        #endif
@@ -67,15 +76,16 @@ public:
     }
 
     //=========================================================================
-    /* Called when the app is being asked to quit. */
+    /*  This is called when the app is being asked to quit. */
     void systemRequestedQuit() override
     {
         quit();
     }
 
-    /* When another instance of the app is launched while this one is 
-    running, this method is invoked, and the commandLine parameter tells
-    you what the other instance's command-line arguments were. */
+    /*  When another instance of the app is launched while this one is 
+        running, this method is invoked, and the commandLine parameter 
+        tells you what the other instance's command-line arguments were. 
+    */
     void anotherInstanceStarted(const juce::String& commandLine) override
     {
         juce::ignoreUnused(commandLine);
@@ -87,8 +97,9 @@ public:
     }
 
     //=========================================================================
-    /* This class implements the desktop window that contains an 
-    instance of our MainComponent class. */
+    /*  This class implements the desktop window that contains an 
+        instance of our MainComponent class.
+    */
     class MainWindow final : public juce::DocumentWindow
     {
     public:
@@ -101,10 +112,12 @@ public:
                 allButtons)
         {
             setUsingNativeTitleBar(true);
+
+            // Main window owns the main component
             setContentOwned(mc.release(), true);
 
            #if JUCE_IOS || JUCE_ANDROID
-            setFullScreen (true);
+            setFullScreen(true);
            #else
             setResizable(true, true);
             centreWithSize(getWidth(), getHeight());
@@ -131,8 +144,12 @@ public:
     };
 
 private:
+    //=========================================================================
+    /* unique_ptrs for all of our objects. These need to be initialized
+    in initialise(). */
     std::unique_ptr<juce::ApplicationCommandManager> commandManager;
     std::unique_ptr<MainController> controller;
+    std::unique_ptr<MainComponent> mainComponent;
     std::unique_ptr<MainWindow> mainWindow;
 };
 

@@ -25,7 +25,7 @@ AudioEngine::~AudioEngine()
 //=============================================================================
 bool AudioEngine::loadFile(const juce::File& file)
 {
-    auto* reader = formatManager.createReaderFor (file);
+    auto* reader = formatManager.createReaderFor(file);
     if (reader == nullptr)
         return false; // unsupported / unreadable
 
@@ -46,7 +46,7 @@ bool AudioEngine::loadFile(const juce::File& file)
 }
 
 //=============================================================================
-void AudioEngine::prepareToPlay (int samplesPerBlock, double sampleRate)
+void AudioEngine::prepareToPlay(int samplesPerBlock, double sampleRate)
 {
     transport.prepareToPlay(samplesPerBlock, sampleRate);
 }
@@ -56,7 +56,7 @@ void AudioEngine::releaseResources()
     transport.releaseResources();
 }
 
-void AudioEngine::getNextAudioBlock (const juce::AudioSourceChannelInfo& info)
+void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& info)
 {
     transport.getNextAudioBlock(info);
 }

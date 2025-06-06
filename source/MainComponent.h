@@ -1,8 +1,3 @@
-/* MainComponent
-
-This file handles the main window generation and graphics.
-*/
-
 #pragma once
 #include <JuceHeader.h>
 #include "MainController.h"
@@ -10,22 +5,30 @@ This file handles the main window generation and graphics.
 #include "SettingsComponent.h"
 
 //=============================================================================
-/* This component lives inside our window, and this is where you should 
-put all your controls and content. */
+/*  This is the top-level UI container. It holds the GLVisualizer 
+    (OpenGL canvas), SettingsComponent (sidebar), and a MainController& 
+    controller reference. It is responsible for	passing user actions to 
+    the controller and switching between Focus (full visualiser) and 
+    Split (sidebar visible) views.
+*/
 class MainComponent final : public juce::Component,
                             public juce::ApplicationCommandTarget,
                             public juce::MenuBarModel
 {
 public:
     //=========================================================================
-    enum CommandIDs { cmdToggleSettings = 0x2000 };
+    enum CommandIDs 
+    { 
+        cmdToggleSettings   = 0x2000,
+        cmdOpenFile         = 0x2001,
+        cmdPlayPause        = 0x2002,
+    };
     enum class ViewMode { Focus, Split };
 
     //=========================================================================
     explicit MainComponent(MainController&, juce::ApplicationCommandManager&);
 
     //=========================================================================
-    // void paint (juce::Graphics&) override;
     void resized() override;
 
 private:
@@ -41,10 +44,10 @@ private:
 
     //=========================================================================
     juce::StringArray getMenuBarNames() override;
-    juce::PopupMenu getMenuForIndex (int index,
-                                     const juce::String&) override;
-    void menuItemSelected (int /*menuID*/,
-                           int /*topLevelIndex*/) override {}
+    juce::PopupMenu getMenuForIndex(int index,
+                                    const juce::String&) override;
+    void menuItemSelected(int /*menuID*/,
+                          int /*topLevelIndex*/) override {}
 
     //=========================================================================
     MainController& controller;
@@ -52,11 +55,6 @@ private:
     GLVisualizer visualiser;
     SettingsComponent settings;
     ViewMode viewMode { ViewMode::Focus };
-
-   #if ! JUCE_MAC
-    std::unique_ptr<juce::MenuBarComponent> menuBar;
-   #endif
-
 
     //=========================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)

@@ -21,7 +21,7 @@ public:
     //=========================================================================
     bool loadFile(const juce::File& f);
 
-    void prepareToPlay(int spb, double sr) override;
+    void prepareToPlay(int samplesPerBlock, double sampleRate) override;
     void releaseResources() override;
     void getNextAudioBlock(const juce::AudioSourceChannelInfo& info) override;
 

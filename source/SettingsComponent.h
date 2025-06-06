@@ -1,14 +1,11 @@
-/* SettingsComponent
-
-This file handles the settings widget GUI.
-*/
-
 #pragma once
 #include <JuceHeader.h>
 
 class MainController;
 
 //=============================================================================
+/*  This is the component for the settings widget.
+*/
 class SettingsComponent : public juce::Component
 {
 public:

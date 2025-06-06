@@ -11,15 +11,10 @@ MainComponent::MainComponent(MainController& mc,
     commandManager.registerAllCommandsForTarget(this);
     commandManager.setFirstCommandTarget(this);
 
-   #if ! JUCE_MAC
-    // Windows/Linux: add a menubar component
-    addAndMakeVisible(menuBar.get());
-   #endif
-
     addAndMakeVisible(visualiser);
     addAndMakeVisible(settings);
 
-    settings.setVisible(false); // start in Focus mode
+    settings.setVisible(false); // Since we start in Focus mode
     setSize(1200, 750);
 }
 
@@ -27,11 +22,13 @@ MainComponent::MainComponent(MainController& mc,
 /* Since the child components visualiser and settings do all the 
 drawing, we don't need a paint() function here. */
 
+/*  This is called every time the window is resized, and is where we set
+    the bounds of the subcomponents (visualizer and settings panel).
+*/
 void MainComponent::resized()
 {
     auto bounds = getLocalBounds();
 
-    // Set the bounds of the visualizer and the settings panel
     if (viewMode == ViewMode::Focus)
     {
         visualiser.setBounds(bounds);
@@ -48,38 +45,68 @@ void MainComponent::resized()
 }
 
 //=============================================================================
+/*  This switches between the Focus (full window visualizer) and Split
+    (settings panel on sidebar) views. 
+*/
 void MainComponent::toggleView()
 {
     viewMode = (viewMode == ViewMode::Focus ? ViewMode::Split
                                             : ViewMode::Focus);
 
-    resized(); // Force update view
+    resized(); // Forces a redraw of the subcomponents
 }
 
 //=============================================================================
 void MainComponent::getAllCommands(juce::Array<juce::CommandID>& commands) 
 { 
     commands.add(cmdToggleSettings);
+    commands.add(cmdOpenFile);
+    commands.add(cmdPlayPause);
 }
 
+/*  This returns info about the command asscociated with id, including
+    which key triggers it (default keypress). 
+*/
 void MainComponent::getCommandInfo(juce::CommandID id,
                                    juce::ApplicationCommandInfo& info)
 {
     if (id == cmdToggleSettings)
     {
-        info.setInfo("Settings...", // menu text
-                     "Show the settings sidebar", // tooltip / description
-                     "Application", // menu category (optional)
-                     0);
+        info.setInfo("Settings...", "Show the settings sidebar", 
+                     "MoPanning",  0);
         info.addDefaultKeypress(',', juce::ModifierKeys::commandModifier);
+    }
+    if (id == cmdOpenFile)
+    {
+        info.setInfo("Open...", "Load an audio file", "File", 0);
+        info.addDefaultKeypress('O', juce::ModifierKeys::commandModifier);
+    }
+    if (id == cmdPlayPause)
+    {
+        info.setInfo("Play / Pause", 
+                     "Play or pause the currently loaded audio file", 
+                     "File", 0);
+        info.addDefaultKeypress(' ', juce::ModifierKeys::commandModifier);
     }
 }
 
+/*  This is called whenever a command is executed, and is where we set 
+    the functionality of each command. 
+*/
 bool MainComponent::perform(const InvocationInfo& info)
 {
     if (info.commandID == cmdToggleSettings)
     {
         toggleView();
+        return true;
+    }
+    if (info.commandID == cmdOpenFile)
+    {
+        // controller.loadFile();
+        return true;
+    }
+    if (info.commandID == cmdPlayPause)
+    {
         return true;
     }
     return false;
@@ -91,29 +118,45 @@ ApplicationCommandTarget* MainComponent::getNextCommandTarget()
 }
 
 //=============================================================================
+/* This returns the names of each of the menu bar fields. */
 juce::StringArray MainComponent::getMenuBarNames()
 {
    #if JUCE_MAC
     return { "File", "Help" };
    #else
-    return { "MarPanning", "File", "Help" };
+    return { "MoPanning", "File", "Help" };
    #endif
 }
 
+/*  This adds commands to the menu bar based on their index. The index
+    is different for mac vs. win/linux because the "MoPanning" field is
+    treated differently on mac. 
+*/
 juce::PopupMenu MainComponent::getMenuForIndex(int topLevelIndex,
                                                const juce::String&)
 {
     juce::ignoreUnused(topLevelIndex);
+
     juce::PopupMenu m;
 
    #if JUCE_MAC
     /* Add commands to the Mac menu bar here. Index 0 = File, 1 = Help.
-    For apple menu ("MarPanning"), you have to add it in Main.cpp. */
+    For apple menu ("MoPanning"), you have to add it in Main.cpp. */
+    if (topLevelIndex == 0)
+    {
+        m.addCommandItem(&commandManager, cmdOpenFile);
+        m.addCommandItem(&commandManager, cmdPlayPause);
+    }
    #else
     /* Add commands to Windows / Linux menu bars here. 
-    Indexes are 0 = MarPanning, 1 = File, 2 = Help. */
+    Indexes are 0 = MoPanning, 1 = File, 2 = Help. */
     if (topLevelIndex == 0)
         m.addCommandItem(&commandManager, cmdToggleSettings);
+    if (topLevelIndex == 1)
+    {
+        m.addCommandItem(&commandManager, cmdOpenFile);
+        m.addCommandItem(&commandManager, cmdPlayPause);
+    }
    #endif
 
     return m;
