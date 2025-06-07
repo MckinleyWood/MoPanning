@@ -116,8 +116,8 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
     const float* left = analysisBuffer.getReadPointer(0);
     const float* right = analysisBuffer.getReadPointer(1);
 
-    float itd = computeGCCPHAT_ITD(left, right, numSamples);
-    itdEstimates.push_back(itd); // Optional: keep history
+    // float itd = computeGCCPHAT_ITD(left, right, numSamples);
+    // itdEstimates.push_back(itd); // Optional: keep history
     }
 
     // Resize CQT magnitudes if channel count changed

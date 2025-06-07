@@ -6,8 +6,8 @@ add_subdirectory(JUCE)
 
 juce_add_gui_app(MoPanning
     # VERSION ...                 # Set this if the app version is different to the project version
-    # ICON_BIG ...                # ICON_* arguments specify a path to an image file to use as an icon
-    # ICON_SMALL ...
+    ICON_BIG resources/Mo.png        
+    # ICON_SMALL ...              # ICON_* arguments specify a path to an image file to use as an icon
     # DOCUMENT_EXTENSIONS ...     # Specify file extensions that should be associated with this app
     # COMPANY_NAME ...            # Specify the name of the app's author
     PRODUCT_NAME "MoPanning")     # The name of the final executable, which can differ from the target name
