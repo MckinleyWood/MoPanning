@@ -51,6 +51,8 @@ private:
     VertexBufferObject vbo; // Vertex buffer object (duh)
     juce::Matrix3D<float> mvp; // Model-View-Projection maxtrix
     GLuint vao = 0; // Vertex-array object
+
+    double startTime = 0.0; // App-launch time in seconds
     
     MainController& controller;
 

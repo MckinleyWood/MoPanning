@@ -16,9 +16,12 @@ juce::Matrix3D<float> makeOrthoScale(float sx, float sy)
 GLVisualizer::GLVisualizer(MainController& c) : controller(c) 
 {
     juce::ignoreUnused(c);
-    openGLContext.setOpenGLVersionRequired (
-        juce::OpenGLContext::OpenGLVersion::openGL3_2);
+
+    auto glVersion = juce::OpenGLContext::OpenGLVersion::openGL3_2;
+    openGLContext.setOpenGLVersionRequired(glVersion);
     openGLContext.setContinuousRepainting(true);
+
+    startTime = juce::Time::getMillisecondCounterHiRes() * 0.001;
 }
 
 GLVisualizer::~GLVisualizer()
@@ -38,11 +41,13 @@ void GLVisualizer::initialise()
         in vec2 position;
         out vec2 vPos;
         uniform mat4 uMVP;
+        uniform vec2 uOffset; 
 
         void main()
         {
+            vec2 p = position + uOffset; 
             vPos = position * 10.0;
-            gl_Position = uMVP * vec4(position, 0.0, 1.0);
+            gl_Position = uMVP * vec4(p, 0.0, 1.0);
         }
     )";
 
@@ -53,7 +58,7 @@ void GLVisualizer::initialise()
 
         void main()
         {
-            if (dot (vPos, vPos) > 1.0)         // outside unit circle?
+            if (dot(vPos, vPos) > 1.0)         // outside unit circle?
                 discard;
             frag = vec4(1.0, 1.0, 1.0, 1.0);       // opaque white
         }
@@ -63,16 +68,21 @@ void GLVisualizer::initialise()
     shader.reset(new juce::OpenGLShaderProgram(openGLContext));
     shader->addVertexShader(vertSrc);
     shader->addFragmentShader(fragSrc);
-    shader->link();
+
+    ext.glBindAttribLocation(shader->getProgramID(), 0, "position");
+
+    bool shaderLinked = shader->link();
+    jassert(shaderLinked);
+    juce::ignoreUnused(shaderLinked);
 
     // Build a 2×2 clip-space quad centred at (0,0)
     vbo.create(openGLContext);
     ext.glBindBuffer(GL_ARRAY_BUFFER, vbo.id);
 
-    const float quad[8] = {  -0.1f, -0.1f,
-                              0.1f, -0.1f,
-                             -0.1f,  0.1f,
-                              0.1f,  0.1f };
+    const float quad[8] = { -0.1f, -0.1f,
+                             0.1f, -0.1f,
+                            -0.1f,  0.1f,
+                             0.1f,  0.1f };
     ext.glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
 
     // Generate and bind the vertex-array object
@@ -80,9 +90,9 @@ void GLVisualizer::initialise()
     ext.glBindVertexArray(vao);
 
     // Tell the VAO about our single attribute once
-    ext.glBindBuffer (GL_ARRAY_BUFFER, vbo.id);
-    ext.glEnableVertexAttribArray (0);
-    ext.glVertexAttribPointer     (0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+    ext.glBindBuffer(GL_ARRAY_BUFFER, vbo.id);
+    ext.glEnableVertexAttribArray(0);
+    ext.glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
 
     // Force repaint to make sure the mvp is correct
     resized();
@@ -110,17 +120,22 @@ void GLVisualizer::render()
     shader->use();
     shader->setUniformMat4("uMVP", mvp.mat, 1, GL_FALSE);
 
+    // Compute new uOffset to make the circle circle around
+    double t = juce::Time::getMillisecondCounterHiRes() * 0.001 - startTime;
+    float r = 0.75f;     
+    float w = juce::MathConstants<float>::twoPi * 0.5f; // 0.2 rev/s
+    float x = r * std::cos(w * (float)t);
+    float y = r * std::sin(w * (float)t);
+
+    juce::OpenGLShaderProgram::Uniform uOffset(*shader, "uOffset");
+    uOffset.set(x, y);
+
+    // Bind VBO and VAO and draw
     ext.glBindBuffer(GL_ARRAY_BUFFER, vbo.id);
-    // ext.glEnableVertexAttribArray(0);
-    // ext.glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
-
     ext.glBindVertexArray(vao);
-
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-    // jassert(juce::gl::glGetError() == GL_NO_ERROR);
-
-    // ext.glDisableVertexAttribArray(0);
+    jassert(juce::gl::glGetError() == GL_NO_ERROR);
 }
 
 void GLVisualizer::resized() 
