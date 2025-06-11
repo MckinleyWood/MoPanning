@@ -53,6 +53,7 @@ private:
     GLuint vao = 0; // Vertex-array object
 
     double startTime = 0.0; // App-launch time in seconds
+    float maxAge = 1.9f;
     
     MainController& controller;
 

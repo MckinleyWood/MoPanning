@@ -42,12 +42,15 @@ void GLVisualizer::initialise()
         out vec2 vPos;
         uniform mat4 uMVP;
         uniform vec2 uOffset; 
+        uniform float uAge;
+        uniform float uMaxAge;
 
         void main()
         {
-            vec2 p = position + uOffset; 
+            float depth = -uAge / uMaxAge;
+            vec2 p2D = position + uOffset; 
             vPos = position * 10.0;
-            gl_Position = uMVP * vec4(p, 0.0, 1.0);
+            gl_Position = uMVP * vec4(p2D, depth, 1.0);
         }
     )";
 
@@ -55,12 +58,15 @@ void GLVisualizer::initialise()
     static const char* fragSrc = R"(#version 150
         in  vec2 vPos;
         out vec4 frag;
+        uniform float uAge;
+        uniform float uMaxAge;
 
         void main()
         {
             if (dot(vPos, vPos) > 1.0)         // outside unit circle?
                 discard;
-            frag = vec4(1.0, 1.0, 1.0, 1.0);       // opaque white
+            float alpha = 1.0 - clamp(uAge / uMaxAge, 0.0, 1.0);
+            frag = vec4(1.0, 1.0, 1.0, alpha);
         }
     )";
     
@@ -101,8 +107,8 @@ void GLVisualizer::initialise()
 void GLVisualizer::shutdown()
 {
     auto& ext = openGLContext.extensions;
-    if (vao != 0) { ext.glDeleteVertexArrays (1, &vao); vao = 0; }
-    if (vbo.id != 0) { ext.glDeleteBuffers (1, &vbo.id); vbo.id = 0; }
+    if (vao != 0) { ext.glDeleteVertexArrays(1, &vao); vao = 0; }
+    if (vbo.id != 0) { ext.glDeleteBuffers(1, &vbo.id); vbo.id = 0; }
     shader.reset();
 }
 
@@ -120,15 +126,27 @@ void GLVisualizer::render()
     shader->use();
     shader->setUniformMat4("uMVP", mvp.mat, 1, GL_FALSE);
 
-    // Compute new uOffset to make the circle circle around
+    juce::OpenGLShaderProgram::Uniform uOffset(*shader, "uOffset");
+    juce::OpenGLShaderProgram::Uniform uAge   (*shader, "uAge");
+    juce::OpenGLShaderProgram::Uniform uMaxAge(*shader, "uMaxAge");
+
+    // Compute new uOffset to make the circle do its orbit
     double t = juce::Time::getMillisecondCounterHiRes() * 0.001 - startTime;
     float r = 0.75f;     
     float w = juce::MathConstants<float>::twoPi * 0.5f; // 0.2 rev/s
     float x = r * std::cos(w * (float)t);
     float y = r * std::sin(w * (float)t);
-
-    juce::OpenGLShaderProgram::Uniform uOffset(*shader, "uOffset");
+    
+    // Update uniforms
     uOffset.set(x, y);
+    uAge.set((float)std::fmod(t, maxAge));
+    DBG("uAge = " << (float)std::fmod(t, maxAge));
+    uMaxAge.set(maxAge);
+    DBG("uMaxAge = " << maxAge);
+
+    // Enable blending
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // Bind VBO and VAO and draw
     ext.glBindBuffer(GL_ARRAY_BUFFER, vbo.id);
