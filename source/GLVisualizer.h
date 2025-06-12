@@ -59,9 +59,10 @@ private:
     juce::Matrix3D<float> projection; // Projection matrix
 
     double startTime = 0.0; // App-launch time in seconds
-    float speed = 0.5f; // Speed that objects recede
+    float speed = 1.5f; // Speed that objects recede
     float nearZ = 0.1f;
-    float farZ = 10.0f; // Distance to the end of clip space (m)
+    float fadeEndZ = 10.0f; // Distance until the point fades to black (m)
+    float farZ = 100.0f; // Distance to the end of clip space (m)
     float fov = juce::MathConstants<float>::pi / 4.0f;
     
     MainController& controller;

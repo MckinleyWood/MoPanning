@@ -36,12 +36,6 @@ void GLVisualizer::initialise()
     using namespace juce::gl;
     auto& ext = openGLContext.extensions;
 
-    // Enable blending and depth testing
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
-
     // GLSL vertex shader initialization code
     static const char* vertSrc = R"(#version 150
         in  vec2 position;
@@ -49,7 +43,8 @@ void GLVisualizer::initialise()
         out float vDepth;
 
         uniform mat4 uMVP;
-        uniform float uFarZ;
+        uniform float uCurrentZ;
+        uniform float uFadeEndZ;
 
         void main()
         {
@@ -61,10 +56,9 @@ void GLVisualizer::initialise()
             gl_Position = eyePos;
 
             // Supply helpers to fragment stage
-            vPos   = position * 10.0;
-            vDepth = clamp (-eyePos.z / uFarZ, 0.0, 1.0);
-                    // maps eye-space z   (-near … -far)
-                    // to                  0.0 … 1.0  range
+            vPos = position * 10.0;
+            vDepth = -uCurrentZ / uFadeEndZ;
+            // vDepth = 0.5;
         }
     )";
 
@@ -77,11 +71,11 @@ void GLVisualizer::initialise()
         void main()
         {
             // circular mask
-            if (dot (vPos, vPos) > 1.0)
+            if (dot(vPos, vPos) > 1.0)
                 discard;
 
             float alpha = 1.0 - vDepth;      // fade out with distance
-            frag = vec4 (1.0, 1.0, 1.0, alpha);
+            frag = vec4(1.0, 1.0, 1.0, alpha);
         }
     )";
     
@@ -132,6 +126,12 @@ void GLVisualizer::render()
     using namespace juce::gl;
     auto& ext = openGLContext.extensions;
 
+    // Enable blending and depth testing
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+
     // Clear to black
     juce::OpenGLHelpers::clear(juce::Colours::black);
     glClear(GL_DEPTH_BUFFER_BIT); 
@@ -141,26 +141,23 @@ void GLVisualizer::render()
 
     shader->use();
 
-    // Pass the max depth to the shader
-    juce::OpenGLShaderProgram::Uniform uFarZ(*shader, "uFarZ");
-    uFarZ.set(farZ);
-
     // Compute new position to make the circle do its orbit
     double t = juce::Time::getMillisecondCounterHiRes() * 0.001 - startTime;
     float r = 0.75f;     
-    float w = juce::MathConstants<float>::twoPi * 0.2f;
+    float w = juce::MathConstants<float>::twoPi * 0.4f;
     float x = r * std::cos(w * (float)t);
     float y = r * std::sin(w * (float)t);
-    float z = (float)std::fmod(-speed * t, farZ);
+    float z = (float)std::fmod(-speed * t, fadeEndZ);
 
-    DBG("x = " << x << ", "
-     << "y = " << y << ", "
-     << "z = " << z);
+    DBG("x = " << x << ", " << "y = " << y << ", " << "z = " << z);
+    DBG("depth = " << -z / fadeEndZ);
 
     juce::Vector3D<float> circlePosition { x, y, z };
     model = Matrix3D<float>::fromTranslation(circlePosition);
-
     mvp = projection * view * model;
+
+    shader->setUniform("uCurrentZ", z);
+    shader->setUniform("uFadeEndZ", fadeEndZ);
     shader->setUniformMat4("uMVP", mvp.mat, 1, GL_FALSE);
 
     // Bind VBO and VAO and draw
