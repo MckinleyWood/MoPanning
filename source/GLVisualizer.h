@@ -47,6 +47,14 @@ public:
 
 private:
     //=========================================================================
+    struct Particle
+    {
+        float spawnX;
+        float spawnY;
+        float spawnTime = 0.0f; // Seconds since app start
+    };
+    std::deque<Particle> particles; // Queue of particles
+    
     std::unique_ptr<juce::OpenGLShaderProgram> shader;
     VertexBufferObject vbo; // Vertex buffer object
     juce::Matrix3D<float> mvp; // Model-View-Projection maxtrix

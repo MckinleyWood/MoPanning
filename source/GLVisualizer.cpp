@@ -141,31 +141,49 @@ void GLVisualizer::render()
 
     shader->use();
 
-    // Compute new position to make the circle do its orbit
-    double t = juce::Time::getMillisecondCounterHiRes() * 0.001 - startTime;
+    shader->setUniform ("uFadeEndZ", fadeEndZ); 
+
+    // Compute position for the new particle
+    float t = (float)(juce::Time::getMillisecondCounterHiRes() 
+                      * 0.001 - startTime);
     float r = 0.75f;     
     float w = juce::MathConstants<float>::twoPi * 0.4f;
-    float x = r * std::cos(w * (float)t);
-    float y = r * std::sin(w * (float)t);
-    float z = (float)std::fmod(-speed * t, fadeEndZ);
+    float x = r * std::cos(w * t);
+    float y = r * std::sin(w * t);
 
-    DBG("x = " << x << ", " << "y = " << y << ", " << "z = " << z);
-    DBG("depth = " << -z / fadeEndZ);
+    // Add new particle to the queue
+    Particle newParticle = { x, y, t };
+    particles.push_back(newParticle);
 
-    juce::Vector3D<float> circlePosition { x, y, z };
-    model = Matrix3D<float>::fromTranslation(circlePosition);
-    mvp = projection * view * model;
+    // Delete old particles
+    while (!particles.empty())
+    {
+        const float age = t - particles.front().spawnTime;
+        if (age * speed < fadeEndZ)   // still visible?
+            break;                    // oldest one is still alive
+        particles.pop_front();        // otherwise discard and test next
+    }
 
-    shader->setUniform("uCurrentZ", z);
-    shader->setUniform("uFadeEndZ", fadeEndZ);
-    shader->setUniformMat4("uMVP", mvp.mat, 1, GL_FALSE);
+    // Draw all particles!!
+    for (const auto& p : particles)
+    {
+        // Calculate z value
+        const float age = t - p.spawnTime; // seconds since spawn
+        const float z = -age * speed;
+        shader->setUniform ("uCurrentZ", z);
 
-    // Bind VBO and VAO and draw
-    ext.glBindBuffer(GL_ARRAY_BUFFER, vbo.id);
-    ext.glBindVertexArray(vao);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        // Set model matrix and mvp for this particle
+        juce::Vector3D<float> position { p.spawnX, p.spawnY, z };
+        model = juce::Matrix3D<float>::fromTranslation(position);
+        mvp = projection * view * model;
+        shader->setUniformMat4("uMVP", mvp.mat, 1, GL_FALSE);
 
-    jassert(juce::gl::glGetError() == GL_NO_ERROR);
+        // Bind vertex array and draw
+        ext.glBindVertexArray(vao);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    }
+
+    jassert(glGetError() == GL_NO_ERROR);
 }
 
 void GLVisualizer::resized() 
