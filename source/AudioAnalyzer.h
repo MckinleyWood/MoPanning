@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 #include <mutex>
 #include <vector>
+#include <juce_dsp/juce_dsp.h>
 
 /*
     AudioAnalyzer
@@ -79,6 +80,20 @@ private:
     float computeGCCPHAT_ITD(const float* left, const float* right, int numSamples);
     std::vector<float> itdEstimates; // one per block or frequency band
 
+    std::vector<float> itdPerBand;
+
+    float gccPhatDelayPerBand(const float* x, const float* y, int size, int fftOrder, 
+                                        juce::dsp::IIR::Filter<float>& bandpassLeft, 
+                                        juce::dsp::IIR::Filter<float>& bandpassRight);
+
+    std::vector<juce::dsp::IIR::Filter<float>> leftBandpassFilters;
+    std::vector<juce::dsp::IIR::Filter<float>> rightBandpassFilters;
+    std::vector<float> centerFrequencies;
+
+    void prepareBandpassFilters(double sampleRate);
+    void computeGCCPHAT_ITD();
+
+    float computeCQTCenterFrequency(int binIndex) const;
 
     // === Mel filterbank parameters ===
     // int numMelBands;
