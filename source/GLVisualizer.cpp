@@ -36,37 +36,52 @@ void GLVisualizer::initialise()
     using namespace juce::gl;
     auto& ext = openGLContext.extensions;
 
+    // Enable blending and depth testing
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+
     // GLSL vertex shader initialization code
     static const char* vertSrc = R"(#version 150
-        in vec2 position;
+        in  vec2 position;
         out vec2 vPos;
+        out float vDepth;
+
         uniform mat4 uMVP;
-        uniform vec2 uOffset; 
-        uniform float uAge;
-        uniform float uMaxAge;
+        uniform float uFarZ;
 
         void main()
         {
-            float depth = -uAge / uMaxAge;
-            vec2 p2D = position + uOffset; 
-            vPos = position * 10.0;
-            gl_Position = uMVP * vec4(p2D, depth, 1.0);
+            // Quad vertex in object space (z = 0)
+            vec4 worldPos = vec4 (position, 0.0, 1.0);
+
+            // Standard transform
+            vec4 eyePos = uMVP * worldPos;
+            gl_Position = eyePos;
+
+            // Supply helpers to fragment stage
+            vPos   = position * 10.0;
+            vDepth = clamp (-eyePos.z / uFarZ, 0.0, 1.0);
+                    // maps eye-space z   (-near … -far)
+                    // to                  0.0 … 1.0  range
         }
     )";
 
     // GLSL fragment shader initialization code
     static const char* fragSrc = R"(#version 150
-        in  vec2 vPos;
-        out vec4 frag;
-        uniform float uAge;
-        uniform float uMaxAge;
+        in  vec2  vPos;
+        in  float vDepth;
+        out vec4  frag;
 
         void main()
         {
-            if (dot(vPos, vPos) > 1.0)         // outside unit circle?
+            // circular mask
+            if (dot (vPos, vPos) > 1.0)
                 discard;
-            float alpha = 1.0 - clamp(uAge / uMaxAge, 0.0, 1.0);
-            frag = vec4(1.0, 1.0, 1.0, alpha);
+
+            float alpha = 1.0 - vDepth;      // fade out with distance
+            frag = vec4 (1.0, 1.0, 1.0, alpha);
         }
     )";
     
@@ -119,34 +134,34 @@ void GLVisualizer::render()
 
     // Clear to black
     juce::OpenGLHelpers::clear(juce::Colours::black);
+    glClear(GL_DEPTH_BUFFER_BIT); 
 
     if (shader == nullptr)
         return;         // early-out on link failure
 
     shader->use();
-    shader->setUniformMat4("uMVP", mvp.mat, 1, GL_FALSE);
 
-    juce::OpenGLShaderProgram::Uniform uOffset(*shader, "uOffset");
-    juce::OpenGLShaderProgram::Uniform uAge   (*shader, "uAge");
-    juce::OpenGLShaderProgram::Uniform uMaxAge(*shader, "uMaxAge");
+    // Pass the max depth to the shader
+    juce::OpenGLShaderProgram::Uniform uFarZ(*shader, "uFarZ");
+    uFarZ.set(farZ);
 
-    // Compute new uOffset to make the circle do its orbit
+    // Compute new position to make the circle do its orbit
     double t = juce::Time::getMillisecondCounterHiRes() * 0.001 - startTime;
     float r = 0.75f;     
-    float w = juce::MathConstants<float>::twoPi * 0.5f; // 0.2 rev/s
+    float w = juce::MathConstants<float>::twoPi * 0.2f;
     float x = r * std::cos(w * (float)t);
     float y = r * std::sin(w * (float)t);
-    
-    // Update uniforms
-    uOffset.set(x, y);
-    uAge.set((float)std::fmod(t, maxAge));
-    DBG("uAge = " << (float)std::fmod(t, maxAge));
-    uMaxAge.set(maxAge);
-    DBG("uMaxAge = " << maxAge);
+    float z = (float)std::fmod(-speed * t, farZ);
 
-    // Enable blending
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    DBG("x = " << x << ", "
+     << "y = " << y << ", "
+     << "z = " << z);
+
+    juce::Vector3D<float> circlePosition { x, y, z };
+    model = Matrix3D<float>::fromTranslation(circlePosition);
+
+    mvp = projection * view * model;
+    shader->setUniformMat4("uMVP", mvp.mat, 1, GL_FALSE);
 
     // Bind VBO and VAO and draw
     ext.glBindBuffer(GL_ARRAY_BUFFER, vbo.id);
@@ -158,13 +173,15 @@ void GLVisualizer::render()
 
 void GLVisualizer::resized() 
 {
-    auto w = (float)getWidth();
-    auto h = (float)getHeight();
-
-    // Orthographic matrix that keeps –1..+1 regardless of aspect
-    auto aspect = w / h;
-    if (aspect >= 1.0f)
-        mvp = makeOrthoScale(1.0f / aspect, 1.0f);
-    else
-        mvp = makeOrthoScale(1.0f, aspect);
+    const float w = (float)getWidth();
+    const float h = (float)getHeight();
+    const float aspect = w / h;
+    
+    view = juce::Matrix3D<float>::fromTranslation(cameraPosition);
+    projection = juce::Matrix3D<float>::fromFrustum(
+              -nearZ * std::tan (fov * 0.5f) * aspect,   // left
+               nearZ * std::tan (fov * 0.5f) * aspect,   // right
+              -nearZ * std::tan (fov * 0.5f),            // bottom
+               nearZ * std::tan (fov * 0.5f),            // top
+               nearZ, farZ);
 }
