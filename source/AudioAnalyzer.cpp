@@ -3,33 +3,18 @@
 
 #pragma mark - Helper Functions
 
-// Convert frequency to Mel scale
-// static float hzToMel(float hz) noexcept
-// {
-//     return 2595.0f * std::log10(1.0f + hz / 700.0f);
-// }
-
-// // Convert Mel scale to frequency
-// static float melToHz(float mel) noexcept
-// {
-//     return 700.0f * (std::pow(10.0f, mel / 2595.0f) - 1.0f);
-// }
-
-
 // Set FFT size and allocate buffers
 AudioAnalyzer::AudioAnalyzer(int fftOrderIn, float minCQTfreqIn, int binsPerOctaveIn)
     : fftOrder(fftOrderIn),
       fftSize(1 << fftOrderIn),
       minCQTfreq(minCQTfreqIn),
       binsPerOctave(binsPerOctaveIn)
-    //   numMelBands(40)
 {
     fft = std::make_unique<juce::dsp::FFT>(fftOrder);
 
     // Allocate buffers
-    window.resize(fftSize);
-    fftData.resize(fftSize);
-    // magnitudeBuffer.resize(fftSize / 2 + 1); // Magnitudes for positive frequencies
+    window.resize(static_cast<size_t>(fftSize));
+    fftData.resize(static_cast<size_t>(fftSize));
 }
 
 // Set sample rate and block size, prepare FFT window and CQT kernels
@@ -43,15 +28,15 @@ void AudioAnalyzer::prepare(double sr, int blkSize)
     // Hann window
     for (int n = 0; n< fftSize; ++n)
     {
-        window[n] = 0.5f * (1.0f - std::cos(2.0f * juce::MathConstants<float>::pi * n / (fftSize - 1)));
+        window[static_cast<size_t>(n)] = 0.5f * (1.0f - std::cos(2.0f * juce::MathConstants<float>::pi * n / (fftSize - 1)));
     }
 
     // CQT bins
-    int octaves = std::floor(std::log2(sampleRate * 0.5f / minCQTfreq));
+    int octaves = static_cast<int>(std::floor(std::log2(sampleRate * 0.5f / minCQTfreq)));
     numCQTbins = octaves * binsPerOctave;
 
     cqtKernels.clear();
-    cqtKernels.resize(numCQTbins);
+    cqtKernels.resize(static_cast<size_t>(numCQTbins));
 
     // Precompute CQT kernels
     for (int bin = 0; bin < numCQTbins; ++bin)
@@ -66,7 +51,7 @@ void AudioAnalyzer::prepare(double sr, int blkSize)
         // Generate complex sinusoid for this frequency
         for (int n = 0; n < kernelLength; ++n)
         {
-            float t = static_cast<float>(n) / sampleRate;
+            float t = static_cast<float>(n) / static_cast<float>(sampleRate);
             float w = 0.5f * (1.0f - std::cos(2.0f * juce::MathConstants<float>::pi * n / (kernelLength - 1)));
             kernelTime[n] = std::polar(w, -2.0f * juce::MathConstants<float>::pi * freq * t); // complex sinusioid * window
         }
@@ -80,9 +65,10 @@ void AudioAnalyzer::prepare(double sr, int blkSize)
     }
 
     // Allocate CQT result: 2 channels default
-    cqtMagnitudes.resize(2, std::vector<float>(numCQTbins, 0.0f));
+    cqtMagnitudes.resize(2, std::vector<float>(static_cast<size_t>(numCQTbins), 0.0f));
 
-    centerFrequencies.resize(numCQTbins);
+
+    centerFrequencies.resize(static_cast<size_t>(numCQTbins));
     for (int i = 0; i < numCQTbins; ++i)
     {
         centerFrequencies[i] = computeCQTCenterFrequency(i);
@@ -90,13 +76,6 @@ void AudioAnalyzer::prepare(double sr, int blkSize)
 
     prepareBandpassFilters(sampleRate);
 
-
-    // USE LATER
-    // Mel filterbank
-    // createMelFilterbank();
-
-    // Initialize melSpectrum with stereo by default
-    // melSpectrum.setSize(2, numMelBands);
 }
 
 void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
@@ -118,19 +97,9 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
         analysisBuffer.copyFrom(ch, 0, buffer, ch, 0, numSamples);
     }
 
-    // Compute GCC-PHAT ITD (Interaural Time Difference)
-    if (numChannels >= 2)
-    {
-    const float* left = analysisBuffer.getReadPointer(0);
-    const float* right = analysisBuffer.getReadPointer(1);
-
-    // float itd = computeGCCPHAT_ITD(left, right, numSamples);
-    // itdEstimates.push_back(itd); // Optional: keep history
-    }
-
     // Resize CQT magnitudes if channel count changed
     if (static_cast<int>(cqtMagnitudes.size()) != numChannels)
-        cqtMagnitudes.resize(numChannels, std::vector<float>(numCQTbins, 0.0f));
+        cqtMagnitudes.resize(static_cast<size_t>(numChannels), std::vector<float>(static_cast<size_t>(numCQTbins), 0.0f));
 
     // Compute CQT for each channel
     for (int ch = 0; ch < numChannels; ++ch)
@@ -148,14 +117,14 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
     if (numChannels == 2)
     {
         // Compute panning spectrum as average of CQT magnitudes
-        const auto& left = cqtMagnitudes[0];
-        const auto& right = cqtMagnitudes[1];
+        const auto& leftCQT = cqtMagnitudes[0];
+        const auto& rightCQT = cqtMagnitudes[1];
         auto* panningData = panningSpectrum.getWritePointer(0);
 
         for (int k = 0; k < numBins; ++k)
         {
-            const float L = left[k];
-            const float R = right[k];
+            const float L = leftCQT[k];
+            const float R = rightCQT[k];
 
             const float denom = (L * L + R * R);
             if (denom < 1e-6f)
@@ -197,32 +166,6 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
 
         combinedPanning[b] = (ildWeight * ild + itdWeight * itd) / (ildWeight + itdWeight);
     }
-
-    // MORE MEL STUFF
-    // // Resize melSpectrum if channel count changed
-    // if (melSpectrum.getNumChannels() != numChannels ||
-    //     melSpectrum.getNumSamples() != numMelBands)
-    // {
-    //     melSpectrum.setSize(numChannels, numMelBands);
-    // }
-
-    // // For each channel: compute FFT -> magnitudeBuffer -> apply Mel filters
-    // for (int ch = 0; ch < numChannels; ++ch)
-    // {
-    //     const float* channelData = analysisBuffer.getReadPointer(ch);
-    //     computeFFT(channelData);
-
-    //     // magnitudeBuffer now holds fftSize/2 + 1 magnitudes
-    //     for (int m = 0; m < numMelBands; ++m)
-    //     {
-    //         float melEnergy = 0.0f;
-    //         for (int b = 0; b < static_cast<int>(magnitudeBuffer.size()); ++b)
-    //             melEnergy += magnitudeBuffer[b] * melFilters[m][b];
-
-    //         // Store raw Mel energy (you can log-scale or normalize later)
-    //         melSpectrum.setSample(ch, m, melEnergy);
-    //     }
-    // }
 }
 
 
@@ -256,8 +199,6 @@ void AudioAnalyzer::computeGCCPHAT_ITD()
 {
     const int numSamples = analysisBuffer.getNumSamples();
     const int numChannels = analysisBuffer.getNumChannels();
-    const int fftOrder = 11; // 2048-point FFT
-    const int fftSize = 1 << fftOrder;
 
     if (numChannels < 2)
         return; // Need stereo
@@ -271,7 +212,7 @@ void AudioAnalyzer::computeGCCPHAT_ITD()
     const float* leftSegment = left + (numSamples - fftSize);
     const float* rightSegment = right + (numSamples - fftSize);
 
-    itdPerBand.resize(numCQTbins, 0.0f);
+    itdPerBand.resize(static_cast<size_t>(numCQTbins), 0.0f);
 
     for (int b = 0; b < numCQTbins; ++b)
     {
@@ -298,8 +239,7 @@ void AudioAnalyzer::computeGCCPHAT_ITD()
 }
 
 // Compute GCC-PHAT delay for a specific frequency band
-// 
-float AudioAnalyzer::gccPhatDelayPerBand(const float* x, const float* y, int size, int fftOrder, 
+float AudioAnalyzer::gccPhatDelayPerBand(const float* x, const float* y, int size, int fftOrderIn, 
                                         juce::dsp::IIR::Filter<float>& bandpassLeft, 
                                         juce::dsp::IIR::Filter<float>& bandpassRight)
 {
@@ -322,7 +262,7 @@ float AudioAnalyzer::gccPhatDelayPerBand(const float* x, const float* y, int siz
     // Windowing
     std::vector<float> window(size);
     for (int i = 0; i < size; ++i)
-        window[i] = 0.5f * (1.0f - std::cos(2.0f * juce::MathConstants<float>::pi * i / (size - 1)));
+        window[static_cast<size_t>(i)] = 0.5f * (1.0f - std::cos(2.0f * juce::MathConstants<float>::pi * i / (size - 1)));
 
     std::vector<juce::dsp::Complex<float>> X(fftSize, 0.0f);
     std::vector<juce::dsp::Complex<float>> Y(fftSize, 0.0f);
@@ -379,15 +319,14 @@ void AudioAnalyzer::prepareBandpassFilters(double sampleRate)
     {
         auto coeffs = juce::dsp::IIR::Coefficients<float>::makeBandPass(sampleRate, freq, 1.0f); // Q = 1
 
-        juce::dsp::IIR::Filter<float> leftFilter, rightFilter;
-        leftFilter.coefficients = coeffs;
-        rightFilter.coefficients = coeffs;
+        leftBandpassFilters.emplace_back();
+        leftBandpassFilters.back().coefficients = coeffs;
 
-        leftBandpassFilters.push_back(leftFilter);
-        rightBandpassFilters.push_back(rightFilter);
+        rightBandpassFilters.emplace_back();
+        rightBandpassFilters.back().coefficients = coeffs;
     }
 
-    itdPerBand.resize(centerFrequencies.size(), 0.0f); // Initialize ITD estimates
+    itdPerBand.resize(static_cast<size_t>(centerFrequencies.size()), 0.0f); // Initialize ITD estimates
 }
 
 // Compute center frequency for a given CQT bin index
@@ -396,68 +335,3 @@ float AudioAnalyzer::computeCQTCenterFrequency(int binIndex) const
     // Compute center frequency for the given CQT bin index
     return minCQTfreq * std::pow(2.0f, static_cast<float>(binIndex) / binsPerOctave);
 }
-
-
-// void AudioAnalyzer::createMelFilterbank()
-// {
-//     int numFftBins = fftSize / 2 + 1;
-
-//     // Mel frequency range: 0 to Nyquist
-//     float melMin = hzToMel(0.0f);
-//     float melMax = hzToMel(static_cast<float>(sampleRate / 2.0));
-
-//     // Compute (numMelBands + 2) Mel points uniformly spaced
-//     std::vector<float> melPoints(numMelBands + 2);
-//     for (int i = 0; i < numMelBands + 2; ++i)
-//     {
-//         melPoints[i] = melMin + ((melMax - melMin) * i) / (numMelBands + 1); 
-//     }
-
-//     // Convert Mel points to Hz
-//     std::vector<float> freqPoints(numMelBands + 2);
-//     for (int i = 0; i < numMelBands + 2; ++i)
-//         freqPoints[i] = melToHz(melPoints[i]);
-
-//     // Convert Hz to nearest FFT bin index
-//     std::vector<int> binPoints(numMelBands + 2);
-//     for (int i = 0; i < numMelBands + 2; ++i)
-//     {
-//         float f = freqPoints[i];
-//         int bin = static_cast<int>(std::floor((fftSize + 1) * f / sampleRate));
-//         if (bin < 0) bin = 0;
-//         if (bin >= numFftBins) bin = numFftBins - 1;
-//         binPoints[i] = bin;
-//     }
-
-//     // Allocate melFilters: [40 bands] * [numFftBins]
-//     melFilters.clear();
-//     melFilters.resize(numMelBands, std::vector<float>(numFftBins, 0.0f));
-
-//     // Build triangular filters
-//     for (int m = 0; m < numMelBands; ++m)
-//     {
-//         int leftBin = binPoints[m];
-//         int centerBin = binPoints[m + 1];
-//         int rightBin = binPoints[m + 2];
-
-//         // Rising slope (left bin to center bin)
-//         for (int b = leftBin; b < centerBin; ++b)
-//         {
-//             float weight = (static_cast<float>(b) - leftBin) / (float)(centerBin - leftBin);
-//             melFilters[m][b] = weight;
-//         }
-
-//         // Falling slope (center bin to right bin)
-//         for (int b = centerBin; b < rightBin; ++b)
-//         {
-//             float weight = (float)(rightBin - b) / (float)(rightBin - centerBin);
-//             melFilters[m][b] = weight;
-//         }
-//     }
-// }
-
-// juce::AudioBuffer<float> AudioAnalyzer::getMelSpectrum() const
-// {
-//     const std::lock_guard<std::mutex> lock(bufferMutex);
-//     return melSpectrum;
-// }
