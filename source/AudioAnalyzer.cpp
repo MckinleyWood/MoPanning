@@ -19,13 +19,10 @@ AudioAnalyzer::AudioAnalyzer(int fftOrderIn, float minCQTfreqIn, int binsPerOcta
 
 // Set sample rate and block size, prepare FFT window and CQT kernels,
 // precompute CQT center frequencies, and prepare bandpass filters for GCC-PHAT.
-void AudioAnalyzer::prepare(double sr, int blkSize)
+void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate)
 {
     // Ensure thread safety
     const std::lock_guard<std::mutex> lock(bufferMutex);
-
-    sampleRate = sr;
-    blockSize = blkSize;
 
     // Hann window for CQT
     for (int n = 0; n< fftSize; ++n)
@@ -75,12 +72,12 @@ void AudioAnalyzer::prepare(double sr, int blkSize)
 }
 
 // Analyze a block of audio data, compute CQT magnitudes, GCC-PHAT ITDs, and panning index
-void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
+void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>* buffer)
 {
     const std::lock_guard<std::mutex> lock(bufferMutex);
 
-    int numChannels = buffer.getNumChannels();
-    int numSamples = buffer.getNumSamples();
+    int numChannels = buffer->getNumChannels();
+    int numSamples = buffer->getNumSamples();
 
     if (analysisBuffer.getNumChannels() != numChannels ||
         analysisBuffer.getNumSamples() != numSamples)
@@ -91,7 +88,7 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
     // Copy input buffer to analysis buffer
     for (int ch = 0; ch < numChannels; ++ch)
     {
-        analysisBuffer.copyFrom(ch, 0, buffer, ch, 0, numSamples);
+        analysisBuffer.copyFrom(ch, 0, *buffer, ch, 0, numSamples);
     }
 
     // Resize CQT magnitudes if channel count changed
@@ -105,21 +102,30 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
         computeCQT(channelData, ch);  // populate cqtMagnitudes[ch]
     }
 
-    // === ILD Panning Index Calculation (based on Avendano) ===
+    // === ILD/ITD Panning Index Calculation ===
     
     const int numBins = numCQTbins;
-    panningSpectrum.setSize(1, numBins);
+    ILDpanningSpectrum.setSize(1, numBins);
+    ITDpanningSpectrum.resize(numBins);
+    float maxITD = 0.09f / 343.0f; // ~0.00026 sec --**
 
-    // Only compute panning spectrum if stereo
+    // Only compute panning spectra if stereo (dont know if this if statement is totally necessary)
     if (numChannels == 2)
-    {
-        // Compute panning spectrum as average of CQT magnitudes
+    {   
         const auto& leftCQT = cqtMagnitudes[0];
         const auto& rightCQT = cqtMagnitudes[1];
-        auto* panningData = panningSpectrum.getWritePointer(0);
+        auto* panningData = ILDpanningSpectrum.getWritePointer(0);
+
+        // Compute GCC-PHAT ITD for each CQT band
+        computeGCCPHAT_ITD();
 
         for (int k = 0; k < numBins; ++k)
         {
+            // === ITD panning index ===
+            float itd = itdPerBand[k]; // in seconds
+            ITDpanningSpectrum[k] = juce::jlimit(-1.0f, 1.0f, itd / maxITD); // now in [-1, 1]
+
+            // === ILD panning index ===
             const float L = leftCQT[k];
             const float R = rightCQT[k];
 
@@ -144,23 +150,18 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
 
             panningData[k] = (1.0f - similarity) * direction;
         }
-        
-        // ITD per band
-        const float* left = analysisBuffer.getReadPointer(0);
-        const float* right = analysisBuffer.getReadPointer(1);
 
-        computeGCCPHAT_ITD();
     }
 
     // Combine ILD and ITD into a single panning index
-    std::vector<float> combinedPanning(numCQTbins);
+    std::vector<float> combinedPanning(numBins);
     float ildWeight = 0.5f; // Can change these weights later
     float itdWeight = 0.5f;
 
-    for (int b = 0; b < numCQTbins; ++b)
+    for (int b = 0; b < numBins; ++b)
     {
-        float ild = panningSpectrum.getSample(0, b);  // ILD-based index
-        float itd = itdPerBand[b];                    // ITD-based index
+        float ild = ILDpanningSpectrum.getSample(0, b);  // ILD-based index
+        float itd = ITDpanningSpectrum[b];               // ITD-based index
 
         combinedPanning[b] = (ildWeight * ild + itdWeight * itd) / (ildWeight + itdWeight);
     }
@@ -173,7 +174,7 @@ void AudioAnalyzer::computeCQT(const float* channelData, int channelIndex)
     // Load windowed samples (real part) and zero-pad imag part
     for (int n = 0; n < fftSize; ++n)
     {
-        float x = (n < blockSize) ? channelData[n] : 0.0f;
+        float x = (n < samplesPerBlock) ? channelData[n] : 0.0f;
         fftData[n] = std::complex<float>(x * window[n], 0.0f);
     }
 

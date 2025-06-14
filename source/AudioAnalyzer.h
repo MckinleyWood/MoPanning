@@ -28,21 +28,21 @@ public:
     AudioAnalyzer(int fftOrderIn = 11, float minCQTfreqIn = 20.0f, int binsPerOctaveIn = 24);
 
     // Must be called before analyzeBlock()
-    void prepare(double sampleRate, int blockSize);
+    void prepare(int samplesPerBlock, double sampleRate);
 
     /** 
         Returns thread-safe copy of per-channel CQT magnitudes:
         Dimensions: [numChannels] × [numCQTbins]
      * */ 
-    void analyzeBlock(const juce::AudioBuffer<float>& buffer);
+    void analyzeBlock(const juce::AudioBuffer<float>* buffer);
 
 private:
     mutable std::mutex bufferMutex;
 
     juce::AudioBuffer<float> analysisBuffer; // Buffer for raw audio data
 
-    double sampleRate = 44100.0;
-    int blockSize = 512;
+    double sampleRate = 44100.0; //Defaults
+    int samplesPerBlock = 512;
     
     int fftOrder;
     int fftSize;
@@ -65,8 +65,9 @@ private:
     std::vector<std::vector<float>> cqtMagnitudes;
     
     // === Panning ===
-    juce::AudioBuffer<float> panningSpectrum;
-    const juce::AudioBuffer<float>& getPanningSpectrum() const { return panningSpectrum; }
+    juce::AudioBuffer<float> ILDpanningSpectrum;
+    const juce::AudioBuffer<float>& getILDPanningSpectrum() const { return ILDpanningSpectrum; }
+    std::vector<float> ITDpanningSpectrum;
 
 
     // === GCC-PHAT ===
