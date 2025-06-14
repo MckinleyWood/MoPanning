@@ -17,15 +17,17 @@ AudioAnalyzer::AudioAnalyzer(int fftOrderIn, float minCQTfreqIn, int binsPerOcta
     fftData.resize(static_cast<size_t>(fftSize));
 }
 
-// Set sample rate and block size, prepare FFT window and CQT kernels
+// Set sample rate and block size, prepare FFT window and CQT kernels,
+// precompute CQT center frequencies, and prepare bandpass filters for GCC-PHAT.
 void AudioAnalyzer::prepare(double sr, int blkSize)
 {
+    // Ensure thread safety
     const std::lock_guard<std::mutex> lock(bufferMutex);
 
     sampleRate = sr;
     blockSize = blkSize;
 
-    // Hann window
+    // Hann window for CQT
     for (int n = 0; n< fftSize; ++n)
     {
         window[static_cast<size_t>(n)] = 0.5f * (1.0f - std::cos(2.0f * juce::MathConstants<float>::pi * n / (fftSize - 1)));
@@ -37,18 +39,18 @@ void AudioAnalyzer::prepare(double sr, int blkSize)
 
     cqtKernels.clear();
     cqtKernels.resize(static_cast<size_t>(numCQTbins));
+    centerFrequencies.resize(static_cast<size_t>(numCQTbins));
 
     // Precompute CQT kernels
     for (int bin = 0; bin < numCQTbins; ++bin)
     {
         // Compute center frequency for this bin
         float freq = minCQTfreq * std::pow(2.0f, static_cast<float>(bin) / binsPerOctave);
-        int kernelLength = fftSize;
-
-        std::vector<std::complex<float>> kernelTime(kernelLength, 0.0f);
-
+        centerFrequencies[bin] = freq;
 
         // Generate complex sinusoid for this frequency
+        int kernelLength = fftSize;
+        std::vector<std::complex<float>> kernelTime(kernelLength, 0.0f);
         for (int n = 0; n < kernelLength; ++n)
         {
             float t = static_cast<float>(n) / static_cast<float>(sampleRate);
@@ -67,17 +69,12 @@ void AudioAnalyzer::prepare(double sr, int blkSize)
     // Allocate CQT result: 2 channels default
     cqtMagnitudes.resize(2, std::vector<float>(static_cast<size_t>(numCQTbins), 0.0f));
 
-
-    centerFrequencies.resize(static_cast<size_t>(numCQTbins));
-    for (int i = 0; i < numCQTbins; ++i)
-    {
-        centerFrequencies[i] = computeCQTCenterFrequency(i);
-    }
-
+    // Prepare bandpass filters for GCC-PHAT (also initializes ITD)
     prepareBandpassFilters(sampleRate);
 
 }
 
+// Analyze a block of audio data, compute CQT magnitudes, GCC-PHAT ITDs, and panning index
 void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
 {
     const std::lock_guard<std::mutex> lock(bufferMutex);
@@ -108,7 +105,7 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
         computeCQT(channelData, ch);  // populate cqtMagnitudes[ch]
     }
 
-    // === Panning Index Calculation (based on Avendano) ===
+    // === ILD Panning Index Calculation (based on Avendano) ===
     
     const int numBins = numCQTbins;
     panningSpectrum.setSize(1, numBins);
@@ -155,6 +152,7 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
         computeGCCPHAT_ITD();
     }
 
+    // Combine ILD and ITD into a single panning index
     std::vector<float> combinedPanning(numCQTbins);
     float ildWeight = 0.5f; // Can change these weights later
     float itdWeight = 0.5f;
@@ -201,7 +199,7 @@ void AudioAnalyzer::computeGCCPHAT_ITD()
     const int numChannels = analysisBuffer.getNumChannels();
 
     if (numChannels < 2)
-        return; // Need stereo
+        return;
 
     const float* left = analysisBuffer.getReadPointer(0);
     const float* right = analysisBuffer.getReadPointer(1);
@@ -329,9 +327,3 @@ void AudioAnalyzer::prepareBandpassFilters(double sampleRate)
     itdPerBand.resize(static_cast<size_t>(centerFrequencies.size()), 0.0f); // Initialize ITD estimates
 }
 
-// Compute center frequency for a given CQT bin index
-float AudioAnalyzer::computeCQTCenterFrequency(int binIndex) const
-{
-    // Compute center frequency for the given CQT bin index
-    return minCQTfreq * std::pow(2.0f, static_cast<float>(binIndex) / binsPerOctave);
-}

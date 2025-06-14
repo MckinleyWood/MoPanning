@@ -8,13 +8,11 @@
 /*
     AudioAnalyzer
 
-    - Uses a 2048-point FFT (fftOrder = 11) per channel
     - CQT
+    - GCC-PHAT for inter-channel delay estimation
+    - Panning spectrum based on CQT magnitudes
     - Thread-safe: locks when writing, returns copies for external reads
 
-    *FOR LATER*
-    -  Applies a 40-band Mel filterbank to each magnitude spectrum
-    - Stores per-channel Mel-band energies in melSpectrum (channels × 40)
 */
 
 class AudioAnalyzer
@@ -38,13 +36,7 @@ public:
      * */ 
     void analyzeBlock(const juce::AudioBuffer<float>& buffer);
 
-    // juce::AudioBuffer<float> getMelSpectrum() const;
-
 private:
-    void computeCQT(const float* channelData, int channelIndex);
-
-    // void createMelFilterbank();
-
     mutable std::mutex bufferMutex;
 
     juce::AudioBuffer<float> analysisBuffer; // Buffer for raw audio data
@@ -60,7 +52,8 @@ private:
     std::vector<juce::dsp::Complex<float>> fftData;
     std::vector<float> magnitudeBuffer;
 
-    // === CQT Parameters ===
+    // === CQT ===
+    void computeCQT(const float* channelData, int channelIndex);
     float minCQTfreq;
     int binsPerOctave;
     int numCQTbins;
@@ -71,14 +64,13 @@ private:
     // CQT result: [numChannels][numCQTbins]
     std::vector<std::vector<float>> cqtMagnitudes;
     
-    // === Panning parameters ===
+    // === Panning ===
     juce::AudioBuffer<float> panningSpectrum;
     const juce::AudioBuffer<float>& getPanningSpectrum() const { return panningSpectrum; }
 
 
-    // === GCC-PHAT parameters ===
+    // === GCC-PHAT ===
     float computeGCCPHAT_ITD(const float* left, const float* right, int numSamples);
-    std::vector<float> itdEstimates; // one per block or frequency band
 
     std::vector<float> itdPerBand;
 
@@ -94,12 +86,5 @@ private:
     void computeGCCPHAT_ITD();
 
     float computeCQTCenterFrequency(int binIndex) const;
-
-    // === Mel filterbank parameters ===
-    // int numMelBands;
-    // std::vector<std::vector<float>> melFilters;
-    // juce::AudioBuffer<float> melSpectrum;
-
-
 
 };
