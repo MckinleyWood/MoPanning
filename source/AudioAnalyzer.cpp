@@ -1,14 +1,12 @@
 #include "AudioAnalyzer.h"
 #include <cmath>
 
-#pragma mark - Helper Functions
-
 // Set FFT size and allocate buffers
-AudioAnalyzer::AudioAnalyzer(int fftOrderIn, float minCQTfreqIn, int binsPerOctaveIn)
+AudioAnalyzer::AudioAnalyzer(int fftOrderIn, float minCQTfreqIn, int numCQTbins)
     : fftOrder(fftOrderIn),
       fftSize(1 << fftOrderIn),
       minCQTfreq(minCQTfreqIn),
-      binsPerOctave(binsPerOctaveIn)
+      numCQTbins(numCQTbins)
 {
     fft = std::make_unique<juce::dsp::FFT>(fftOrder);
 
@@ -29,10 +27,6 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate)
     {
         window[static_cast<size_t>(n)] = 0.5f * (1.0f - std::cos(2.0f * juce::MathConstants<float>::pi * n / (fftSize - 1)));
     }
-
-    // CQT bins
-    int octaves = static_cast<int>(std::floor(std::log2(sampleRate * 0.5f / minCQTfreq)));
-    numCQTbins = octaves * binsPerOctave;
 
     cqtKernels.clear();
     cqtKernels.resize(static_cast<size_t>(numCQTbins));
