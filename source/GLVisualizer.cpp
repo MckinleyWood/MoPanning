@@ -38,27 +38,39 @@ void GLVisualizer::initialise()
 
     // GLSL vertex shader initialization code
     static const char* vertSrc = R"(#version 150
-        in  vec2 position;
+        in vec2 position;          // quad corner
+        in vec3 instanceData;      // per-instance: x, y, spawnTime
+
+        uniform mat4 uProjection;
+        uniform mat4 uView;
+        uniform float uCurrentTime;
+        uniform float uSpeed;
+        uniform float uFadeEndZ;
+        uniform float uDotSize;
+
         out vec2 vPos;
         out float vDepth;
 
-        uniform mat4 uMVP;
-        uniform float uCurrentZ;
-        uniform float uFadeEndZ;
-
         void main()
         {
-            // Quad vertex in object space (z = 0)
-            vec4 worldPos = vec4 (position, 0.0, 1.0);
+            // Compute age-based z
+            float age = uCurrentTime - instanceData.z;
+            float z = -age * uSpeed;
 
-            // Standard transform
-            vec4 eyePos = uMVP * worldPos;
-            gl_Position = eyePos;
+            // Pass depth factor for fade
+            vDepth = -z / uFadeEndZ;
 
-            // Supply helpers to fragment stage
-            vPos = position * 10.0;
-            vDepth = -uCurrentZ / uFadeEndZ;
-            // vDepth = 0.5;
+            // Build world position
+            vec3 spawnPos = vec3(instanceData.x, instanceData.y, 0.0);
+            vec4 localPos = vec4(position, 0.0, 1.0);
+            vec4 worldPos = vec4(spawnPos, 1.0) + vec4(localPos.xyz, 0.0);
+            worldPos.z += z; // apply receding
+
+            // Compute clip-space coordinate
+            gl_Position = uProjection * uView * worldPos;
+
+            // Pass position scaled appropriately
+            vPos = position / uDotSize;
         }
     )";
 
@@ -70,11 +82,12 @@ void GLVisualizer::initialise()
 
         void main()
         {
-            // circular mask
+            // Circular mask
             if (dot(vPos, vPos) > 1.0)
                 discard;
 
-            float alpha = 1.0 - vDepth;      // fade out with distance
+            // Fade out with distance
+            float alpha = 1.0 - vDepth; 
             frag = vec4(1.0, 1.0, 1.0, alpha);
         }
     )";
@@ -85,6 +98,7 @@ void GLVisualizer::initialise()
     shader->addFragmentShader(fragSrc);
 
     ext.glBindAttribLocation(shader->getProgramID(), 0, "position");
+    ext.glBindAttribLocation(shader->getProgramID(), 1, "instanceData");
 
     bool shaderLinked = shader->link();
     jassert(shaderLinked);
@@ -94,20 +108,35 @@ void GLVisualizer::initialise()
     vbo.create(openGLContext);
     ext.glBindBuffer(GL_ARRAY_BUFFER, vbo.id);
 
-    const float quad[8] = { -0.1f, -0.1f,
-                             0.1f, -0.1f,
-                            -0.1f,  0.1f,
-                             0.1f,  0.1f };
+    const float quad[8] = {
+        -dotSize, -dotSize,
+         dotSize, -dotSize,
+        -dotSize,  dotSize,
+         dotSize,  dotSize
+    };
     ext.glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
 
     // Generate and bind the vertex-array object
     ext.glGenVertexArrays(1, &vao);
     ext.glBindVertexArray(vao);
 
-    // Tell the VAO about our single attribute once
+    // Tell the VAO about our position attribute
     ext.glBindBuffer(GL_ARRAY_BUFFER, vbo.id);
     ext.glEnableVertexAttribArray(0);
     ext.glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+
+    // Create instance buffer
+    ext.glGenBuffers(1, &instanceVBO);
+
+    // Bind the instanceVBO to set up the attribute pointer for instancing.
+    ext.glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+    ext.glEnableVertexAttribArray(1);
+    ext.glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 
+                              sizeof(InstanceData), nullptr);
+    glVertexAttribDivisor(1, 1); // This attribute advances once per instance
+
+    // Unbind VAO to avoid accidental state leakage:
+    ext.glBindVertexArray(0);
 
     // Force repaint to make sure the mvp is correct
     resized();
@@ -116,8 +145,24 @@ void GLVisualizer::initialise()
 void GLVisualizer::shutdown()
 {
     auto& ext = openGLContext.extensions;
-    if (vao != 0) { ext.glDeleteVertexArrays(1, &vao); vao = 0; }
-    if (vbo.id != 0) { ext.glDeleteBuffers(1, &vbo.id); vbo.id = 0; }
+    
+    // Delete VAO and VBOs
+    if (vao != 0) 
+    { 
+        ext.glDeleteVertexArrays(1, &vao); 
+        vao = 0; 
+    }
+    if (vbo.id != 0) 
+    { 
+        ext.glDeleteBuffers(1, &vbo.id); 
+        vbo.id = 0; 
+    }
+    if (instanceVBO != 0) 
+    {
+        ext.glDeleteBuffers(1, &instanceVBO);
+        instanceVBO = 0;
+    }
+
     shader.reset();
 }
 
@@ -136,24 +181,23 @@ void GLVisualizer::render()
     juce::OpenGLHelpers::clear(juce::Colours::black);
     glClear(GL_DEPTH_BUFFER_BIT); 
 
-    if (shader == nullptr)
-        return;         // early-out on link failure
+    if (shader == nullptr) return; // early-out on link failure
 
     shader->use();
 
-    shader->setUniform ("uFadeEndZ", fadeEndZ); 
-
     // Compute position for the new particle
-    float t = (float)(juce::Time::getMillisecondCounterHiRes() 
-                      * 0.001 - startTime);
+    float t = (float)(juce::Time::getMillisecondCounterHiRes() * 0.001 
+                    - startTime);
     float r = 0.75f;     
     float w = juce::MathConstants<float>::twoPi * 0.4f;
     float x = r * std::cos(w * t);
     float y = r * std::sin(w * t);
 
-    // Add new particle to the queue
-    Particle newParticle = { x, y, t };
-    particles.push_back(newParticle);
+    // Add new particles to the queue
+    Particle newParticle1 = { x, y, t };
+    Particle newParticle2 = { -x, -y, t };
+    particles.push_back(newParticle1);
+    particles.push_back(newParticle2);
 
     // Delete old particles
     while (!particles.empty())
@@ -164,24 +208,33 @@ void GLVisualizer::render()
         particles.pop_front();        // otherwise discard and test next
     }
 
+    // Build instance data array
+    std::vector<InstanceData> instances;
+    instances.reserve(particles.size());
+    for (auto& p : particles)
+        instances.push_back({ p.spawnX, p.spawnY, p.spawnTime });
+
+    // Upload instance data to GPU
+    ext.glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+    ext.glBufferData(GL_ARRAY_BUFFER,
+                     (GLsizeiptr)(instances.size() * sizeof(InstanceData)),
+                     instances.data(),
+                     GL_DYNAMIC_DRAW);
+
+    // Set uniforms
+    shader->setUniformMat4("uProjection", projection.mat, 1, GL_FALSE);
+    shader->setUniformMat4("uView", view.mat, 1, GL_FALSE);
+    shader->setUniform("uCurrentTime", t);
+    shader->setUniform("uSpeed", speed);
+    shader->setUniform("uFadeEndZ", fadeEndZ);
+    shader->setUniform("uDotSize", dotSize);
+
     // Draw all particles!!
-    for (const auto& p : particles)
-    {
-        // Calculate z value
-        const float age = t - p.spawnTime; // seconds since spawn
-        const float z = -age * speed;
-        shader->setUniform ("uCurrentZ", z);
-
-        // Set model matrix and mvp for this particle
-        juce::Vector3D<float> position { p.spawnX, p.spawnY, z };
-        model = juce::Matrix3D<float>::fromTranslation(position);
-        mvp = projection * view * model;
-        shader->setUniformMat4("uMVP", mvp.mat, 1, GL_FALSE);
-
-        // Bind vertex array and draw
-        ext.glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    }
+    ext.glBindVertexArray(vao);
+    GLsizei instanceCount = static_cast<GLsizei>(instances.size());
+    if (instanceCount > 0)
+        glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, instanceCount);
+    ext.glBindVertexArray(0);
 
     jassert(glGetError() == GL_NO_ERROR);
 }
