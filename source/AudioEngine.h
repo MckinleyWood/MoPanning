@@ -12,6 +12,7 @@ public:
     ~AudioEngine() override;
 
     //=========================================================================
+    void setAudioCallbackSource(juce::AudioSource* src);
     bool loadFile(const juce::File&);
     void togglePlayback();
 

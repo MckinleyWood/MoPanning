@@ -1,7 +1,7 @@
 /* MainController
 
 This file handles the control logic and owns the audio engine, 
-transport, and parameters, and supplies data the the other peices. All
+transport, and parameters, and supplies data the the other pieces. All
 communication between parts of the program must run through here.
 */
 

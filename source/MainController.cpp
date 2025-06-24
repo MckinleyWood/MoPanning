@@ -1,7 +1,11 @@
 #include "MainController.h"
 
 //=============================================================================
-MainController::MainController() = default;
+MainController::MainController()
+{
+    engine.setAudioCallbackSource(this);
+};
+
 MainController::~MainController() = default;
 
 //=============================================================================
@@ -31,5 +35,5 @@ void MainController::getNextAudioBlock(
     const juce::AudioSourceChannelInfo& info)
 {
     engine.getNextAudioBlock(info);
-    analyzer.analyzeBlock(info.buffer);
+    analyzer.enqueueBlock(info.buffer);
 }

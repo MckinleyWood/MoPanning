@@ -1,8 +1,11 @@
 #include "AudioAnalyzer.h"
 #include <cmath>
 
+//=============================================================================
 // Set FFT size and allocate buffers
-AudioAnalyzer::AudioAnalyzer(int fftOrderIn, float minCQTfreqIn, int numCQTbins)
+AudioAnalyzer::AudioAnalyzer(int fftOrderIn, 
+                             float minCQTfreqIn, 
+                             int numCQTbins)
     : fftOrder(fftOrderIn),
       fftSize(1 << fftOrderIn),
       minCQTfreq(minCQTfreqIn),
@@ -15,8 +18,17 @@ AudioAnalyzer::AudioAnalyzer(int fftOrderIn, float minCQTfreqIn, int numCQTbins)
     fftData.resize(static_cast<size_t>(fftSize));
 }
 
-// Set sample rate and block size, prepare FFT window and CQT kernels,
-// precompute CQT center frequencies, and prepare bandpass filters for GCC-PHAT.
+AudioAnalyzer::~AudioAnalyzer()
+{
+    // Destroy worker, which joins thread
+    worker.reset();
+}
+
+//=============================================================================
+/*  Set sample rate and block size, prepare FFT window and CQT kernels,
+    precompute CQT center frequencies, and prepare bandpass filters for 
+    GCC-PHAT.
+*/
 void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate)
 {
     // Ensure thread safety
@@ -25,7 +37,10 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate)
     // Hann window for CQT
     for (int n = 0; n< fftSize; ++n)
     {
-        window[static_cast<size_t>(n)] = 0.5f * (1.0f - std::cos(2.0f * juce::MathConstants<float>::pi * n / (fftSize - 1)));
+        float twoPi = 2.0f * juce::MathConstants<float>::pi;
+        float angle = twoPi * n / (fftSize - 1);
+        float windowValue = 0.5f * (1.0f - std::cos(angle));
+        window[static_cast<size_t>(n)] = windowValue;
     }
 
     cqtKernels.clear();
@@ -36,7 +51,9 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate)
     for (int bin = 0; bin < numCQTbins; ++bin)
     {
         // Compute center frequency for this bin
-        float freq = minCQTfreq * std::pow(2.0f, static_cast<float>(bin) / binsPerOctave);
+        float freq = minCQTfreq 
+                   * std::pow(2.0f, static_cast<float>(bin) 
+                   / binsPerOctave);
         centerFrequencies[bin] = freq;
 
         // Generate complex sinusoid for this frequency
@@ -63,15 +80,30 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate)
     // Prepare bandpass filters for GCC-PHAT (also initializes ITD)
     prepareBandpassFilters(sampleRate);
 
+    // Initialize AnalyzerWorker
+    int numSlots = 4;
+    int numChannels = 2;
+    worker = std::make_unique<AnalyzerWorker>(numSlots, samplesPerBlock, 
+                                              numChannels, *this);
+
 }
 
-// Analyze a block of audio data, compute CQT magnitudes, GCC-PHAT ITDs, and panning index
-void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>* buffer)
+void AudioAnalyzer::enqueueBlock(const juce::AudioBuffer<float>* buffer)
+{
+    if (worker && buffer != nullptr)
+        worker->pushBlock(*buffer);
+}
+
+//=============================================================================
+/*  Analyze a block of audio data, compute CQT magnitudes, GCC-PHAT 
+    ITDs, and panning index
+*/
+void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
 {
     const std::lock_guard<std::mutex> lock(bufferMutex);
 
-    int numChannels = buffer->getNumChannels();
-    int numSamples = buffer->getNumSamples();
+    int numChannels = buffer.getNumChannels();
+    int numSamples = buffer.getNumSamples();
 
     if (analysisBuffer.getNumChannels() != numChannels ||
         analysisBuffer.getNumSamples() != numSamples)
@@ -82,7 +114,7 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>* buffer)
     // Copy input buffer to analysis buffer
     for (int ch = 0; ch < numChannels; ++ch)
     {
-        analysisBuffer.copyFrom(ch, 0, *buffer, ch, 0, numSamples);
+        analysisBuffer.copyFrom(ch, 0, buffer, ch, 0, numSamples);
     }
 
     // Resize CQT magnitudes if channel count changed
@@ -159,6 +191,15 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>* buffer)
 
         combinedPanning[b] = (ildWeight * ild + itdWeight * itd) / (ildWeight + itdWeight);
     }
+
+    // Store cqtMagnitudes and combinedPanning into "latest" members
+    {
+        std::lock_guard<std::mutex> resLock(resultsMutex);
+        latestCQTMagnitudes = cqtMagnitudes;           // copy vector-of-vectors
+        latestCombinedPanning = std::move(combinedPanning); // move
+    }
+
+    // bufferMutex and resultsMutex unlocked here
 }
 
 

@@ -8,10 +8,6 @@ AudioEngine::AudioEngine()
 
     // Open the default output device (0 inputs, 2 outputs)
     deviceManager.initialise(0, 2, nullptr, true);
-
-    // Route our transport into the device
-    player.setSource(&transport);
-    deviceManager.addAudioCallback(&player);
 }
 
 //=============================================================================
@@ -23,11 +19,21 @@ AudioEngine::~AudioEngine()
 }
 
 //=============================================================================
+void AudioEngine::setAudioCallbackSource(juce::AudioSource* src)
+{
+    // Disconnect previous
+    deviceManager.removeAudioCallback(&player);
+    player.setSource(nullptr);
+
+    // Connect new
+    player.setSource(src);
+    deviceManager.addAudioCallback(&player);
+}
+
 bool AudioEngine::loadFile(const juce::File& file)
 {
     auto* reader = formatManager.createReaderFor(file);
-    if (reader == nullptr)
-        return false; // unsupported / unreadable
+    if (reader == nullptr) return false; // unsupported / unreadable
 
     auto newSource = std::make_unique<juce::AudioFormatReaderSource>
                                             (reader, /* readerOwned */ true);
