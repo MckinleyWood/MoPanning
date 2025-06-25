@@ -18,18 +18,12 @@ class AudioAnalyzer
 {
 public:
     //=========================================================================
-    /** 
-        Constructor arguments:
-          - fftOrderIn:  FFT size = 2^fftOrderIn (default 11 → 2048).
-          - minCQTfreqIn: Lowest CQT center frequency in Hz (e.g. 20.0).
-                          Must be > 0 and < Nyquist.
-          - binsPerOctaveIn: Number of CQT bins per octave (e.g. 24 for quarter‐tones).
-    */
-    AudioAnalyzer(int fftOrderIn = 11, float minCQTfreqIn = 20.0f, int binsPerOctaveIn = 24);
+    AudioAnalyzer();
     ~AudioAnalyzer();
 
     // Must be called before analyzeBlock()
-    void prepare(int samplesPerBlock, double sampleRate);
+    void prepare(int fftOrderIn = 11,int samplesPerBlockIn = 512, double sampleRateIn = 44100.0, float minCQTfreqIn = 20.0f,
+                            int numCQTbinsIn = 128);
 
     // Called by audio thread
     void enqueueBlock(const juce::AudioBuffer<float>* buffer);
@@ -54,6 +48,7 @@ public:
      * */ 
     // void analyzeBlock(const juce::AudioBuffer<float>* buffer);
 
+    
 private:
     //=========================================================================
     mutable std::mutex bufferMutex;
@@ -61,7 +56,9 @@ private:
 
     //=========================================================================
     double sampleRate = 44100.0; //Defaults
-    int samplesPerBlock = 512;
+    int samplesPerBlock = 512; // Static
+    int numChannels = 2; // Defaults to stereo
+    int numSamples = 512; // Dynamic, set in analyzeBlock()
     
     int fftOrder;
     int fftSize;
@@ -69,12 +66,10 @@ private:
     std::unique_ptr<juce::dsp::FFT> fft;
     std::vector<float> window;
     std::vector<juce::dsp::Complex<float>> fftData;
-    std::vector<float> magnitudeBuffer;
 
     // === CQT ===
     void computeCQT(const float* channelData, int channelIndex);
     float minCQTfreq;
-    int binsPerOctave;
     int numCQTbins;
 
     // Each filter is a complex-valued kernel vector (frequency domain)
@@ -89,22 +84,19 @@ private:
     std::vector<float> ITDpanningSpectrum;
 
     // === GCC-PHAT ===
-    float computeGCCPHAT_ITD(const float* left, const float* right, int numSamples);
+    void computeGCCPHAT_ITD();
 
     std::vector<float> itdPerBand;
 
-    float gccPhatDelayPerBand(const float* x, const float* y, int size, int fftOrder, 
-                                        juce::dsp::IIR::Filter<float>& bandpassLeft, 
-                                        juce::dsp::IIR::Filter<float>& bandpassRight);
+    float gccPhatDelayPerBand(const float* x, const float* y, 
+                              juce::dsp::IIR::Filter<float>& bandpassLeft, 
+                              juce::dsp::IIR::Filter<float>& bandpassRight);
 
     std::vector<juce::dsp::IIR::Filter<float>> leftBandpassFilters;
     std::vector<juce::dsp::IIR::Filter<float>> rightBandpassFilters;
     std::vector<float> centerFrequencies;
 
-    void prepareBandpassFilters(double sampleRate);
-    void computeGCCPHAT_ITD();
-
-    float computeCQTCenterFrequency(int binIndex) const;
+    void prepareBandpassFilters();
 
     //=========================================================================
     // Latest results stored for GUI
@@ -125,14 +117,14 @@ class AudioAnalyzer::AnalyzerWorker
 {
 public:
     AnalyzerWorker(int numSlots, 
-                   int blockSize, 
-                   int numChannels, 
+                   int blockSizeIn, 
+                   int numChannelsIn, 
                    AudioAnalyzer& parent)
-        : fifo(numSlots), buffers(numSlots), parentAnalyzer(parent)
+        : fifo(numSlots), buffers(static_cast<size_t>(numSlots)), parentAnalyzer(parent)
     {
         // Pre-allocate buffers
         for (auto& buf : buffers)
-            buf.setSize(numChannels, blockSize);
+            buf.setSize(numChannelsIn, blockSizeIn);
 
         // Launch background thread
         shouldExit = false;
@@ -162,7 +154,7 @@ public:
         // size1 should be 1, and start2/size2 unused
         // Copy into pre-allocated buffer slot
         // We assume input has same numChannels and blockSize
-        buffers[start1].makeCopyOf(input);
+        buffers[static_cast<size_t>(start1)].makeCopyOf(input);
         fifo.finishedWrite(size1);
 
         // Notify worker thread that new data is available
@@ -184,7 +176,7 @@ private:
                 if (size1 > 0)
                 {
                     // Process this buffer
-                    parentAnalyzer.analyzeBlock(buffers[start1]);
+                    parentAnalyzer.analyzeBlock(buffers[static_cast<size_t>(start1)]);
                     fifo.finishedRead(size1);
                 }
             }
