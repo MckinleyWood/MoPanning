@@ -22,6 +22,10 @@ public:
     bool loadFile(const juce::File& f);
     void togglePlayback();
 
+    std::vector<std::vector<float>> getLatestCQTMagnitudes() const;
+    std::vector<float> getLatestCombinedPanning() const;
+    double getSampleRate() const noexcept { return sampleRate; }
+
     //=========================================================================
     void prepareToPlay(int samplesPerBlock, double sampleRate) override;
     void releaseResources() override;
@@ -31,6 +35,8 @@ private:
     //=========================================================================
     AudioEngine engine;
     AudioAnalyzer analyzer;
+
+    double sampleRate = 44100.0;
 
     //=========================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainController)

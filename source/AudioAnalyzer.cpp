@@ -31,6 +31,10 @@ AudioAnalyzer::~AudioAnalyzer()
 */
 void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate)
 {
+    // Set correct sample rate and samples per block
+    this->sampleRate = sampleRate;
+    this->samplesPerBlock = samplesPerBlock;
+
     // Ensure thread safety
     const std::lock_guard<std::mutex> lock(bufferMutex);
 

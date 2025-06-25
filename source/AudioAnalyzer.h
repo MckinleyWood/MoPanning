@@ -119,6 +119,7 @@ private:
     void analyzeBlock(const juce::AudioBuffer<float>& buffer);
 };
 
+
 //============================================================================
 class AudioAnalyzer::AnalyzerWorker
 {

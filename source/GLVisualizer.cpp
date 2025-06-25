@@ -185,7 +185,41 @@ void GLVisualizer::render()
 
     shader->use();
 
-    // Compute position for the new particle
+    float t = (float)(juce::Time::getMillisecondCounterHiRes() * 0.001 
+                    - startTime);
+
+    // First draft of audio-based visuals
+    float sampleRate = static_cast<float>(controller.getSampleRate());
+    float minFreq = 20.f; // Hardcoded for now
+    float maxFreq = sampleRate * 0.5f; // Ditto
+
+    auto cqtMags = controller.getLatestCQTMagnitudes();
+    auto combinedPanning = controller.getLatestCombinedPanning();
+
+    if (!cqtMags.empty())
+    {
+        int numChannels = static_cast<int>(cqtMags.size());
+        int numBins = static_cast<int>(cqtMags[0].size());
+
+        DBG("numChannels = " << numChannels << ", numBins = " << numBins);
+
+        const float threshold = 0.01f;
+
+        for (int b = 0; b < numBins; ++b)
+        {
+            float mag = (cqtMags[0][b] + cqtMags[1][b]) / 2.f;
+            float pan = combinedPanning[b];
+            DBG("Bin = " << b << ", Mag = " << mag << ", Pan = " << pan);
+
+            float x = pan;
+            float y = static_cast<float>(b / numBins);
+            Particle newParticle = { x, y, t };
+            particles.push_back(newParticle);
+        }
+    }
+
+    // Spirals
+    /* // Compute position for the new particle
     float t = (float)(juce::Time::getMillisecondCounterHiRes() * 0.001 
                     - startTime);
     float r = 0.75f;     
@@ -197,7 +231,8 @@ void GLVisualizer::render()
     Particle newParticle1 = { x, y, t };
     Particle newParticle2 = { -x, -y, t };
     particles.push_back(newParticle1);
-    particles.push_back(newParticle2);
+    particles.push_back(newParticle2); */
+
 
     // Delete old particles
     while (!particles.empty())
