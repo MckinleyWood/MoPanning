@@ -4,40 +4,60 @@
 //=============================================================================
 SettingsComponent::SettingsComponent(MainController& c) : controller(c)
 {
-    setSampleRate.setText("44100");
+    juce::Font font;
+    font.setTypefaceName("Comic Sans MS");
+    font.setHeight(18.0f);
+    font.setStyleFlags(juce::Font::plain);
+    
+    setSampleRate.setText("44100.0");
     double sampleRate = setSampleRate.getText().getDoubleValue();
     setSampleRate.setColour(juce::Label::textColourId, juce::Colours::white);
+
+    sampleRateLabel.setFont(font);
+    sampleRateLabel.setJustificationType(juce::Justification::centredLeft);
+
     addAndMakeVisible(setSampleRate);
-    sampleRateLabel.attachToComponent(&setSampleRate, true);
+    addAndMakeVisible(sampleRateLabel);
 
     setBufferSize.setText("512");
     int bufferSize = setBufferSize.getText().getIntValue();
     setBufferSize.setColour(juce::Label::textColourId, juce::Colours::white);
+
+    bufferSizeLabel.setFont(font);
+    bufferSizeLabel.setJustificationType(juce::Justification::centredLeft);
+
     addAndMakeVisible(setBufferSize);
-    bufferSizeLabel.attachToComponent(&setBufferSize, true);
-    addAndMakeVisible(sampleRateLabel);
+    addAndMakeVisible(bufferSizeLabel);
+    
 
     setMinCQTfreq.setText("20.0");
     float minCQTfreq = setMinCQTfreq.getText().getFloatValue();
     setMinCQTfreq.setColour(juce::Label::textColourId, juce::Colours::white);
+
+    minCQTfreqLabel.setFont(font);
+    minCQTfreqLabel.setJustificationType(juce::Justification::centredLeft);
+
     addAndMakeVisible(setMinCQTfreq);
-    minCQTfreqLabel.attachToComponent(&setMinCQTfreq, true);
-    addAndMakeVisible(bufferSizeLabel);
+    addAndMakeVisible(minCQTfreqLabel);
 
     setNumCQTbins.setText("128");
     int numCQTbins = setNumCQTbins.getText().getIntValue();
     setNumCQTbins.setColour(juce::Label::textColourId, juce::Colours::white);
+
+    numCQTbinsLabel.setFont(font);
+    numCQTbinsLabel.setJustificationType(juce::Justification::centredLeft);
+
     addAndMakeVisible(setNumCQTbins);
-    numCQTbinsLabel.attachToComponent(&setNumCQTbins, true);
-    addAndMakeVisible(minCQTfreqLabel);
+    addAndMakeVisible(numCQTbinsLabel);
 
     fftOrderSlider.setRange(8, 12, 1);
     fftOrderSlider.setValue(11); // Default to 2048 (2^11) FFT size
+
+    fftOrderLabel.setFont(font);
+    fftOrderLabel.setJustificationType(juce::Justification::centredLeft);
+
     addAndMakeVisible(fftOrderSlider);
-    fftOrderLabel.attachToComponent(&fftOrderSlider, true);
-    addAndMakeVisible(numCQTbinsLabel);
-
-
+    addAndMakeVisible(fftOrderLabel);
 
 }
 
@@ -48,7 +68,13 @@ void SettingsComponent::paint(juce::Graphics& g)
 {
     g.fillAll(juce::Colours::darkgrey);
     g.setColour(juce::Colours::white);
-    g.setFont(14.0f);
+    juce::Font font;
+    font.setTypefaceName("Comic Sans MS");
+    font.setHeight(20.0f);
+    font.setStyleFlags(juce::Font::plain);
+
+    g.setFont(font);
+
     g.drawFittedText("Hi Mckinley",
                      getLocalBounds(),
                      juce::Justification::centred,
@@ -59,21 +85,33 @@ void SettingsComponent::resized()
 {
     auto area = getLocalBounds().reduced(10);
     auto rowHeight = 30;
-    area.removeFromLeft(50);
 
-
+    auto labelArea = area;
+    area.removeFromLeft(180);
 
     setSampleRate.setBounds(area.removeFromTop(rowHeight));
+    sampleRateLabel.setBounds(labelArea.removeFromTop(rowHeight));
     area.removeFromTop(10);
+    labelArea.removeFromTop(10);
 
     setBufferSize.setBounds(area.removeFromTop(rowHeight));
+    bufferSizeLabel.setBounds(labelArea.removeFromTop(rowHeight));
     area.removeFromTop(10);
+    labelArea.removeFromTop(10);
 
     setMinCQTfreq.setBounds(area.removeFromTop(rowHeight));
+    minCQTfreqLabel.setBounds(labelArea.removeFromTop(rowHeight));
     area.removeFromTop(10);
+    labelArea.removeFromTop(10);
 
     setNumCQTbins.setBounds(area.removeFromTop(rowHeight));
+    numCQTbinsLabel.setBounds(labelArea.removeFromTop(rowHeight));
     area.removeFromTop(10);
+    labelArea.removeFromTop(10);
 
-    fftOrderSlider.setBounds(area.removeFromTop(rowHeight));
+    auto sliderArea = area;
+    sliderArea = sliderArea.withX(sliderArea.getX() - 100)
+                       .withWidth(sliderArea.getWidth() + 100);
+    fftOrderSlider.setBounds(sliderArea.removeFromTop(rowHeight));
+    fftOrderLabel.setBounds(labelArea.removeFromTop(rowHeight));
 }
