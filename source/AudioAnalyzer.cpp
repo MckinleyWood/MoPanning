@@ -32,6 +32,14 @@ void AudioAnalyzer::prepare(int fftOrderIn, int samplesPerBlockIn, double sample
     this->minCQTfreq = minCQTfreqIn;
     this->numCQTbins = numCQTbinsIn;
 
+    DBG("Audio Analyzer Members:\n"
+     << "fftOrder = " << fftOrder << '\n'
+     << "fftSize = " << fftSize << '\n'
+     << "samplesPerBlock = " << samplesPerBlock << '\n'
+     << "sampleRate = " << sampleRate << '\n'
+     << "minCQTfreq = " << minCQTfreq << '\n'
+     << "numCQTbins = " << numCQTbins);
+
     fft = std::make_unique<juce::dsp::FFT>(fftOrder);
 
     // Allocate buffers
@@ -63,6 +71,7 @@ void AudioAnalyzer::prepare(int fftOrderIn, int samplesPerBlockIn, double sample
         float frac = static_cast<float>(bin) / static_cast<float>(numCQTbins - 1);
         float freq = std::exp(logMin + frac * (logMax - logMin)); // Log-spaced
         centerFrequencies[bin] = freq;
+        DBG("Center frequency for bin " << bin << " = " << freq);
 
         // Generate complex sinusoid for this frequency (for inner products)
         int kernelLength = fftSize;

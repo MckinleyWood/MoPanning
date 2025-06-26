@@ -201,15 +201,18 @@ void GLVisualizer::render()
         int numChannels = static_cast<int>(cqtMags.size());
         int numBins = static_cast<int>(cqtMags[0].size());
 
-        DBG("numChannels = " << numChannels << ", numBins = " << numBins);
+        // DBG("numChannels = " << numChannels << ", numBins = " << numBins);
 
         const float threshold = 0.01f;
 
         for (int b = 0; b < numBins; ++b)
         {
             float mag = (cqtMags[0][b] + cqtMags[1][b]) / 2.f;
+            if (mag < threshold)
+                continue;
+
             float pan = combinedPanning[b];
-            DBG("Bin = " << b << ", Mag = " << mag << ", Pan = " << pan);
+            // DBG("Bin = " << b << ", Mag = " << mag << ", Pan = " << pan);
 
             float x = pan;
             float y = static_cast<float>(b / numBins);
