@@ -22,7 +22,7 @@ public:
     bool loadFile(const juce::File& f);
     void togglePlayback();
 
-    std::vector<std::vector<float>> getLatestCQTMagnitudes() const;
+    std::vector<frequency_band> getLatestResults() const;
     std::vector<float> getLatestCombinedPanning() const;
     double getSampleRate() const noexcept { return sampleRate; }
 

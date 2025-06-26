@@ -1,16 +1,6 @@
 #include "GLVisualizer.h"
 #include "MainController.h"
 
-//=============================================================================
-juce::Matrix3D<float> makeOrthoScale(float sx, float sy)
-{
-    juce::Matrix3D<float> m;
-    m.mat[0]  = sx;   // column-major: scale X
-    m.mat[5]  = sy;   // scale Y  (mat[5] is row1,col1)
-    m.mat[10] = 1.0f; // scale Z
-    m.mat[15] = 1.0f; // homogeneous
-    return m;
-}
 
 //=============================================================================
 GLVisualizer::GLVisualizer(MainController& c) : controller(c) 
@@ -38,8 +28,8 @@ void GLVisualizer::initialise()
 
     // GLSL vertex shader initialization code
     static const char* vertSrc = R"(#version 150
-        in vec2 position;          // quad corner
-        in vec3 instanceData;      // per-instance: x, y, spawnTime
+        in vec2 position;
+        in vec4 instanceData;
 
         uniform mat4 uProjection;
         uniform mat4 uView;
@@ -50,6 +40,7 @@ void GLVisualizer::initialise()
 
         out vec2 vPos;
         out float vDepth;
+        out float vSpawnAlpha;
 
         void main()
         {
@@ -57,8 +48,9 @@ void GLVisualizer::initialise()
             float age = uCurrentTime - instanceData.z;
             float z = -age * uSpeed;
 
-            // Pass depth factor for fade
+            // Pass depth factor for fade and spawn alpha
             vDepth = -z / uFadeEndZ;
+            vSpawnAlpha = instanceData.w;
 
             // Build world position
             vec3 spawnPos = vec3(instanceData.x, instanceData.y, 0.0);
@@ -76,9 +68,10 @@ void GLVisualizer::initialise()
 
     // GLSL fragment shader initialization code
     static const char* fragSrc = R"(#version 150
-        in  vec2  vPos;
-        in  float vDepth;
-        out vec4  frag;
+        in vec2 vPos;
+        in float vDepth;        
+        in float vSpawnAlpha;
+        out vec4 frag;
 
         void main()
         {
@@ -87,7 +80,7 @@ void GLVisualizer::initialise()
                 discard;
 
             // Fade out with distance
-            float alpha = 1.0 - vDepth; 
+            float alpha = vSpawnAlpha * (1.0 - vDepth); 
             frag = vec4(1.0, 1.0, 1.0, alpha);
         }
     )";
@@ -131,7 +124,7 @@ void GLVisualizer::initialise()
     // Bind the instanceVBO to set up the attribute pointer for instancing.
     ext.glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
     ext.glEnableVertexAttribArray(1);
-    ext.glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 
+    ext.glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 
                               sizeof(InstanceData), nullptr);
     glVertexAttribDivisor(1, 1); // This attribute advances once per instance
 
@@ -189,52 +182,42 @@ void GLVisualizer::render()
                     - startTime);
 
     // First draft of audio-based visuals
-    float sampleRate = static_cast<float>(controller.getSampleRate());
-    float minFreq = 20.f; // Hardcoded for now
-    float maxFreq = sampleRate * 0.5f; // Ditto
 
-    auto cqtMags = controller.getLatestCQTMagnitudes();
-    auto combinedPanning = controller.getLatestCombinedPanning();
+    // float sampleRate = static_cast<float>(controller.getSampleRate());
+    // float minFreq = 20.f; // Hardcoded for now
+    // float maxFreq = sampleRate * 0.5f; // Ditto
 
-    if (!cqtMags.empty())
+    auto results = controller.getLatestResults();
+    float avg_amplitude = 1;
+
+    if (!results.empty())
     {
-        int numChannels = static_cast<int>(cqtMags.size());
-        int numBins = static_cast<int>(cqtMags[0].size());
+        DBG("Reading from results...");
 
-        // DBG("numChannels = " << numChannels << ", numBins = " << numBins);
-
-        const float threshold = 0.01f;
-
-        for (int b = 0; b < numBins; ++b)
+        float total_amplitude = 0;
+        for (frequency_band band : results)
         {
-            float mag = (cqtMags[0][b] + cqtMags[1][b]) / 2.f;
-            if (mag < threshold)
-                continue;
-
-            float pan = combinedPanning[b];
-            // DBG("Bin = " << b << ", Mag = " << mag << ", Pan = " << pan);
-
-            float x = pan;
-            float y = static_cast<float>(b / numBins);
-            Particle newParticle = { x, y, t };
-            particles.push_back(newParticle);
+            total_amplitude += band.amplitude;
         }
+        avg_amplitude = total_amplitude / results.size();
     }
 
+    DBG("Avg amplitude = " << avg_amplitude);
+
     // Spirals
-    /* // Compute position for the new particle
-    float t = (float)(juce::Time::getMillisecondCounterHiRes() * 0.001 
-                    - startTime);
+    // Compute position for the new particles
+    // float t = (float)(juce::Time::getMillisecondCounterHiRes() * 0.001 
+    //                 - startTime);
     float r = 0.75f;     
     float w = juce::MathConstants<float>::twoPi * 0.4f;
     float x = r * std::cos(w * t);
     float y = r * std::sin(w * t);
 
     // Add new particles to the queue
-    Particle newParticle1 = { x, y, t };
-    Particle newParticle2 = { -x, -y, t };
+    Particle newParticle1 = { x, y, t, avg_amplitude};
+    Particle newParticle2 = { -x, -y, t, avg_amplitude};
     particles.push_back(newParticle1);
-    particles.push_back(newParticle2); */
+    particles.push_back(newParticle2);
 
 
     // Delete old particles
@@ -250,7 +233,7 @@ void GLVisualizer::render()
     std::vector<InstanceData> instances;
     instances.reserve(particles.size());
     for (auto& p : particles)
-        instances.push_back({ p.spawnX, p.spawnY, p.spawnTime });
+        instances.push_back({ p.spawnX, p.spawnY, p.spawnTime, p.spawnAlpha });
 
     // Upload instance data to GPU
     ext.glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
