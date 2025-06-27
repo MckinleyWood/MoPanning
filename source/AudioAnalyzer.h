@@ -52,7 +52,6 @@ public:
 private:
     //=========================================================================
     mutable std::mutex bufferMutex;
-    juce::AudioBuffer<float> analysisBuffer; // Buffer for raw audio data
 
     //=========================================================================
     double sampleRate = 44100.0; //Defaults
@@ -84,7 +83,7 @@ private:
     std::vector<float> ITDpanningSpectrum;
 
     // === GCC-PHAT ===
-    void computeGCCPHAT_ITD();
+    void computeGCCPHAT_ITD(const juce::AudioBuffer<float>& buffer);
 
     std::vector<float> itdPerBand;
 

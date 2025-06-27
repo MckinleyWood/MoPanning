@@ -60,8 +60,8 @@ void AudioAnalyzer::prepare(int fftOrderIn, int samplesPerBlockIn, double sample
     for (size_t bin = 0; bin < static_cast<size_t>(numCQTbins); ++bin)
     {
         // Compute center frequency for this bin
-        float frac = static_cast<float>(bin) / static_cast<float>(numCQTbins - 1);
-        float freq = std::exp(logMin + frac * (logMax - logMin)); // Log-spaced
+        float frac = static_cast<float>(bin) / static_cast<float>(numCQTbins + 1);
+        float freq = std::pow(2.0, logMin + frac * (logMax - logMin)); // Log-spaced
         centerFrequencies[bin] = freq;
 
         // Generate complex sinusoid for this frequency (for inner products)
@@ -112,18 +112,6 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
     this->numChannels = buffer.getNumChannels();
     this->numSamples = buffer.getNumSamples();
 
-    if (analysisBuffer.getNumChannels() != numChannels ||
-        analysisBuffer.getNumSamples() != numSamples)
-    {
-        analysisBuffer.setSize(numChannels, numSamples);
-    }
-
-    // Copy input buffer to analysis buffer
-    for (int ch = 0; ch < numChannels; ++ch)
-    {
-        analysisBuffer.copyFrom(ch, 0, buffer, ch, 0, numSamples);
-    }
-
     // Resize CQT magnitudes if channel count changed
     if (static_cast<int>(cqtMagnitudes.size()) != numChannels)
         cqtMagnitudes.resize(static_cast<size_t>(numChannels), std::vector<float>(static_cast<size_t>(numCQTbins), 0.0f));
@@ -131,7 +119,7 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
     // Compute CQT for each channel
     for (int ch = 0; ch < numChannels; ++ch)
     {
-        const float* channelData = analysisBuffer.getReadPointer(ch);
+        const float* channelData = buffer.getReadPointer(ch);
         computeCQT(channelData, ch);  // populate cqtMagnitudes[ch]
     }
 
@@ -149,7 +137,7 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
         auto* panningData = ILDpanningSpectrum.getWritePointer(0);
 
         // Compute GCC-PHAT ITD for each CQT band
-        computeGCCPHAT_ITD();
+        computeGCCPHAT_ITD(buffer);
 
         for (size_t k = 0; k < static_cast<size_t>(numCQTbins); ++k)
         {
@@ -235,13 +223,13 @@ void AudioAnalyzer::computeCQT(const float* channelData, int channelIndex)
     }
 }
 
-void AudioAnalyzer::computeGCCPHAT_ITD()
+void AudioAnalyzer::computeGCCPHAT_ITD(const juce::AudioBuffer<float>& buffer)
 {
     if (numChannels < 2)
         return;
 
-    const float* left = analysisBuffer.getReadPointer(0);
-    const float* right = analysisBuffer.getReadPointer(1);
+    const float* left = buffer.getReadPointer(0);
+    const float* right = buffer.getReadPointer(1);
 
     if (numSamples < fftSize)
         return;
