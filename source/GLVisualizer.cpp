@@ -182,13 +182,23 @@ void GLVisualizer::render()
                     - startTime);
 
     // First draft of audio-based visuals
+    auto results = controller.getLatestResults();
     float sampleRate = static_cast<float>(controller.getSampleRate());
     float minFreq = 20.f; // Hardcoded for now
     float maxFreq = sampleRate * 0.5f;
-    float logMin = std::log(minFreq);
-    float logMax = std::log(maxFreq);
+    float minBandFreq = 0;
 
-    auto results = controller.getLatestResults();
+    for (frequency_band band : results)
+    {
+        if (band.frequency > minFreq)
+        {
+            minBandFreq = band.frequency;
+            break; // Assuming frequencies in sorted order
+        }
+    }
+
+    float logMin = std::log(minBandFreq);
+    float logMax = std::log(maxFreq);
 
     if (!results.empty())
     {
@@ -196,7 +206,8 @@ void GLVisualizer::render()
 
         for (frequency_band band : results)
         {
-            if (band.frequency < 20) continue;
+            if (band.frequency < minBandFreq || band.frequency > maxFreq) 
+                continue;
 
             float x = band.pan_index;
             float y = (std::log(band.frequency) - logMin) / (logMax - logMin);
@@ -206,8 +217,8 @@ void GLVisualizer::render()
             Particle newParticle = { x, y, t, a};
             particles.push_back(newParticle);
 
-            // DBG("Added new particle for frequency " << band.frequency << ": "
-            //     << "x = " << x << ", y = " << y << ", a = " << a);
+            DBG("Added new particle for frequency " << band.frequency << ": "
+                << "x = " << x << ", y = " << y << ", a = " << a);
         }
     }
 

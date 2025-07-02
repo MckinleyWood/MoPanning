@@ -97,11 +97,11 @@ void AudioAnalyzer::computeILDs(const std::vector<float>& magsL,
 
     for (int b = 0; b < numBins; ++b)
     {
-        // This is just chatGPT I don't know if its panning indes ala marpan
+        // This is just chatGPT I don't know if its panning index ala marpan
 
         float L = magsL[b];
         float R = magsR[b];
-        float denom = L*L + R*R + 1e-12f; // avoid zero
+        float denom = L*L + R*R + 1e-12f; // Avoid zero
         float sim = (2.0f * L * R) / denom;
 
         // Direction: L > R => left => -1; R > L => right => +1

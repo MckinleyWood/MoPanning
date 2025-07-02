@@ -63,7 +63,7 @@ private:
     float maxExpectedMag;
     
     // Latest results stored for GUI
-    std::vector<frequency_band> results;
+    std::vector<frequency_band> results; // Should be sorted by frequency!!!
     mutable std::mutex resultsMutex;
 
     // Worker 
