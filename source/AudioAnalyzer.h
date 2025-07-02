@@ -5,12 +5,7 @@
 #include <vector>
 
 /*
-    AudioAnalyzer
-
-    - CQT
-    - GCC-PHAT for inter-channel delay estimation
-    - Panning spectrum based on CQT magnitudes
-    - Thread-safe: locks when writing, returns copies for external reads
+    AudioAnalyzer...
 
 */
 
@@ -20,6 +15,8 @@ struct frequency_band {
     float pan_index; // -1 = far left, +1 = far right
 };
 
+typedef std::vector<juce::dsp::Complex<float>> fft_buffer_t;
+
 class AudioAnalyzer
 {
 public:
@@ -28,7 +25,7 @@ public:
     ~AudioAnalyzer();
 
     // Must be called before analyzeBlock()
-    void prepare();
+    void prepare(int samplesPerBlock, double sampleRate);
 
     // Called by audio thread
     void enqueueBlock(const juce::AudioBuffer<float>* buffer);
@@ -36,24 +33,41 @@ public:
     // Called by GUI thread to get latest results
     std::vector<frequency_band> getLatestResults() const;
 
+    // These should be called whenever the sample rate / block size changes
+    void setSamplesPerBlock(int newSamplesPerBlock);
+    void setSampleRate(int newSampleRate);
+
     //=========================================================================
     class AnalyzerWorker;
     
 private:
     //=========================================================================
-    mutable std::mutex bufferMutex;
-    juce::AudioBuffer<float> analysisBuffer; // Buffer for raw audio data
+    // Analysis functions
+    void computeFFT(const juce::AudioBuffer<float>& buffer,
+                    std::array<fft_buffer_t, 2>& outSpectra);
+    void computeILDs(const std::vector<float>& magsL,
+                     const std::vector<float>& magsR,
+                     std::vector<float>& outPan);
+    void analyzeBlock(const juce::AudioBuffer<float>& buffer);
 
     //=========================================================================
+    int samplesPerBlock;
+    double sampleRate;
+
+    int fftOrder = 9; // FFT order = log2(fftSize)
+    int fftSize = 1 << fftOrder;
+    juce::dsp::FFT fft{ fftOrder }; // JUCE FFT engine
+    std::vector<float> window; // Hann window of length fftSize
+    fft_buffer_t fftBuffer;
+    int numBins = fftSize / 2 + 1;
+    float maxExpectedMag;
+    
     // Latest results stored for GUI
     std::vector<frequency_band> results;
     mutable std::mutex resultsMutex;
 
     // Worker 
     std::unique_ptr<AnalyzerWorker> worker;
-
-    // Internal processing called by worker thread
-    void analyzeBlock(const juce::AudioBuffer<float>& buffer);
 };
 
 
@@ -62,7 +76,9 @@ class AudioAnalyzer::AnalyzerWorker
 {
 public:
     AnalyzerWorker(int numSlots, int blockSizeIn, AudioAnalyzer& parent)
-        : fifo(numSlots), buffers(static_cast<size_t>(numSlots)), parentAnalyzer(parent)
+        : fifo(numSlots), 
+          buffers(static_cast<size_t>(numSlots)), 
+          parentAnalyzer(parent)
     {
         // Pre-allocate buffers
         for (auto& buf : buffers)
@@ -118,7 +134,8 @@ private:
                 if (size1 > 0)
                 {
                     // Process this buffer
-                    parentAnalyzer.analyzeBlock(buffers[static_cast<size_t>(start1)]);
+                    parentAnalyzer.analyzeBlock(
+                        buffers[static_cast<size_t>(start1)]);
                     fifo.finishedRead(size1);
                 }
             }

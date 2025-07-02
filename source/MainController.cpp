@@ -29,9 +29,10 @@ std::vector<frequency_band> MainController::getLatestResults() const
 void MainController::prepareToPlay(int samplesPerBlock, double sampleRate)
 {
     this->sampleRate = sampleRate;
+    this->samplesPerBlock = samplesPerBlock;
 
     engine.prepareToPlay(samplesPerBlock, sampleRate);
-    analyzer.prepare();
+    analyzer.prepare(samplesPerBlock, sampleRate);
 }
 
 void MainController::releaseResources() 

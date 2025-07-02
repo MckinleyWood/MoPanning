@@ -182,42 +182,49 @@ void GLVisualizer::render()
                     - startTime);
 
     // First draft of audio-based visuals
-
-    // float sampleRate = static_cast<float>(controller.getSampleRate());
-    // float minFreq = 20.f; // Hardcoded for now
-    // float maxFreq = sampleRate * 0.5f; // Ditto
+    float sampleRate = static_cast<float>(controller.getSampleRate());
+    float minFreq = 20.f; // Hardcoded for now
+    float maxFreq = sampleRate * 0.5f;
+    float logMin = std::log(minFreq);
+    float logMax = std::log(maxFreq);
 
     auto results = controller.getLatestResults();
-    float avg_amplitude = 1;
 
     if (!results.empty())
     {
-        DBG("Reading from results...");
+        // DBG("Reading from results...");
 
-        float total_amplitude = 0;
         for (frequency_band band : results)
         {
-            total_amplitude += band.amplitude;
-        }
-        avg_amplitude = total_amplitude / results.size();
-    }
+            if (band.frequency < 20) continue;
 
-    DBG("Avg amplitude = " << avg_amplitude);
+            float x = band.pan_index;
+            float y = (std::log(band.frequency) - logMin) / (logMax - logMin);
+            y = juce::jmap(y, -1.0f, 1.0f);
+            float a = band.amplitude;
+
+            Particle newParticle = { x, y, t, a};
+            particles.push_back(newParticle);
+
+            // DBG("Added new particle for frequency " << band.frequency << ": "
+            //     << "x = " << x << ", y = " << y << ", a = " << a);
+        }
+    }
 
     // Spirals
     // Compute position for the new particles
     // float t = (float)(juce::Time::getMillisecondCounterHiRes() * 0.001 
     //                 - startTime);
-    float r = 0.75f;     
-    float w = juce::MathConstants<float>::twoPi * 0.4f;
-    float x = r * std::cos(w * t);
-    float y = r * std::sin(w * t);
+    // float r = 0.75f;     
+    // float w = juce::MathConstants<float>::twoPi * 0.4f;
+    // float x = r * std::cos(w * t);
+    // float y = r * std::sin(w * t);
 
-    // Add new particles to the queue
-    Particle newParticle1 = { x, y, t, avg_amplitude};
-    Particle newParticle2 = { -x, -y, t, avg_amplitude};
-    particles.push_back(newParticle1);
-    particles.push_back(newParticle2);
+    // // Add new particles to the queue
+    // Particle newParticle1 = { x, y, t, avg_amplitude};
+    // Particle newParticle2 = { -x, -y, t, avg_amplitude};
+    // particles.push_back(newParticle1);
+    // particles.push_back(newParticle2);
 
 
     // Delete old particles
