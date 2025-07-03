@@ -4,9 +4,7 @@
 #include <mutex>
 #include <vector>
 
-/*
-    AudioAnalyzer...
-
+/*  AudioAnalyzer...
 */
 
 struct frequency_band {
@@ -42,28 +40,70 @@ public:
     
 private:
     //=========================================================================
-    // Analysis functions
+    /* Analysis functions */
+
     void computeFFT(const juce::AudioBuffer<float>& buffer,
                     std::array<fft_buffer_t, 2>& outSpectra);
-    void computeILDs(const std::vector<float>& magsL,
-                     const std::vector<float>& magsR,
+    void computeILDs(std::array<fft_buffer_t, 2>& spectra,
                      std::vector<float>& outPan);
-    void analyzeBlock(const juce::AudioBuffer<float>& buffer);
+    void analyzeBlockFFT(const juce::AudioBuffer<float>& buffer);
+    void analyzeBlockCQT(const juce::AudioBuffer<float>& buffer);
 
     //=========================================================================
+    /* Basic stuff */
+
     int samplesPerBlock;
     double sampleRate;
+
+    //=========================================================================
+    /* Stuff added for basic FFT / ILD version */
 
     int fftOrder = 9; // FFT order = log2(fftSize)
     int fftSize = 1 << fftOrder;
     juce::dsp::FFT fft{ fftOrder }; // JUCE FFT engine
     std::vector<float> window; // Hann window of length fftSize
     fft_buffer_t fftBuffer;
-    int numBins = fftSize / 2 + 1;
-    float maxExpectedMag;
+    int numBins = fftSize / 2 + 1; // Number of useful bins from FFT
+    float maxExpectedMag; 
+
+    //=========================================================================
+    /* CQT stuff */
+
+    void computeCQT(const float* channelData, int channelIndex);
+    float minCQTfreq;
+    int numCQTbins;
+
+    // Each filter is a complex-valued kernel vector (frequency domain)
+    std::vector<std::vector<std::complex<float>>> cqtKernels;
+
+    // CQT result: [numChannels][numCQTbins]
+    std::vector<std::vector<float>> cqtMagnitudes;
     
-    // Latest results stored for GUI
-    std::vector<frequency_band> results; // Should be sorted by frequency!!!
+    //=========================================================================
+    /* Panning - Owen version */
+
+    juce::AudioBuffer<float> ILDpanningSpectrum;
+    const juce::AudioBuffer<float>& getILDPanningSpectrum() const { return ILDpanningSpectrum; }
+    std::vector<float> ITDpanningSpectrum;
+
+    void computeGCCPHAT_ITD(const juce::AudioBuffer<float>& buffer);
+
+    std::vector<float> itdPerBand;
+
+    float gccPhatDelayPerBand(const float* x, const float* y, 
+                              juce::dsp::IIR::Filter<float>& bandpassLeft, 
+                              juce::dsp::IIR::Filter<float>& bandpassRight);
+
+    std::vector<juce::dsp::IIR::Filter<float>> leftBandpassFilters;
+    std::vector<juce::dsp::IIR::Filter<float>> rightBandpassFilters;
+    std::vector<float> centerFrequencies;
+
+    void prepareBandpassFilters();
+
+    //=========================================================================
+    /* Output for GUI */
+
+    std::vector<frequency_band> results; // Must be sorted by frequency!!!
     mutable std::mutex resultsMutex;
 
     // Worker 
@@ -72,6 +112,9 @@ private:
 
 
 //=============================================================================
+/*  A class to manage to the worker thread that performs the actual 
+    audio analysis. 
+*/
 class AudioAnalyzer::AnalyzerWorker
 {
 public:
@@ -133,8 +176,8 @@ private:
                 fifo.prepareToRead(1, start1, size1, start2, size2);
                 if (size1 > 0)
                 {
-                    // Process this buffer
-                    parentAnalyzer.analyzeBlock(
+                    // Process this buffer - change to CQT when ready to test
+                    parentAnalyzer.analyzeBlockFFT(
                         buffers[static_cast<size_t>(start1)]);
                     fifo.finishedRead(size1);
                 }
@@ -156,5 +199,4 @@ private:
     std::mutex mutex;
 
     AudioAnalyzer& parentAnalyzer;
-    int blockSize;
 };
