@@ -4,9 +4,6 @@
 class MainController;
 
 //=============================================================================
-juce::Matrix3D<float> makeOrthoScale(float sx, float sy);
-
-//=============================================================================
 /*  Struct representing an OpenGL Vertex Buffer Object. */
 struct VertexBufferObject
 {
@@ -52,6 +49,7 @@ private:
         float spawnX;
         float spawnY;
         float spawnTime = 0.0f; // Time since app start when particle spawned
+        float spawnAlpha;
     };
     std::deque<Particle> particles; // Queue of particles
     
@@ -60,7 +58,7 @@ private:
     // juce::Matrix3D<float> mvp; // Model-View-Projection matrix - not using
     GLuint vao = 0; // Vertex-array object
     GLuint instanceVBO = 0;  // buffer ID for per-instance data
-    struct InstanceData { float x, y, spawnTime; };
+    struct InstanceData { float x, y, spawnTime, spawnAlpha; };
 
     juce::Vector3D<float> cameraPosition { 0.0f, 0.0f, -2.0f };
 

@@ -19,19 +19,17 @@ void MainController::togglePlayback()
     engine.togglePlayback();
 }
 
-std::vector<std::vector<float>> MainController::getLatestCQTMagnitudes() const
+std::vector<frequency_band> MainController::getLatestResults() const
 {
-    return analyzer.getLatestCQTMagnitudes();
+    return analyzer.getLatestResults();
 }
-std::vector<float> MainController::getLatestCombinedPanning() const
-{
-    return analyzer.getLatestCombinedPanning();
-}
+
 
 //=============================================================================
 void MainController::prepareToPlay(int samplesPerBlock, double sampleRate)
 {
     this->sampleRate = sampleRate;
+    this->samplesPerBlock = samplesPerBlock;
 
     engine.prepareToPlay(samplesPerBlock, sampleRate);
     analyzer.prepare(samplesPerBlock, sampleRate);
