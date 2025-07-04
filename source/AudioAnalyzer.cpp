@@ -449,13 +449,6 @@ float AudioAnalyzer::gccPhatDelayPerBand(const float* x, const float* y,
 
     DBG("filteredX[0] = " << filteredX[0] << ", filteredY[0] = " << filteredY[0]);
 
-    float energyX = std::accumulate(filteredX.begin(), filteredX.end(), 0.0f,
-                                    [](float sum, float v) { return sum + v * v; });
-    float energyY = std::accumulate(filteredY.begin(), filteredY.end(), 0.0f,
-                                    [](float sum, float v) { return sum + v * v; });
-
-    DBG("energyX = " << energyX << ", energyY = " << energyY);
-
 
     // Windowing
     window.resize(static_cast<size_t>(fftSize));
