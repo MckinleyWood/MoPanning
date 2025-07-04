@@ -233,13 +233,13 @@ void AudioAnalyzer::analyzeBlockCQT(const juce::AudioBuffer<float>& buffer)
         computeCQT(channelData, ch);  // populate cqtMagnitudes[ch]
     }
 
-    for (int ch = 0; ch < 2; ++ch)
-    {
-        juce::StringArray mags;
-        for (float m : cqtMagnitudes[ch])
-            mags.add(juce::String(m, 3));
-        DBG("CQT magnitudes (ch " << ch << "): " << mags.joinIntoString(", "));
-    }
+    // for (int ch = 0; ch < 2; ++ch)
+    // {
+    //     juce::StringArray mags;
+    //     for (float m : cqtMagnitudes[ch])
+    //         mags.add(juce::String(m, 3));
+    //     DBG("CQT magnitudes (ch " << ch << "): " << mags.joinIntoString(", "));
+    // }
 
     // === ILD/ITD Panning Index Calculation ===
     
@@ -382,10 +382,10 @@ void AudioAnalyzer::computeCQT(const float* channelData, int channelIndex)
         cqtMagnitudes[static_cast<size_t>(channelIndex)][bin] = std::abs(sum);
     }
 
-    juce::StringArray mags;
-    for (float m : cqtMagnitudes[channelIndex])
-        mags.add(juce::String(m, 3));
-    DBG("CQT magnitudes (post inner product) for ch " << channelIndex << ": " << mags.joinIntoString(", "));
+    // juce::StringArray mags;
+    // for (float m : cqtMagnitudes[channelIndex])
+    //     mags.add(juce::String(m, 3));
+    // DBG("CQT magnitudes (post inner product) for ch " << channelIndex << ": " << mags.joinIntoString(", "));
 
 }
 
@@ -421,6 +421,11 @@ void AudioAnalyzer::computeGCCPHAT_ITD(const juce::AudioBuffer<float>& buffer)
 
         float normalizedDelay = juce::jlimit(-1.0f, 1.0f, delaySamples / (fftSize / 2.0f));
         itdPerBand[b] = normalizedDelay;
+
+        DBG("ITD bin " << b 
+            << ": delaySamples = " << delaySamples
+            << ", normalizedDelay = " << normalizedDelay);
+
     }
 }
 
@@ -441,6 +446,16 @@ float AudioAnalyzer::gccPhatDelayPerBand(const float* x, const float* y,
         filteredX[i] = bandpassLeft.processSample(x[i]);
         filteredY[i] = bandpassRight.processSample(y[i]);
     }
+
+    DBG("filteredX[0] = " << filteredX[0] << ", filteredY[0] = " << filteredY[0]);
+
+    float energyX = std::accumulate(filteredX.begin(), filteredX.end(), 0.0f,
+                                    [](float sum, float v) { return sum + v * v; });
+    float energyY = std::accumulate(filteredY.begin(), filteredY.end(), 0.0f,
+                                    [](float sum, float v) { return sum + v * v; });
+
+    DBG("energyX = " << energyX << ", energyY = " << energyY);
+
 
     // Windowing
     window.resize(static_cast<size_t>(fftSize));
@@ -470,6 +485,11 @@ float AudioAnalyzer::gccPhatDelayPerBand(const float* x, const float* y,
         R[i] = (mag > 0.0f) ? crossSpec / mag : 0.0f;
     }
 
+    DBG("R[0] = " + juce::String(R[0].real()) + " + " + juce::String(R[0].imag()) + "i, "
+     "corr[0] = " + juce::String(corr[0].real()) + " + " + juce::String(corr[0].imag()) + "i");
+
+
+
     fft.perform(R.data(), corr.data(), true);
 
     // Find peak in cross-correlation
@@ -489,6 +509,19 @@ float AudioAnalyzer::gccPhatDelayPerBand(const float* x, const float* y,
     int delay = (maxIndex <= center) ? maxIndex : maxIndex - fftSize;
 
     return static_cast<float>(delay);
+
+    DBG("GCC-PHAT delay: maxIndex = " << maxIndex
+        << ", delay = " << delay
+        << ", maxCorr = " << maxValue);
+
+    float energyX = std::accumulate(filteredX.begin(), filteredX.end(), 0.0f,
+    [](float acc, float v) { return acc + v*v; });
+    float energyY = std::accumulate(filteredY.begin(), filteredY.end(), 0.0f,
+    [](float acc, float v) { return acc + v*v; });
+
+    DBG("Filtered signal energy: X = " << energyX << ", Y = " << energyY);
+
+
 }
 
 // Prepare bandpass filters for each CQT center frequency
@@ -498,15 +531,32 @@ void AudioAnalyzer::prepareBandpassFilters()
     leftBandpassFilters.clear();
     rightBandpassFilters.clear();
 
+    juce::dsp::ProcessSpec spec;
+    spec.sampleRate = sampleRate;
+    spec.maximumBlockSize = static_cast<uint32_t>(fftSize);
+    spec.numChannels = 1; // Mono processing for each channel
+
     for (float freq : centerFrequencies)
     {
         auto coeffs = juce::dsp::IIR::Coefficients<float>::makeBandPass(sampleRate, freq, 1.0f); // Q = 1
 
-        leftBandpassFilters.emplace_back();
-        leftBandpassFilters.back().coefficients = coeffs;
+        juce::dsp::IIR::Filter<float> leftFilter;
+        juce::dsp::IIR::Filter<float> rightFilter;
 
-        rightBandpassFilters.emplace_back();
-        rightBandpassFilters.back().coefficients = coeffs;
+        leftFilter.prepare(spec);
+        rightFilter.prepare(spec);
+
+        leftFilter.coefficients = coeffs;
+        rightFilter.coefficients = coeffs;
+
+        leftBandpassFilters.push_back(std::move(leftFilter));
+        rightBandpassFilters.push_back(std::move(rightFilter));
+
+        // leftBandpassFilters.emplace_back();
+        // leftBandpassFilters.back().coefficients = coeffs;
+
+        // rightBandpassFilters.emplace_back();
+        // rightBandpassFilters.back().coefficients = coeffs;
     }
 
     itdPerBand.resize(static_cast<size_t>(centerFrequencies.size()), 0.0f); // Initialize ITD estimates
