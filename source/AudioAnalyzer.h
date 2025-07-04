@@ -70,8 +70,8 @@ private:
     /* CQT stuff */
 
     void computeCQT(const float* channelData, int channelIndex);
-    float minCQTfreq;
-    int numCQTbins;
+    float minCQTfreq = 20.0f;
+    int numCQTbins = 128;;
 
     // Each filter is a complex-valued kernel vector (frequency domain)
     std::vector<std::vector<std::complex<float>>> cqtKernels;
@@ -177,7 +177,8 @@ private:
                 if (size1 > 0)
                 {
                     // Process this buffer - change to CQT when ready to test
-                    parentAnalyzer.analyzeBlockFFT(
+                    // parentAnalyzer.analyzeBlockFFT(
+                    parentAnalyzer.analyzeBlockCQT(
                         buffers[static_cast<size_t>(start1)]);
                     fifo.finishedRead(size1);
                 }

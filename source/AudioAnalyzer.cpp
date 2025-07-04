@@ -58,10 +58,21 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate)
         std::vector<std::complex<float>> kernelTime(static_cast<size_t>(kernelLength), 0.0f);
         for (size_t n = 0; n < static_cast<size_t>(kernelLength); ++n)
         {
-            float t = static_cast<float>(n) / static_cast<float>(sampleRate);
+            float t = (static_cast<float>(n) - fftSize * 0.5f) / sampleRate; // Edited for centering
             float w = 0.5f * (1.0f - std::cos(2.0f * juce::MathConstants<float>::pi * n / (kernelLength - 1)));
             kernelTime[n] = std::polar(w, -2.0f * juce::MathConstants<float>::pi * freq * t); // complex sinusioid * window
         }
+
+
+
+
+        // Normalize the kernel energy
+        float norm = 0.0f;
+        for (auto& v : kernelTime)
+            norm += std::norm(v);
+        norm = std::sqrt(norm);
+        for (auto& v : kernelTime)
+            v /= norm;
 
         // Zero-pad and FFT-- convert to frequency domain
         std::vector<std::complex<float>> kernelFreq(static_cast<size_t>(kernelLength));
@@ -69,6 +80,15 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate)
         kernelFFT.perform(kernelTime.data(), kernelFreq.data(), false);
 
         cqtKernels[bin] = std::move(kernelFreq);
+
+                float energy = 0.0f;
+        for (const auto& c : kernelFreq)
+            energy += std::abs(c);
+        DBG("Kernel " << bin << " energy = " << energy);
+
+        DBG("Built " << cqtKernels.size() << " CQT kernels");
+
+
     }
 
     // Allocate CQT result: 2 channels default
@@ -125,6 +145,11 @@ void AudioAnalyzer::computeFFT(const juce::AudioBuffer<float>& buffer,
         }
 
         fft.perform(fftBuffer.data(), fftBuffer.data(), false);
+
+        DBG("First few FFT buffer values after transform:");
+        for (int i = 0; i < 5; ++i)
+            DBG("fftBuffer[" << i << "] = " << fftBuffer[i].real() << " + " << fftBuffer[i].imag() << "i");
+
 
         // Extract just the first half (up to the Nyquist frequency)
         outSpectra[ch].resize(numBins);
@@ -197,11 +222,23 @@ void AudioAnalyzer::analyzeBlockFFT(const juce::AudioBuffer<float>& buffer)
 /* Analyze a block of audio data - OWEN VERSION */
 void AudioAnalyzer::analyzeBlockCQT(const juce::AudioBuffer<float>& buffer)
 {
+    DBG("Analyzing the next audio block");
+
+    DBG("numCQTbins = " << numCQTbins << ", fftSize = " << fftSize);
+
     // Compute CQT for each channel
     for (int ch = 0; ch < 2; ++ch)
     {
         const float* channelData = buffer.getReadPointer(ch);
         computeCQT(channelData, ch);  // populate cqtMagnitudes[ch]
+    }
+
+    for (int ch = 0; ch < 2; ++ch)
+    {
+        juce::StringArray mags;
+        for (float m : cqtMagnitudes[ch])
+            mags.add(juce::String(m, 3));
+        DBG("CQT magnitudes (ch " << ch << "): " << mags.joinIntoString(", "));
     }
 
     // === ILD/ITD Panning Index Calculation ===
@@ -249,6 +286,17 @@ void AudioAnalyzer::analyzeBlockCQT(const juce::AudioBuffer<float>& buffer)
         panningData[k] = (1.0f - similarity) * direction;
     }
 
+    // Log ITD and ILD panning values for the first 10 bins
+    juce::StringArray itdStrs, ildStrs;
+    for (int k = 0; k < std::min(10, numCQTbins); ++k)
+    {
+        itdStrs.add(juce::String(ITDpanningSpectrum[k], 3));
+        ildStrs.add(juce::String(ILDpanningSpectrum.getSample(0, k), 3));
+    }
+    DBG("ITD panning (first 10): " << itdStrs.joinIntoString(", "));
+    DBG("ILD panning (first 10): " << ildStrs.joinIntoString(", "));
+
+
     // Combine ILD and ITD into a single panning index
     std::vector<float> combinedPanning(static_cast<size_t>(numCQTbins));
     float ildWeight = 0.5f; // Can change these weights later
@@ -262,6 +310,40 @@ void AudioAnalyzer::analyzeBlockCQT(const juce::AudioBuffer<float>& buffer)
         combinedPanning[b] = (ildWeight * ild + itdWeight * itd) / (ildWeight + itdWeight);
     }
 
+    juce::StringArray combinedStrs;
+    for (int k = 0; k < std::min(10, numCQTbins); ++k)
+        combinedStrs.add(juce::String(combinedPanning[k], 3));
+    DBG("Combined panning indices (first 10): " << combinedStrs.joinIntoString(", "));
+
+
+    // Construct frequency_band results
+    std::vector<frequency_band> newResults;
+    newResults.reserve(numCQTbins);
+    for (size_t k = 0; k < static_cast<size_t>(numCQTbins); ++k)
+    {
+        float freq = centerFrequencies[k];
+        float amp = (leftCQT[k] + rightCQT[k]) * 0.5f;
+        amp = juce::jlimit(0.0f, 1.0f, amp / maxExpectedMag);  // normalize
+        amp = std::sqrt(amp);  // same perceptual scaling as in FFT version
+        newResults.push_back({ freq, amp, combinedPanning[k] });
+    }
+
+    juce::StringArray bandStrs;
+    for (int k = 0; k < std::min(10, numCQTbins); ++k)
+    {
+        auto& band = newResults[k];
+        bandStrs.add("f=" + juce::String(band.frequency, 1) +
+                    " A=" + juce::String(band.amplitude, 3) +
+                    " P=" + juce::String(band.pan_index, 3));
+    }
+    DBG("First 10 frequency_band structs: " << bandStrs.joinIntoString(" | "));
+
+
+    {
+        std::lock_guard<std::mutex> lock(resultsMutex);
+        results = std::move(newResults);
+    }
+
     // Build list of frequency_band structs (as in Mckinley version)
 
     // Hand over to GUI
@@ -271,10 +353,17 @@ void AudioAnalyzer::analyzeBlockCQT(const juce::AudioBuffer<float>& buffer)
 // Possibly later on split this into "computeFFT" and "applyCQT" if we need just FFT for other calculations
 void AudioAnalyzer::computeCQT(const float* channelData, int channelIndex)
 {
+    // Use end of buffer to match GCC-PHAT (if large enough)
+    const float* input = channelData;
+    if (samplesPerBlock >= fftSize)
+        input = channelData + (samplesPerBlock - fftSize);
+
+    DBG("Reading input from offset: " << (input - channelData));
+
     // Load windowed samples (real part) and zero-pad imag part
     for (size_t n = 0; n < static_cast<size_t>(fftSize); ++n)
     {
-        float x = (n < static_cast<size_t>(samplesPerBlock)) ? channelData[n] : 0.0f;
+        float x = (n < static_cast<size_t>(samplesPerBlock)) ? input[n] : 0.0f;
         fftBuffer[n] = std::complex<float>(x * window[n], 0.0f);
     }
 
@@ -292,6 +381,12 @@ void AudioAnalyzer::computeCQT(const float* channelData, int channelIndex)
 
         cqtMagnitudes[static_cast<size_t>(channelIndex)][bin] = std::abs(sum);
     }
+
+    juce::StringArray mags;
+    for (float m : cqtMagnitudes[channelIndex])
+        mags.add(juce::String(m, 3));
+    DBG("CQT magnitudes (post inner product) for ch " << channelIndex << ": " << mags.joinIntoString(", "));
+
 }
 
 void AudioAnalyzer::computeGCCPHAT_ITD(const juce::AudioBuffer<float>& buffer)
