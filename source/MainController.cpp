@@ -4,7 +4,7 @@
 MainController::MainController()
 {
     engine.setAudioCallbackSource(this);
-};
+}
 
 MainController::~MainController() = default;
 

@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 3.22)
-
 project(MOPANNING VERSION 0.0.1)
 
 add_subdirectory(JUCE)
@@ -53,4 +52,45 @@ target_link_libraries(MoPanning
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
-        juce::juce_recommended_warning_flags)
+        # juce::juce_recommended_warning_flags # Annoying
+)
+
+target_compile_options(MoPanning
+  PUBLIC
+    # core warning flags
+    # -Wall
+    -Wshadow-all
+    -Wshorten-64-to-32
+    -Wstrict-aliasing
+    -Wuninitialized
+    -Wunused-parameter
+    # -Wconversion
+    -Wsign-compare
+    -Wint-conversion
+    -Wconditional-uninitialized
+    -Wconstant-conversion
+    # -Wsign-conversion # Annoying
+    -Wbool-conversion
+    -Wextra-semi
+    -Wunreachable-code
+    -Wcast-align
+    -Wshift-sign-overflow
+    -Wmissing-prototypes
+    -Wnullable-to-nonnull-conversion
+    -Wswitch-enum
+    -Wpedantic
+    -Wdeprecated
+    -Wfloat-equal
+    -Wmissing-field-initializers
+    -Wno-ignored-qualifiers
+    -Wmissing-field-initializers
+    -Wunused-private-field
+    -Woverloaded-virtual
+    -Wreorder
+    -Winconsistent-missing-destructor-override
+
+    # language‐specific guards:
+    $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:OBJCXX>>:-Wzero-as-null-pointer-constant>
+    $<$<OR:$<COMPILE_LANGUAGE:OBJ C>,$<COMPILE_LANGUAGE:OBJCXX>>:-Wunguarded-availability>
+    $<$<OR:$<COMPILE_LANGUAGE:OBJ C>,$<COMPILE_LANGUAGE:OBJCXX>>:-Wunguarded-availability-new>
+)

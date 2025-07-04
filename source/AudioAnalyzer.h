@@ -15,6 +15,8 @@ struct frequency_band {
 
 typedef std::vector<juce::dsp::Complex<float>> fft_buffer_t;
 
+enum AnalysisMode { FFT, CQT };
+
 class AudioAnalyzer
 {
 public:
@@ -42,63 +44,63 @@ private:
     //=========================================================================
     /* Analysis functions */
 
+    void prepareBandpassFilters();
+
     void computeFFT(const juce::AudioBuffer<float>& buffer,
                     std::array<fft_buffer_t, 2>& outSpectra);
     void computeILDs(std::array<fft_buffer_t, 2>& spectra,
                      std::vector<float>& outPan);
+    void computeCQT(const float* channelData, int channelIndex);
+    float gccPhatDelayPerBand(const float* x, const float* y, 
+                              juce::dsp::IIR::Filter<float>& bandpassLeft, 
+                              juce::dsp::IIR::Filter<float>& bandpassRight);
+    void computeGCCPHAT_ITD(const juce::AudioBuffer<float>& buffer);
+
     void analyzeBlockFFT(const juce::AudioBuffer<float>& buffer);
     void analyzeBlockCQT(const juce::AudioBuffer<float>& buffer);
 
     //=========================================================================
     /* Basic stuff */
 
+    enum AnalysisMode analysisMode = CQT;
+
     int samplesPerBlock;
     double sampleRate;
 
+    std::vector<float> window; // Hann window of length fftSize
+
     //=========================================================================
-    /* Stuff added for basic FFT / ILD version */
+    /* FFT stuff */
 
     int fftOrder = 9; // FFT order = log2(fftSize)
     int fftSize = 1 << fftOrder;
     juce::dsp::FFT fft{ fftOrder }; // JUCE FFT engine
-    std::vector<float> window; // Hann window of length fftSize
     fft_buffer_t fftBuffer;
     int numBins = fftSize / 2 + 1; // Number of useful bins from FFT
     float maxExpectedMag; 
-
+    
     //=========================================================================
     /* CQT stuff */
 
-    void computeCQT(const float* channelData, int channelIndex);
     float minCQTfreq = 20.0f;
-    int numCQTbins = 128;;
+    int numCQTbins = 128;
+    std::vector<float> centerFrequencies;
 
     // Each filter is a complex-valued kernel vector (frequency domain)
     std::vector<std::vector<std::complex<float>>> cqtKernels;
 
     // CQT result: [numChannels][numCQTbins]
     std::vector<std::vector<float>> cqtMagnitudes;
-    
+
     //=========================================================================
     /* Panning - Owen version */
 
     juce::AudioBuffer<float> ILDpanningSpectrum;
-    const juce::AudioBuffer<float>& getILDPanningSpectrum() const { return ILDpanningSpectrum; }
     std::vector<float> ITDpanningSpectrum;
 
-    void computeGCCPHAT_ITD(const juce::AudioBuffer<float>& buffer);
-
     std::vector<float> itdPerBand;
-
-    float gccPhatDelayPerBand(const float* x, const float* y, 
-                              juce::dsp::IIR::Filter<float>& bandpassLeft, 
-                              juce::dsp::IIR::Filter<float>& bandpassRight);
-
     std::vector<juce::dsp::IIR::Filter<float>> leftBandpassFilters;
     std::vector<juce::dsp::IIR::Filter<float>> rightBandpassFilters;
-    std::vector<float> centerFrequencies;
-
-    void prepareBandpassFilters();
 
     //=========================================================================
     /* Output for GUI */
@@ -120,7 +122,7 @@ class AudioAnalyzer::AnalyzerWorker
 public:
     AnalyzerWorker(int numSlots, int blockSizeIn, AudioAnalyzer& parent)
         : fifo(numSlots), 
-          buffers(static_cast<size_t>(numSlots)), 
+          buffers(numSlots), 
           parentAnalyzer(parent)
     {
         // Pre-allocate buffers
@@ -155,7 +157,7 @@ public:
         // size1 should be 1, and start2/size2 unused
         // Copy into pre-allocated buffer slot
         // We assume input has same numChannels and blockSize
-        buffers[static_cast<size_t>(start1)].makeCopyOf(input);
+        buffers[start1].makeCopyOf(input);
         fifo.finishedWrite(size1);
 
         // Notify worker thread that new data is available
@@ -174,14 +176,15 @@ private:
             if (fifo.getNumReady() > 0)
             {
                 fifo.prepareToRead(1, start1, size1, start2, size2);
-                if (size1 > 0)
-                {
-                    // Process this buffer - change to CQT when ready to test
-                    // parentAnalyzer.analyzeBlockFFT(
-                    parentAnalyzer.analyzeBlockCQT(
-                        buffers[static_cast<size_t>(start1)]);
-                    fifo.finishedRead(size1);
-                }
+                if (size1 < 0) continue;
+
+                if (parentAnalyzer.analysisMode == CQT)
+                    parentAnalyzer.analyzeBlockCQT(buffers[start1]);
+
+                else if (parentAnalyzer.analysisMode == FFT)
+                    parentAnalyzer.analyzeBlockFFT(buffers[start1]);
+                
+                fifo.finishedRead(size1);
             }
             else
             {

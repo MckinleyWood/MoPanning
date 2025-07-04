@@ -97,7 +97,7 @@ void GLVisualizer::initialise()
     jassert(shaderLinked);
     juce::ignoreUnused(shaderLinked);
 
-    // Build a 2×2 clip-space quad centred at (0,0)
+    // Build a 2x2 clip-space quad centred at (0,0)
     vbo.create(openGLContext);
     ext.glBindBuffer(GL_ARRAY_BUFFER, vbo.id);
 
@@ -121,14 +121,14 @@ void GLVisualizer::initialise()
     // Create instance buffer
     ext.glGenBuffers(1, &instanceVBO);
 
-    // Bind the instanceVBO to set up the attribute pointer for instancing.
+    // Bind the instanceVBO to set up the attribute pointer for instancing
     ext.glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
     ext.glEnableVertexAttribArray(1);
     ext.glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 
                               sizeof(InstanceData), nullptr);
     glVertexAttribDivisor(1, 1); // This attribute advances once per instance
 
-    // Unbind VAO to avoid accidental state leakage:
+    // Unbind VAO to avoid accidental state leakage
     ext.glBindVertexArray(0);
 
     // Force repaint to make sure the mvp is correct - try this if stuff breaks
@@ -222,29 +222,13 @@ void GLVisualizer::render()
         }
     }
 
-    // Spirals
-    // Compute position for the new particles
-    // float t = (float)(juce::Time::getMillisecondCounterHiRes() * 0.001 
-    //                 - startTime);
-    // float r = 0.75f;     
-    // float w = juce::MathConstants<float>::twoPi * 0.4f;
-    // float x = r * std::cos(w * t);
-    // float y = r * std::sin(w * t);
-
-    // // Add new particles to the queue
-    // Particle newParticle1 = { x, y, t, avg_amplitude};
-    // Particle newParticle2 = { -x, -y, t, avg_amplitude};
-    // particles.push_back(newParticle1);
-    // particles.push_back(newParticle2);
-
-
     // Delete old particles
     while (!particles.empty())
     {
         const float age = t - particles.front().spawnTime;
-        if (age * speed < fadeEndZ)   // still visible?
-            break;                    // oldest one is still alive
-        particles.pop_front();        // otherwise discard and test next
+        if (age * speed < fadeEndZ)
+            break; // If the oldest one is still alive, then we are done
+        particles.pop_front(); // Otherwise, discard it and test the next
     }
 
     // Build instance data array
