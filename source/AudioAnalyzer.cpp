@@ -549,14 +549,9 @@ void AudioAnalyzer::analyzeBlockCQT(const juce::AudioBuffer<float>& buffer)
     }
     DBG("First 10 frequency_band structs: " << bandStrs.joinIntoString(" | "));
 
-
     {
         std::lock_guard<std::mutex> lock(resultsMutex);
         results = std::move(newResults);
     }
-
-    // Build list of frequency_band structs (as in Mckinley version)
-
-    // Hand over to GUI
 }
 

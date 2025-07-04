@@ -72,7 +72,7 @@ private:
     float fadeEndZ = 15.0f; // Distance until the point fades to black (m)
     float farZ = 100.0f; // Distance to the end of clip space (m)
     float fov = juce::MathConstants<float>::pi / 4.0f;
-    float dotSize = 0.01f; // Radius of the dots
+    float dotSize = 0.04f; // Radius of the dots
     
     MainController& controller;
 

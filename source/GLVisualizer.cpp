@@ -62,7 +62,7 @@ void GLVisualizer::initialise()
             gl_Position = uProjection * uView * worldPos;
 
             // Pass position scaled appropriately
-            vPos = position / uDotSize;
+            vPos = position / (uDotSize * sqrt(instanceData.w));
         }
     )";
 
@@ -183,33 +183,34 @@ void GLVisualizer::render()
 
     // First draft of audio-based visuals
     auto results = controller.getLatestResults();
-    float sampleRate = static_cast<float>(controller.getSampleRate());
-    float minFreq = 20.f; // Hardcoded for now
-    float maxFreq = sampleRate * 0.5f;
-    float minBandFreq = 0;
-
-    for (frequency_band band : results)
-    {
-        if (band.frequency > minFreq)
-        {
-            minBandFreq = band.frequency;
-            break; // Assuming frequencies in sorted order
-        }
-    }
-
-    float logMin = std::log(minBandFreq);
-    float logMax = std::log(maxFreq);
 
     if (!results.empty())
     {
-        // DBG("Reading from results...");
+        float sampleRate = static_cast<float>(controller.getSampleRate());
+        float minFreq = 20.f; // Hardcoded for now
+        float maxFreq = sampleRate * 0.5f;
+        float minBandFreq = 0;
+
+        for (frequency_band band : results)
+        {
+            if (band.frequency > minFreq)
+            {
+                minBandFreq = band.frequency;
+                break; // Assuming frequencies in sorted order
+            }
+        }
+
+        float logMin = std::log(minBandFreq);
+        float logMax = std::log(maxFreq);
+
+        float aspect = getWidth() * 1.0f / getHeight();
 
         for (frequency_band band : results)
         {
             if (band.frequency < minBandFreq || band.frequency > maxFreq) 
                 continue;
-
-            float x = band.pan_index;
+            
+            float x = band.pan_index * aspect;
             float y = (std::log(band.frequency) - logMin) / (logMax - logMin);
             y = juce::jmap(y, -1.0f, 1.0f);
             float a = band.amplitude;
