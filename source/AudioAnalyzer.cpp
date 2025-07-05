@@ -142,7 +142,7 @@ void AudioAnalyzer::prepareBandpassFilters()
     for (float freq : centerFrequencies)
     {
         auto coeffs = juce::dsp::IIR::Coefficients<float>::makeBandPass(
-            sampleRate, freq, 1.0f); // Q = 1
+            sampleRate, freq, Q);
 
         juce::dsp::IIR::Filter<float> leftFilter;
         juce::dsp::IIR::Filter<float> rightFilter;
@@ -155,12 +155,6 @@ void AudioAnalyzer::prepareBandpassFilters()
 
         leftBandpassFilters.push_back(std::move(leftFilter));
         rightBandpassFilters.push_back(std::move(rightFilter));
-
-        // leftBandpassFilters.emplace_back();
-        // leftBandpassFilters.back().coefficients = coeffs;
-
-        // rightBandpassFilters.emplace_back();
-        // rightBandpassFilters.back().coefficients = coeffs;
     }
 
     // Initialize ITD estimates
@@ -336,11 +330,11 @@ float AudioAnalyzer::gccPhatDelayPerBand(const float* x, const float* y,
     int center = fftSize / 2;
     int delay = (maxIndex <= center) ? maxIndex : maxIndex - fftSize;
 
-    return static_cast<float>(delay);
-
     DBG("GCC-PHAT delay: maxIndex = " << maxIndex
         << ", delay = " << delay
         << ", maxCorr = " << maxValue);
+
+    return static_cast<float>(delay);
 
     float energyX = std::accumulate(filteredX.begin(), filteredX.end(), 0.0f,
     [](float acc, float v) { return acc + v*v; });
@@ -380,13 +374,11 @@ void AudioAnalyzer::computeGCCPHAT_ITD(const juce::AudioBuffer<float>& buffer)
             rightFilter
         );
 
-        float normalizedDelay = delaySamples / (fftSize / 2.0f);
-        normalizedDelay = juce::jlimit(-1.0f, 1.0f, normalizedDelay);
-        itdPerBand[b] = normalizedDelay;
+        itdPerBand[b] = delaySamples / sampleRate;
 
         DBG("ITD bin " << b 
             << ": delaySamples = " << delaySamples
-            << ", normalizedDelay = " << normalizedDelay);
+            << ", delaySeconds = " << itdPerBand[b]);
     }
 }
 
@@ -454,7 +446,6 @@ void AudioAnalyzer::analyzeBlockCQT(const juce::AudioBuffer<float>& buffer)
     
     ILDpanningSpectrum.setSize(1, numCQTbins);
     ITDpanningSpectrum.resize(numCQTbins);
-    float maxITD = 0.09f / 343.0f; // ~0.00026 sec --**
 
     const auto& leftCQT = cqtMagnitudes[0];
     const auto& rightCQT = cqtMagnitudes[1];
@@ -466,8 +457,7 @@ void AudioAnalyzer::analyzeBlockCQT(const juce::AudioBuffer<float>& buffer)
     for (int k = 0; k < numCQTbins; ++k)
     {
         // === ITD panning index ===
-        float itd = itdPerBand[k]; // in seconds
-        ITDpanningSpectrum[k] = juce::jlimit(-1.0f, 1.0f, itd / maxITD);
+        ITDpanningSpectrum[k] = juce::jlimit(-1.0f, 1.0f, itdPerBand[k] / maxITD);
 
         // === ILD panning index ===
         const float L = leftCQT[k];
@@ -495,21 +485,21 @@ void AudioAnalyzer::analyzeBlockCQT(const juce::AudioBuffer<float>& buffer)
         panningData[k] = (1.0f - similarity) * direction;
     }
 
-    // Log ITD and ILD panning values for the first 10 bins
+    // Log ITD and ILD panning values
     juce::StringArray itdStrs, ildStrs;
-    for (int k = 0; k < std::min((10), numCQTbins); ++k)
+    for (int k = 0; k < numCQTbins; ++k)
     {
         itdStrs.add(juce::String(ITDpanningSpectrum[k], 3));
         ildStrs.add(juce::String(ILDpanningSpectrum.getSample(0, k), 3));
     }
-    DBG("ITD panning (first 10): " << itdStrs.joinIntoString(", "));
-    DBG("ILD panning (first 10): " << ildStrs.joinIntoString(", "));
+    DBG("ITD panning: " << itdStrs.joinIntoString(", "));
+    DBG("ILD panning: " << ildStrs.joinIntoString(", "));
 
 
     // Combine ILD and ITD into a single panning index
     std::vector<float> combinedPanning(numCQTbins);
-    float ildWeight = 0.5f; // Can change these weights later
-    float itdWeight = 0.5f;
+    float ildWeight = 0.75f; // Can change these weights later
+    float itdWeight = 0.25f;
 
     for (int b = 0; b < numCQTbins; ++b)
     {
@@ -521,9 +511,9 @@ void AudioAnalyzer::analyzeBlockCQT(const juce::AudioBuffer<float>& buffer)
     }
 
     juce::StringArray combinedStrs;
-    for (int k = 0; k < std::min((10), numCQTbins); ++k)
+    for (int k = 0; k < numCQTbins; ++k)
         combinedStrs.add(juce::String(combinedPanning[k], 3));
-    DBG("Combined panning indices (first 10): " 
+    DBG("Combined panning indices: " 
      << combinedStrs.joinIntoString(", "));
 
 

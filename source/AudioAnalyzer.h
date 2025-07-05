@@ -69,6 +69,10 @@ private:
 
     std::vector<float> window; // Hann window of length fftSize
 
+    float Qtarget = 1.0f / (std::pow(2.0f, 1.0f / numCQTbins) - 1.0f);
+    float Q = juce::jlimit(1.0f, 12.0f, Qtarget);  // Clamp Q
+
+
     //=========================================================================
     /* FFT stuff */
 
@@ -83,7 +87,7 @@ private:
     /* CQT stuff */
 
     float minCQTfreq = 20.0f;
-    int numCQTbins = 128;
+    int numCQTbins = 256;
     std::vector<float> centerFrequencies;
 
     // Each filter is a complex-valued kernel vector (frequency domain)
@@ -101,6 +105,9 @@ private:
     std::vector<float> itdPerBand;
     std::vector<juce::dsp::IIR::Filter<float>> leftBandpassFilters;
     std::vector<juce::dsp::IIR::Filter<float>> rightBandpassFilters;
+
+    float maxITD = 0.09f / 343.0f; // ~0.00026 sec (0.09m from center of head 
+                                   // to each ear, 343 m/s speed of sound)
 
     //=========================================================================
     /* Output for GUI */
