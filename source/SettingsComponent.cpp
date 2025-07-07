@@ -28,7 +28,6 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
 
     addAndMakeVisible(setBufferSize);
     addAndMakeVisible(bufferSizeLabel);
-    
 
     setMinCQTfreq.setText("20.0");
     float minCQTfreq = setMinCQTfreq.getText().getFloatValue();
@@ -59,9 +58,23 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
     addAndMakeVisible(fftOrderSlider);
     addAndMakeVisible(fftOrderLabel);
 
+    speedSlider.setRange(0.1f, 20.f);
+    speedSlider.setValue(5.f); // Default to 2048 (2^11) FFT size
+
+    speedLabel.setFont(font);
+    speedLabel.setJustificationType(juce::Justification::centredLeft);
+
+    addAndMakeVisible(speedSlider);
+    addAndMakeVisible(speedLabel);
+
+    speedSlider.addListener(this);
+
 }
 
-SettingsComponent::~SettingsComponent() = default;
+SettingsComponent::~SettingsComponent()
+{
+    speedSlider.removeListener(this);
+}
 
 //=============================================================================
 void SettingsComponent::paint(juce::Graphics& g)
@@ -75,16 +88,14 @@ void SettingsComponent::paint(juce::Graphics& g)
 
     g.setFont(font);
 
-    g.drawFittedText("Hi Mckinley",
-                     getLocalBounds(),
-                     juce::Justification::centred,
-                     1);
+    g.drawFittedText("Hi Owen", getLocalBounds(), 
+                     juce::Justification::centred, 1);
 }
 
 void SettingsComponent::resized() 
 {
     auto area = getLocalBounds().reduced(10);
-    auto rowHeight = 30;
+    int rowHeight = 30;
 
     auto labelArea = area;
     area.removeFromLeft(180);
@@ -114,4 +125,19 @@ void SettingsComponent::resized()
                        .withWidth(sliderArea.getWidth() + 100);
     fftOrderSlider.setBounds(sliderArea.removeFromTop(rowHeight));
     fftOrderLabel.setBounds(labelArea.removeFromTop(rowHeight));
+    area.removeFromTop(rowHeight + 10);
+    labelArea.removeFromTop(10);
+
+    sliderArea = area;
+    sliderArea = sliderArea.withX(sliderArea.getX() - 100)
+                       .withWidth(sliderArea.getWidth() + 100);
+    speedSlider.setBounds(sliderArea.removeFromTop(rowHeight));
+    speedLabel.setBounds(labelArea.removeFromTop(rowHeight));
+}
+
+
+void SettingsComponent::sliderValueChanged(juce::Slider* s)
+{
+    if (s == &speedSlider)
+        controller.setRecedeSpeed((float)s->getValue());
 }

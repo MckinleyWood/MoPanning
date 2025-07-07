@@ -66,16 +66,16 @@ private:
     juce::Matrix3D<float> view; // View matrix
     juce::Matrix3D<float> projection; // Projection matrix
 
+    MainController& controller;
+
     double startTime = 0.0; // App-launch time in seconds
-    float speed = 5.f; // Speed that objects recede    --(was 2.f)
+    float recedeSpeed; // Speed that objects recede    --(was 2.f)
+    float dotSize = 0.005f; // Radius of the dots       --(was 0.04f)
     float nearZ = 0.1f;
     float fadeEndZ = 5.0f; // Distance until the point fades to black (m)  --(was 15.0f)
     float farZ = 100.0f; // Distance to the end of clip space (m)
     float fov = juce::MathConstants<float>::pi / 4.0f;
-    float dotSize = 0.005f; // Radius of the dots       --(was 0.04f)
     
-    MainController& controller;
-
     //=========================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GLVisualizer)
 };

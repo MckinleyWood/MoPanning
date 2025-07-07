@@ -6,7 +6,8 @@ class MainController;
 //=============================================================================
 /*  This is the component for the settings widget.
 */
-class SettingsComponent : public juce::Component
+class SettingsComponent : public juce::Component,
+                          private juce::Slider::Listener
 {
 public:
     //=========================================================================
@@ -16,6 +17,8 @@ public:
     //=========================================================================
     void paint(juce::Graphics&) override;
     void resized(void) override;
+
+    void sliderValueChanged(juce::Slider* s) override;
 
 private:
     //=========================================================================
@@ -31,6 +34,8 @@ private:
     juce::Label numCQTbinsLabel{"Num CQT Bins", "Number of CQT Bins:"};
     juce::Slider fftOrderSlider;
     juce::Label fftOrderLabel{"FFT Order", "FFT Order:"};
+    juce::Slider speedSlider;
+    juce::Label speedLabel{"Recede Speed", "Recede Speed:"};
     
     //=========================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SettingsComponent)

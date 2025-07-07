@@ -180,6 +180,7 @@ void GLVisualizer::render()
 
     float t = (float)(juce::Time::getMillisecondCounterHiRes() * 0.001 
                     - startTime);
+    recedeSpeed = controller.getRecedeSpeed();
 
     // First draft of audio-based visuals
     auto results = controller.getLatestResults();
@@ -227,7 +228,7 @@ void GLVisualizer::render()
     while (!particles.empty())
     {
         const float age = t - particles.front().spawnTime;
-        if (age * speed < fadeEndZ)
+        if (age * recedeSpeed < fadeEndZ)
             break; // If the oldest one is still alive, then we are done
         particles.pop_front(); // Otherwise, discard it and test the next
     }
@@ -249,7 +250,7 @@ void GLVisualizer::render()
     shader->setUniformMat4("uProjection", projection.mat, 1, GL_FALSE);
     shader->setUniformMat4("uView", view.mat, 1, GL_FALSE);
     shader->setUniform("uCurrentTime", t);
-    shader->setUniform("uSpeed", speed);
+    shader->setUniform("uSpeed", recedeSpeed);
     shader->setUniform("uFadeEndZ", fadeEndZ);
     shader->setUniform("uDotSize", dotSize);
 

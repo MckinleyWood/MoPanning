@@ -72,7 +72,6 @@ private:
     float Qtarget = 1.0f / (std::pow(2.0f, 1.0f / numCQTbins) - 1.0f);
     float Q = juce::jlimit(1.0f, 12.0f, Qtarget);  // Clamp Q
 
-
     //=========================================================================
     /* FFT stuff */
 
