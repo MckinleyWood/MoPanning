@@ -93,11 +93,6 @@ int MainController::getNumCQTbins() const
     return settingsTree[ParamIDs::numCQTbins];
 }
 
-double MainController::getStartTime() const
-{
-    return settingsTree[ParamIDs::startTime];
-}
-
 float  MainController::getRecedeSpeed() const
 {
     return settingsTree[ParamIDs::recedeSpeed];
@@ -158,11 +153,6 @@ void MainController::setMinFrequency(float newMinFrequency)
 void MainController::setNumCQTbins(int newNumCQTbins) 
 { 
     settingsTree.setProperty(ParamIDs::numCQTbins, newNumCQTbins, nullptr); 
-}
-
-void MainController::setStartTime(double newStartTime) 
-{ 
-    settingsTree.setProperty(ParamIDs::startTime, newStartTime, nullptr); 
 }
 
 void MainController::setRecedeSpeed(float newRecedeSpeed) 

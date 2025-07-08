@@ -24,18 +24,26 @@ private:
     //=========================================================================
     MainController& controller;
 
-    juce::TextEditor setSampleRate;
-    juce::Label sampleRateLabel{"Sample Rate", "Sample Rate [Hz]:"};
-    juce::TextEditor setBufferSize;
-    juce::Label bufferSizeLabel{"Buffer Size", "Buffer Size:"};
-    juce::TextEditor setMinCQTfreq;
-    juce::Label minCQTfreqLabel{"Min CQT Freq", "Min CQT Frequency [Hz]:"};
-    juce::TextEditor setNumCQTbins;
-    juce::Label numCQTbinsLabel{"Num CQT Bins", "Number of CQT Bins:"};
-    juce::Slider fftOrderSlider;
-    juce::Label fftOrderLabel{"FFT Order", "FFT Order:"};
-    juce::Slider speedSlider;
-    juce::Label speedLabel{"Recede Speed", "Recede Speed:"};
+    // Title label subcomponent
+    juce::Label title;
+
+    // Settings subcomponents
+    juce::ComboBox sampleRateBox;
+    juce::ComboBox samplesPerBlockBox;
+    juce::ComboBox analysisModeBox;
+    juce::ComboBox fftOrderBox;
+    juce::ComboBox minFrequencyBox;
+    juce::ComboBox numCQTbinsBox;
+    juce::Slider recedeSpeedSlider;
+    juce::Slider dotSizeSlider;
+    juce::Slider nearZSlider;
+    juce::Slider fadeEndZSlider;
+    juce::Slider farZSlider;
+    juce::Slider fovSlider;
+
+    // Function to get a list of all of our settings subcomponents
+    std::vector<juce::Component*> getSettings();
+    
     
     //=========================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SettingsComponent)

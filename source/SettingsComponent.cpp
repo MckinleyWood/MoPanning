@@ -4,140 +4,103 @@
 //=============================================================================
 SettingsComponent::SettingsComponent(MainController& c) : controller(c)
 {
-    juce::Font font;
-    font.setTypefaceName("Comic Sans MS");
-    font.setHeight(18.0f);
-    font.setStyleFlags(juce::Font::plain);
-    
-    setSampleRate.setText("44100.0");
-    double sampleRate = setSampleRate.getText().getDoubleValue();
-    setSampleRate.setColour(juce::Label::textColourId, juce::Colours::white);
-
-    sampleRateLabel.setFont(font);
-    sampleRateLabel.setJustificationType(juce::Justification::centredLeft);
-
-    addAndMakeVisible(setSampleRate);
-    addAndMakeVisible(sampleRateLabel);
-
-    setBufferSize.setText("512");
-    int bufferSize = setBufferSize.getText().getIntValue();
-    setBufferSize.setColour(juce::Label::textColourId, juce::Colours::white);
-
-    bufferSizeLabel.setFont(font);
-    bufferSizeLabel.setJustificationType(juce::Justification::centredLeft);
-
-    addAndMakeVisible(setBufferSize);
-    addAndMakeVisible(bufferSizeLabel);
-
-    setMinCQTfreq.setText("20.0");
-    float minCQTfreq = setMinCQTfreq.getText().getFloatValue();
-    setMinCQTfreq.setColour(juce::Label::textColourId, juce::Colours::white);
-
-    minCQTfreqLabel.setFont(font);
-    minCQTfreqLabel.setJustificationType(juce::Justification::centredLeft);
-
-    addAndMakeVisible(setMinCQTfreq);
-    addAndMakeVisible(minCQTfreqLabel);
-
-    setNumCQTbins.setText("128");
-    int numCQTbins = setNumCQTbins.getText().getIntValue();
-    setNumCQTbins.setColour(juce::Label::textColourId, juce::Colours::white);
-
-    numCQTbinsLabel.setFont(font);
-    numCQTbinsLabel.setJustificationType(juce::Justification::centredLeft);
-
-    addAndMakeVisible(setNumCQTbins);
-    addAndMakeVisible(numCQTbinsLabel);
-
-    fftOrderSlider.setRange(8, 12, 1);
-    fftOrderSlider.setValue(11); // Default to 2048 (2^11) FFT size
-
-    fftOrderLabel.setFont(font);
-    fftOrderLabel.setJustificationType(juce::Justification::centredLeft);
-
-    addAndMakeVisible(fftOrderSlider);
-    addAndMakeVisible(fftOrderLabel);
-
-    speedSlider.setRange(0.1f, 20.f);
-    speedSlider.setValue(5.f); // Default to 2048 (2^11) FFT size
-
-    speedLabel.setFont(font);
-    speedLabel.setJustificationType(juce::Justification::centredLeft);
-
-    addAndMakeVisible(speedSlider);
-    addAndMakeVisible(speedLabel);
-
-    speedSlider.addListener(this);
-
+    addAndMakeVisible(title);
+    for (const auto& setting : getSettings())
+    {
+        addAndMakeVisible(setting);
+    }
 }
 
 SettingsComponent::~SettingsComponent()
 {
-    speedSlider.removeListener(this);
 }
 
 //=============================================================================
 void SettingsComponent::paint(juce::Graphics& g)
 {
+    auto bounds = getLocalBounds().reduced(10, 10);
+
+    // Paint the background
     g.fillAll(juce::Colours::darkgrey);
-    g.setColour(juce::Colours::white);
-    juce::Font font;
-    font.setTypefaceName("Comic Sans MS");
-    font.setHeight(20.0f);
-    font.setStyleFlags(juce::Font::plain);
 
-    g.setFont(font);
+    using Font = juce::FontOptions;
 
-    g.drawFittedText("Hi Owen", getLocalBounds(), 
-                     juce::Justification::centred, 1);
+    // Set the font
+    Font normalFont = { "Comic Sans MS", 20.f, 0};
+    Font titleFont = normalFont.withHeight(bounds.getHeight() * 0.06f)
+                               .withStyle("Bold");
+
+    // Paint the title
+    title.setText("Hi Owen", juce::dontSendNotification);
+    title.setFont(titleFont);
+    title.setJustificationType(juce::Justification::centred);
+    title.setColour(juce::Label::textColourId, juce::Colours::white);
+
+    // Paint boxes around all components (for testing)
+    // g.setColour(juce::Colours::yellow);
+    // g.drawRect(title.getBounds());
+    // for (const auto& comp : getSettings())
+    // {
+    //     g.drawRect(comp->getBounds());
+    // }
 }
 
 void SettingsComponent::resized() 
 {
-    auto area = getLocalBounds().reduced(10);
-    int rowHeight = 30;
+    // Partition the editor into zones
+    auto bounds = getLocalBounds();
 
-    auto labelArea = area;
-    area.removeFromLeft(180);
+    bounds.reduce(10, 10);
+    int totalHeight = bounds.getHeight();
+    int totalwidth = bounds.getWidth();
 
-    setSampleRate.setBounds(area.removeFromTop(rowHeight));
-    sampleRateLabel.setBounds(labelArea.removeFromTop(rowHeight));
-    area.removeFromTop(10);
-    labelArea.removeFromTop(10);
+    auto titleZone = bounds.withTrimmedBottom(totalHeight * 0.9f + 10);
+    auto mainZone = bounds.withTrimmedTop(totalHeight * 0.1f);
 
-    setBufferSize.setBounds(area.removeFromTop(rowHeight));
-    bufferSizeLabel.setBounds(labelArea.removeFromTop(rowHeight));
-    area.removeFromTop(10);
-    labelArea.removeFromTop(10);
+    std::vector<juce::Rectangle<int>> settingZones;
 
-    setMinCQTfreq.setBounds(area.removeFromTop(rowHeight));
-    minCQTfreqLabel.setBounds(labelArea.removeFromTop(rowHeight));
-    area.removeFromTop(10);
-    labelArea.removeFromTop(10);
+    auto settings = getSettings();
+    int numSettings = settings.size();
+    int rowHeight = mainZone.getHeight() * 1.f / numSettings;
 
-    setNumCQTbins.setBounds(area.removeFromTop(rowHeight));
-    numCQTbinsLabel.setBounds(labelArea.removeFromTop(rowHeight));
-    area.removeFromTop(10);
-    labelArea.removeFromTop(10);
+    juce::Rectangle<int> currentZone;
+    
+    for (int i = 0; i < numSettings; ++i)
+    {
+        currentZone = mainZone.removeFromTop(rowHeight);
+        currentZone.reduce(0, 5);
+        settingZones.push_back(currentZone);
+    }
 
-    auto sliderArea = area;
-    sliderArea = sliderArea.withX(sliderArea.getX() - 100)
-                       .withWidth(sliderArea.getWidth() + 100);
-    fftOrderSlider.setBounds(sliderArea.removeFromTop(rowHeight));
-    fftOrderLabel.setBounds(labelArea.removeFromTop(rowHeight));
-    area.removeFromTop(rowHeight + 10);
-    labelArea.removeFromTop(10);
+    // Set the bounds of the components
+    title.setBounds(titleZone);
 
-    sliderArea = area;
-    sliderArea = sliderArea.withX(sliderArea.getX() - 100)
-                       .withWidth(sliderArea.getWidth() + 100);
-    speedSlider.setBounds(sliderArea.removeFromTop(rowHeight));
-    speedLabel.setBounds(labelArea.removeFromTop(rowHeight));
+    for(int i = 0; i < numSettings; ++i)
+    {
+        settings[i]->setBounds(settingZones[i]);
+    }
 }
-
 
 void SettingsComponent::sliderValueChanged(juce::Slider* s)
 {
-    if (s == &speedSlider)
-        controller.setRecedeSpeed((float)s->getValue());
+
+}
+
+//=============================================================================
+std::vector<juce::Component*> SettingsComponent::getSettings()
+{
+    return {
+        &sampleRateBox,
+        &samplesPerBlockBox,
+        &analysisModeBox,
+        &fftOrderBox,
+        &minFrequencyBox,
+        &numCQTbinsBox,
+        &recedeSpeedSlider,
+        &dotSizeSlider,
+        &nearZSlider,
+        &fadeEndZSlider,
+        &farZSlider,
+        &fovSlider
+    };
 }
