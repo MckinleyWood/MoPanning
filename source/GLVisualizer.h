@@ -83,6 +83,7 @@ private:
     float fadeEndZ = 5.0f;
     float farZ = 100.0f; // Distance to the end of clip space (m)
     float fov = 45.f;
+    int maxParticles = 20000;
     
     //=========================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GLVisualizer)

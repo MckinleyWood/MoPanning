@@ -59,7 +59,6 @@ void GLVisualizer::initialise()
 
     // GLSL vertex shader initialization code
     static const char* vertSrc = R"(#version 150
-        in vec2 position;
         in vec4 instanceData;
 
         uniform mat4 uProjection;
@@ -69,7 +68,6 @@ void GLVisualizer::initialise()
         uniform float uFadeEndZ;
         uniform float uDotSize;
 
-        out vec2 vPos;
         out float vDepth;
         out float vSpawnAlpha;
 
@@ -84,34 +82,30 @@ void GLVisualizer::initialise()
             vSpawnAlpha = instanceData.w;
 
             // Build world position
-            vec3 spawnPos = vec3(instanceData.x, instanceData.y, 0.0);
-            vec4 localPos = vec4(position, 0.0, 1.0);
-            vec4 worldPos = vec4(spawnPos, 1.0) + vec4(localPos.xyz, 0.0);
-            worldPos.z += z; // apply receding
+            vec4 worldPos = vec4(instanceData.xy, z, 1.0);
 
             // Compute clip-space coordinate
             gl_Position = uProjection * uView * worldPos;
 
-            // Pass position scaled appropriately
-            vPos = position / vec2(uDotSize * sqrt(instanceData.w));
+            // Size in pixels
+            gl_PointSize = 100.0 * uDotSize * sqrt(instanceData.w);
+            // gl_PointSize = 20.0;
         }
     )";
 
     // GLSL fragment shader initialization code
     static const char* fragSrc = R"(#version 150
-        in vec2 vPos;
         in float vDepth;        
         in float vSpawnAlpha;
         out vec4 frag;
 
         void main()
         {
-            // Circular mask
-            if (dot(vPos, vPos) > 1.0)
-                discard;
+            // remap to -1..+1
+            vec2 p = gl_PointCoord * 2.0 - 1.0;
+            if (dot(p, p) > 1.0) discard;
 
-            // Fade out with distance
-            float alpha = vSpawnAlpha * (1.0 - vDepth); 
+            float alpha = vSpawnAlpha * (1.0 - vDepth);
             frag = vec4(1.0, 1.0, 1.0, alpha);
         }
     )";
@@ -121,43 +115,30 @@ void GLVisualizer::initialise()
     shader->addVertexShader(vertSrc);
     shader->addFragmentShader(fragSrc);
 
-    ext.glBindAttribLocation(shader->getProgramID(), 0, "position");
-    ext.glBindAttribLocation(shader->getProgramID(), 1, "instanceData");
+    ext.glBindAttribLocation(shader->getProgramID(), 0, "instanceData");
 
     bool shaderLinked = shader->link();
     jassert(shaderLinked);
     juce::ignoreUnused(shaderLinked);
 
-    // Build a 2x2 clip-space quad centred at (0,0)
-    vbo.create(openGLContext);
-    ext.glBindBuffer(GL_ARRAY_BUFFER, vbo.id);
-
-    const float quad[8] = {
-        -1.f, -1.f,
-         1.f, -1.f,
-        -1.f,  1.f,
-         1.f,  1.f
-    };
-    ext.glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
-
     // Generate and bind the vertex-array object
     ext.glGenVertexArrays(1, &vao);
     ext.glBindVertexArray(vao);
-
-    // Tell the VAO about our position attribute
-    ext.glBindBuffer(GL_ARRAY_BUFFER, vbo.id);
-    ext.glEnableVertexAttribArray(0);
-    ext.glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
 
     // Create instance buffer
     ext.glGenBuffers(1, &instanceVBO);
 
     // Bind the instanceVBO to set up the attribute pointer for instancing
     ext.glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-    ext.glEnableVertexAttribArray(1);
-    ext.glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 
+    ext.glBufferData(GL_ARRAY_BUFFER,
+                     maxParticles * sizeof(InstanceData),
+                     nullptr,
+                     GL_DYNAMIC_DRAW);
+    ext.glEnableVertexAttribArray(0);
+    ext.glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 
                               sizeof(InstanceData), nullptr);
-    glVertexAttribDivisor(1, 1); // This attribute advances once per instance
+    glVertexAttribDivisor(0, 1); // This attribute advances once per instance
+    
 
     // Unbind VAO to avoid accidental state leakage
     ext.glBindVertexArray(0);
@@ -200,6 +181,7 @@ void GLVisualizer::render()
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
+    glEnable(GL_PROGRAM_POINT_SIZE);
 
     // Clear to black
     juce::OpenGLHelpers::clear(juce::Colours::black);
@@ -271,10 +253,10 @@ void GLVisualizer::render()
 
     // Upload instance data to GPU
     ext.glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-    ext.glBufferData(GL_ARRAY_BUFFER,
-                     (GLsizeiptr)(instances.size() * sizeof(InstanceData)),
-                     instances.data(),
-                     GL_DYNAMIC_DRAW);
+    jassert(instances.size() <= maxParticles);
+    ext.glBufferSubData(GL_ARRAY_BUFFER, 0,
+                        instances.size() * sizeof(InstanceData),
+                        instances.data());
 
     // Set uniforms
     shader->setUniformMat4("uProjection", projection.mat, 1, GL_FALSE);
@@ -284,15 +266,21 @@ void GLVisualizer::render()
     shader->setUniform("uFadeEndZ", fadeEndZ);
     shader->setUniform("uDotSize", dotSize);
 
+    DBG("Dot Size = " << dotSize);
+
     // Draw all particles!!
     ext.glBindVertexArray(vao);
-    GLsizei instanceCount = static_cast<GLsizei>(instances.size());
-    if (instanceCount > 0)
-        glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, instanceCount);
-    ext.glBindVertexArray(0);
+    glDrawArraysInstanced(GL_POINTS, 0, 1, (GLsizei)instances.size());
 
-    jassert(glGetError() == GL_NO_ERROR);
-}
+    // ext.glBindVertexArray(0);
+
+    GLenum err = glGetError();
+    if (err != GL_NO_ERROR)
+    {
+        DBG("OpenGL error: " << juce::String::toHexString((int)err));
+        jassertfalse; // triggers the assertion so you still get a breakpoint
+    }
+    }
 
 void GLVisualizer::resized() 
 {
