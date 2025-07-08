@@ -19,6 +19,37 @@ GLVisualizer::~GLVisualizer()
     openGLContext.setContinuousRepainting(false);
     openGLContext.detach();
 }
+//=============================================================================
+void GLVisualizer::setRecedeSpeed(float newRecedeSpeed)
+{
+    recedeSpeed = newRecedeSpeed;
+}
+
+void GLVisualizer::setDotSize(float newDotSize)
+{
+    dotSize = newDotSize;
+}
+
+void GLVisualizer::setNearZ(float newNearZ)
+{
+    nearZ = newNearZ;
+}
+
+void GLVisualizer::setFadeEndZ(float newFadeEndZ)
+{
+    fadeEndZ = newFadeEndZ;
+}
+
+void GLVisualizer::setFarZ(float newFarZ)
+{
+    farZ = newFarZ;
+}
+
+void GLVisualizer::setFOV(float newFOV)
+{
+    fov = newFOV;
+}
+
 
 //=============================================================================
 void GLVisualizer::initialise() 
@@ -62,7 +93,7 @@ void GLVisualizer::initialise()
             gl_Position = uProjection * uView * worldPos;
 
             // Pass position scaled appropriately
-            vPos = position / (uDotSize * sqrt(instanceData.w));
+            vPos = position / vec2(uDotSize * sqrt(instanceData.w));
         }
     )";
 
@@ -102,10 +133,10 @@ void GLVisualizer::initialise()
     ext.glBindBuffer(GL_ARRAY_BUFFER, vbo.id);
 
     const float quad[8] = {
-        -dotSize, -dotSize,
-         dotSize, -dotSize,
-        -dotSize,  dotSize,
-         dotSize,  dotSize
+        -1.f, -1.f,
+         1.f, -1.f,
+        -1.f,  1.f,
+         1.f,  1.f
     };
     ext.glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
 
@@ -180,7 +211,6 @@ void GLVisualizer::render()
 
     float t = (float)(juce::Time::getMillisecondCounterHiRes() * 0.001 
                     - startTime);
-    recedeSpeed = controller.getRecedeSpeed();
 
     // First draft of audio-based visuals
     auto results = controller.getLatestResults();
@@ -219,8 +249,8 @@ void GLVisualizer::render()
             Particle newParticle = { x, y, t, a};
             particles.push_back(newParticle);
 
-            DBG("Added new particle for frequency " << band.frequency << ": "
-                << "x = " << x << ", y = " << y << ", a = " << a);
+            // DBG("Added new particle for frequency " << band.frequency << ": "
+            //     << "x = " << x << ", y = " << y << ", a = " << a);
         }
     }
 
@@ -269,12 +299,13 @@ void GLVisualizer::resized()
     const float w = (float)getWidth();
     const float h = (float)getHeight();
     const float aspect = w / h;
+    const float fovRadians = fov * juce::MathConstants<float>::pi / 180;
     
     view = juce::Matrix3D<float>::fromTranslation(cameraPosition);
     projection = juce::Matrix3D<float>::fromFrustum(
-              -nearZ * std::tan (fov * 0.5f) * aspect,   // left
-               nearZ * std::tan (fov * 0.5f) * aspect,   // right
-              -nearZ * std::tan (fov * 0.5f),            // bottom
-               nearZ * std::tan (fov * 0.5f),            // top
+              -nearZ * std::tan (fovRadians * 0.5f) * aspect,   // left
+               nearZ * std::tan (fovRadians * 0.5f) * aspect,   // right
+              -nearZ * std::tan (fovRadians * 0.5f),            // bottom
+               nearZ * std::tan (fovRadians * 0.5f),            // top
                nearZ, farZ);
 }

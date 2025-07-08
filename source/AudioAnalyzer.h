@@ -33,9 +33,12 @@ public:
     // Called by GUI thread to get latest results
     std::vector<frequency_band> getLatestResults() const;
 
-    // These should be called whenever the sample rate / block size changes
+    void setSampleRate(double newSampleRate);
     void setSamplesPerBlock(int newSamplesPerBlock);
-    void setSampleRate(int newSampleRate);
+    void setAnalysisMode(AnalysisMode newAnalysisMode);
+    void setFFTOrder(float newFFTOrder);
+    void setMinFrequency(float newMinFrequency);
+    void setNumCQTBins(float newNumCQTBins);
 
     //=========================================================================
     class AnalyzerWorker;

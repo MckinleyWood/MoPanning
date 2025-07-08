@@ -4,19 +4,16 @@
 MainController::MainController()
     : settingsTree(ParamIDs::root)
 {
-    settingsTree.setProperty(ParamIDs::sampleRate, 44100., nullptr);
-    settingsTree.setProperty(ParamIDs::samplesPerBlock, 512, nullptr);
     settingsTree.setProperty(ParamIDs::analysisMode, 0, nullptr);
     settingsTree.setProperty(ParamIDs::fftOrder, 11, nullptr);
     settingsTree.setProperty(ParamIDs::minFrequency, 20.f, nullptr);
     settingsTree.setProperty(ParamIDs::numCQTbins, 256, nullptr);
     settingsTree.setProperty(ParamIDs::recedeSpeed, 5.f, nullptr);
-    settingsTree.setProperty(ParamIDs::dotSize, 0.051f,nullptr);
+    settingsTree.setProperty(ParamIDs::dotSize, 0.05f,nullptr);
     settingsTree.setProperty(ParamIDs::nearZ, 0.1f, nullptr);
     settingsTree.setProperty(ParamIDs::fadeEndZ, 5.f, nullptr);
     settingsTree.setProperty(ParamIDs::farZ, 100.f, nullptr);
-    settingsTree.setProperty(ParamIDs::fov, 
-        juce::MathConstants<float>::pi / 4.0f, nullptr);
+    settingsTree.setProperty(ParamIDs::fov, 45.f, nullptr);
 
     settingsTree.addListener(this);
     engine.setAudioCallbackSource(this);
@@ -30,6 +27,10 @@ MainController::~MainController()
 //=============================================================================
 void MainController::prepareToPlay(int samplesPerBlock, double sampleRate)
 {
+    settingsTree.setProperty(ParamIDs::sampleRate, sampleRate, nullptr);
+    settingsTree.setProperty(ParamIDs::samplesPerBlock, 
+                             samplesPerBlock, nullptr);
+
     engine.prepareToPlay(samplesPerBlock, sampleRate);
     analyzer.prepare(samplesPerBlock, sampleRate);
 }
@@ -78,7 +79,7 @@ int MainController::getAnalysisMode() const
     return settingsTree[ParamIDs::analysisMode];
 }
 
-int MainController::getFftOrder() const
+int MainController::getFFTOrder() const
 {
     return settingsTree[ParamIDs::fftOrder];
 }
@@ -88,7 +89,7 @@ float MainController::getMinFrequency() const
     return settingsTree[ParamIDs::minFrequency];
 }
 
-int MainController::getNumCQTbins() const
+int MainController::getNumCQTBins() const
 {
     return settingsTree[ParamIDs::numCQTbins];
 }
@@ -118,7 +119,7 @@ float MainController::getFarZ() const
     return settingsTree[ParamIDs::farZ];
 }
 
-float MainController::getFov() const
+float MainController::getFOV() const
 {
     return settingsTree[ParamIDs::fov];
 }
@@ -126,38 +127,42 @@ float MainController::getFov() const
 //=============================================================================
 void MainController::setSampleRate(double newSampleRate)
 {
-    settingsTree.setProperty(ParamIDs::sampleRate, newSampleRate, nullptr);
+    // Dont mess with this (yet)
+    // settingsTree.setProperty(ParamIDs::sampleRate, newSampleRate, nullptr);
 }
 
 void MainController::setSamplesPerBlock(int newSamplesPerBlock) 
 { 
-    settingsTree.setProperty(ParamIDs::samplesPerBlock, 
-                             newSamplesPerBlock, nullptr); 
+    // Dont mess with this (yet)
+    // settingsTree.setProperty(ParamIDs::samplesPerBlock, 
+    //                          newSamplesPerBlock, nullptr); 
 }
 
 void MainController::setAnalysisMode(int newAnalysisMode) 
 { 
-    settingsTree.setProperty(ParamIDs::analysisMode, newAnalysisMode, nullptr); 
+    settingsTree.setProperty(ParamIDs::analysisMode,    
+                             newAnalysisMode, nullptr); 
 }
 
-void MainController::setFftOrder(int newFftOrder) 
+void MainController::setFFTOrder(int newFftOrder) 
 { 
     settingsTree.setProperty(ParamIDs::fftOrder, newFftOrder, nullptr); 
 }
 
 void MainController::setMinFrequency(float newMinFrequency) 
 { 
-    settingsTree.setProperty(ParamIDs::minFrequency, newMinFrequency, nullptr); 
+    settingsTree.setProperty(ParamIDs::minFrequency, 
+                             newMinFrequency, nullptr); 
 }
 
-void MainController::setNumCQTbins(int newNumCQTbins) 
+void MainController::setNumCQTBins(int newNumCQTBins) 
 { 
-    settingsTree.setProperty(ParamIDs::numCQTbins, newNumCQTbins, nullptr); 
+    settingsTree.setProperty(ParamIDs::numCQTbins, newNumCQTBins, nullptr); 
 }
 
 void MainController::setRecedeSpeed(float newRecedeSpeed) 
 { 
-    settingsTree.setProperty(ParamIDs::recedeSpeed, newRecedeSpeed, nullptr); 
+    settingsTree.setProperty(ParamIDs::recedeSpeed, newRecedeSpeed, nullptr);
 }
 
 void MainController::setDotSize(float newDotSize) 
@@ -180,11 +185,10 @@ void MainController::setFarZ(float newFarZ)
     settingsTree.setProperty(ParamIDs::farZ, newFarZ, nullptr); 
 }
 
-void MainController::setFov(float newFov) 
+void MainController::setFOV(float newFov) 
 { 
     settingsTree.setProperty(ParamIDs::fov, newFov, nullptr); 
 }
-
 
 //=============================================================================
 void MainController::valueTreePropertyChanged(juce::ValueTree&, 
@@ -192,5 +196,37 @@ void MainController::valueTreePropertyChanged(juce::ValueTree&,
 {
     if (id == ParamIDs::sampleRate)
         analyzer.setSampleRate(getSampleRate());
-    // etc.
+
+    else if (id == ParamIDs::samplesPerBlock)
+        analyzer.setSamplesPerBlock(getSamplesPerBlock());
+
+    else if (id == ParamIDs::analysisMode)
+        analyzer.setAnalysisMode(static_cast<AnalysisMode>(getAnalysisMode()));
+
+    else if (id == ParamIDs::fftOrder)
+        analyzer.setFFTOrder(getFFTOrder());
+
+    else if (id == ParamIDs::minFrequency)
+        analyzer.setMinFrequency(getMinFrequency());
+
+    else if (id == ParamIDs::numCQTbins)
+        analyzer.setNumCQTBins(getNumCQTBins());
+
+    else if (id == ParamIDs::recedeSpeed)
+        visualizer->setRecedeSpeed(getRecedeSpeed());
+
+    else if (id == ParamIDs::dotSize)
+        visualizer->setDotSize(getDotSize());
+
+    else if (id == ParamIDs::nearZ)
+        visualizer->setNearZ(getNearZ());
+
+    else if (id == ParamIDs::fadeEndZ)
+        visualizer->setFadeEndZ(getFadeEndZ());
+
+    else if (id == ParamIDs::farZ)
+        visualizer->setFarZ(getFarZ());
+
+    else if (id == ParamIDs::fov)
+        visualizer->setFOV(getFOV());
 }

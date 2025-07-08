@@ -56,9 +56,9 @@ target_link_libraries(MoPanning
 target_compile_options(MoPanning
   PUBLIC
     # core warning flags
-    # -Wall
+    -Wall
     -Wshadow-all
-    -Wshorten-64-to-32
+    # -Wshorten-64-to-32
     -Wstrict-aliasing
     -Wuninitialized
     -Wunused-parameter

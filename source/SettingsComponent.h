@@ -7,6 +7,7 @@ class MainController;
 /*  This is the component for the settings widget.
 */
 class SettingsComponent : public juce::Component,
+                          private juce::ComboBox::Listener,
                           private juce::Slider::Listener
 {
 public:
@@ -18,6 +19,7 @@ public:
     void paint(juce::Graphics&) override;
     void resized(void) override;
 
+    void comboBoxChanged(juce::ComboBox* s) override;
     void sliderValueChanged(juce::Slider* s) override;
 
 private:

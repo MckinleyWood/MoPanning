@@ -9,6 +9,7 @@ communication between parts of the program must run through here.
 #include <JuceHeader.h>
 #include "AudioAnalyzer.h"
 #include "AudioEngine.h"
+#include "GLVisualizer.h"
 
 //=============================================================================
 namespace ParamIDs
@@ -42,6 +43,8 @@ public:
     MainController();
     ~MainController() override;
 
+    void registerVisualizer(GLVisualizer* v) noexcept { visualizer = v; }
+
     void prepareToPlay(int samplesPerBlock, double sampleRate) override;
     void releaseResources() override;
     void getNextAudioBlock(const juce::AudioSourceChannelInfo& info) override;
@@ -54,36 +57,37 @@ public:
     double getSampleRate() const;
     int    getSamplesPerBlock() const;
     int    getAnalysisMode() const;
-    int    getFftOrder() const;
+    int    getFFTOrder() const;
     float  getMinFrequency() const;
-    int    getNumCQTbins() const;
+    int    getNumCQTBins() const;
     float  getRecedeSpeed() const;
     float  getDotSize() const;
     float  getNearZ() const;
     float  getFadeEndZ() const;
     float  getFarZ() const;
-    float  getFov() const;
+    float  getFOV() const;
 
     void setSampleRate(double newSampleRate);
     void setSamplesPerBlock(int newSamplesPerBlock);
     void setAnalysisMode(int newAnalysisMode);
-    void setFftOrder(int newFftOrder);
+    void setFFTOrder(int newFftOrder);
     void setMinFrequency(float newMinFrequency);
-    void setNumCQTbins(int newNumCQTbins);
+    void setNumCQTBins(int newNumCQTbins);
     void setRecedeSpeed(float newRecedeSpeed);
     void setDotSize(float newDotSize);
     void setNearZ(float newNearZ);
     void setFadeEndZ(float newFadeEndZ);
     void setFarZ(float newFarZ);
-    void setFov(float newFov);
+    void setFOV(float newFov);
 
     void valueTreePropertyChanged(juce::ValueTree&, 
                                   const juce::Identifier& id) override;
 
 private:
     //=========================================================================
-    AudioEngine engine;
     AudioAnalyzer analyzer;
+    AudioEngine engine;
+    GLVisualizer* visualizer = nullptr;
 
     juce::ValueTree settingsTree;
 

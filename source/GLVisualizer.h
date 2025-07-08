@@ -37,6 +37,14 @@ public:
     ~GLVisualizer() override;
 
     //=========================================================================
+    void setRecedeSpeed(float newRecedeSpeed);
+    void setDotSize(float newDotSize);
+    void setNearZ(float newNearZ);
+    void setFadeEndZ(float newFadeEndZ);
+    void setFarZ(float newFarZ);
+    void setFOV(float newFOV);
+
+    //=========================================================================
     void initialise() override;
     void shutdown() override;
     void render() override;
@@ -68,13 +76,13 @@ private:
 
     MainController& controller;
 
-    double startTime = 0.0; // App-launch time in seconds
-    float recedeSpeed; // Speed that objects recede    --(was 2.f)
-    float dotSize = 0.005f; // Radius of the dots       --(was 0.04f)
+    double startTime = 0.; // App-launch time in seconds
+    float recedeSpeed = 5.f; // Speed that objects recede
+    float dotSize = 0.05f; // Radius of the dots
     float nearZ = 0.1f;
-    float fadeEndZ = 5.0f; // Distance until the point fades to black (m)  --(was 15.0f)
+    float fadeEndZ = 5.0f;
     float farZ = 100.0f; // Distance to the end of clip space (m)
-    float fov = juce::MathConstants<float>::pi / 4.0f;
+    float fov = 45.f;
     
     //=========================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GLVisualizer)

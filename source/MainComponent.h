@@ -8,7 +8,7 @@
 /*  This is the top-level UI container. It holds the GLVisualizer 
     (OpenGL canvas), SettingsComponent (sidebar), and a MainController& 
     controller reference. It is responsible for	passing user actions to 
-    the controller and switching between Focus (full visualiser) and 
+    the controller and switching between Focus (full visualizer) and 
     Split (sidebar visible) views.
 */
 class MainComponent final : public juce::Component,
@@ -53,7 +53,7 @@ private:
     //=========================================================================
     MainController& controller;
     juce::ApplicationCommandManager& commandManager;
-    GLVisualizer visualiser;
+    GLVisualizer visualizer;
     SettingsComponent settings;
     ViewMode viewMode { ViewMode::Focus };
 

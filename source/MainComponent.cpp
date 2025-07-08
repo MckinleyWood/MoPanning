@@ -5,13 +5,15 @@ MainComponent::MainComponent(MainController& mc,
                              juce::ApplicationCommandManager& cm)
     : controller(mc),
       commandManager(cm),
-      visualiser(controller),
+      visualizer(controller),
       settings(controller)
 {
     commandManager.registerAllCommandsForTarget(this);
     commandManager.setFirstCommandTarget(this);
 
-    addAndMakeVisible(visualiser);
+    controller.registerVisualizer(&visualizer);
+
+    addAndMakeVisible(visualizer);
     addAndMakeVisible(settings);
 
     settings.setVisible(false); // Since we start in Focus mode
@@ -19,7 +21,7 @@ MainComponent::MainComponent(MainController& mc,
 }
 
 //=============================================================================
-/* Since the child components visualiser and settings do all the 
+/* Since the child components visualizer and settings do all the 
 drawing, we don't need a paint() function here. */
 
 /*  This is called every time the window is resized, and is where we set
@@ -31,7 +33,7 @@ void MainComponent::resized()
 
     if (viewMode == ViewMode::Focus)
     {
-        visualiser.setBounds(bounds);
+        visualizer.setBounds(bounds);
         settings.setVisible(false);
     }
     else // ViewMode == Split
@@ -39,7 +41,7 @@ void MainComponent::resized()
         const int sidebarW = 260;
         auto right = bounds.removeFromRight(sidebarW);
         settings.setBounds(right);
-        visualiser.setBounds(bounds);
+        visualizer.setBounds(bounds);
         settings.setVisible(true);
     }
 }
