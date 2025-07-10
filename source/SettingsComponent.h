@@ -43,9 +43,24 @@ private:
     juce::Slider farZSlider;
     juce::Slider fovSlider;
 
-    // Function to get a list of all of our settings subcomponents
+    // Labels
+    juce::Label sampleRateLabel;
+    juce::Label samplesPerBlockLabel;
+    juce::Label analysisModeLabel;
+    juce::Label fftOrderLabel;
+    juce::Label minFrequencyLabel;
+    juce::Label numCQTbinsLabel;
+    juce::Label recedeSpeedLabel;
+    juce::Label dotSizeLabel;
+    juce::Label nearZLabel;
+    juce::Label fadeEndZLabel;
+    juce::Label farZLabel;
+    juce::Label fovLabel;
+
+    // Functions to get a list of all of our settings subcomponents and labels
     std::vector<juce::Component*> getSettings();
-    
+    std::vector<juce::Label*> getLabels();
+
     
     //=========================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SettingsComponent)

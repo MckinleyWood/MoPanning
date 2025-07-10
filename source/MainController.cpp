@@ -7,7 +7,7 @@ MainController::MainController()
     settingsTree.setProperty(ParamIDs::analysisMode, 1, nullptr);
     settingsTree.setProperty(ParamIDs::fftOrder, 11, nullptr);
     settingsTree.setProperty(ParamIDs::minFrequency, 20.f, nullptr);
-    settingsTree.setProperty(ParamIDs::numCQTbins, 256, nullptr);
+    settingsTree.setProperty(ParamIDs::numCQTbins, 128, nullptr);
     settingsTree.setProperty(ParamIDs::recedeSpeed, 5.f, nullptr);
     settingsTree.setProperty(ParamIDs::dotSize, 0.05f,nullptr);
     settingsTree.setProperty(ParamIDs::nearZ, 0.1f, nullptr);

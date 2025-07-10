@@ -74,6 +74,27 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
     {
         addAndMakeVisible(setting);
     }
+
+    // Set up labels
+    sampleRateLabel.setText("Sample Rate", juce::dontSendNotification);
+    samplesPerBlockLabel.setText("Samples per Block", juce::dontSendNotification);
+    analysisModeLabel.setText("Analysis Mode", juce::dontSendNotification);
+    fftOrderLabel.setText("FFT Order", juce::dontSendNotification);
+    minFrequencyLabel.setText("Min Frequency", juce::dontSendNotification);
+    numCQTbinsLabel.setText("CQT Bin Count", juce::dontSendNotification);
+    recedeSpeedLabel.setText("Recede Speed", juce::dontSendNotification);
+    dotSizeLabel.setText("Dot Size", juce::dontSendNotification);
+    nearZLabel.setText("Near Z", juce::dontSendNotification);
+    fadeEndZLabel.setText("Fade End Z", juce::dontSendNotification);
+    farZLabel.setText("Far Z", juce::dontSendNotification);
+    fovLabel.setText("FOV", juce::dontSendNotification);
+
+    for (auto* label : getLabels())
+    {
+        label->setJustificationType(juce::Justification::left);
+        label->setFont(juce::Font(13.0f));
+        addAndMakeVisible(label);
+    }
 }
 
 SettingsComponent::~SettingsComponent() 
@@ -100,7 +121,7 @@ void SettingsComponent::paint(juce::Graphics& g)
                                .withStyle("Bold");
 
     // Paint the title
-    title.setText("Hi Owen", juce::dontSendNotification);
+    title.setText("Hi Mckinley", juce::dontSendNotification);
     title.setFont(titleFont);
     title.setJustificationType(juce::Justification::centred);
     title.setColour(juce::Label::textColourId, juce::Colours::white);
@@ -129,6 +150,7 @@ void SettingsComponent::resized()
     std::vector<juce::Rectangle<int>> settingZones;
 
     auto settings = getSettings();
+    auto labels = getLabels();
     int numSettings = settings.size();
     int rowHeight = mainZone.getHeight() * 1.f / numSettings;
 
@@ -146,6 +168,10 @@ void SettingsComponent::resized()
 
     for(int i = 0; i < numSettings; ++i)
     {
+        int labelHeight = 14;
+        auto labelZone = settingZones[i].removeFromTop(labelHeight);
+
+        labels[i]->setBounds(labelZone);
         settings[i]->setBounds(settingZones[i]);
     }
 }
@@ -210,5 +236,23 @@ std::vector<juce::Component*> SettingsComponent::getSettings()
         &fadeEndZSlider,
         &farZSlider,
         &fovSlider
+    };
+}
+
+std::vector<juce::Label*> SettingsComponent::getLabels()
+{
+    return {
+        &sampleRateLabel,
+        &samplesPerBlockLabel,
+        &analysisModeLabel,
+        &fftOrderLabel,
+        &minFrequencyLabel,
+        &numCQTbinsLabel,
+        &recedeSpeedLabel,
+        &dotSizeLabel,
+        &nearZLabel,
+        &fadeEndZLabel,
+        &farZLabel,
+        &fovLabel
     };
 }

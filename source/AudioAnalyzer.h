@@ -89,7 +89,7 @@ private:
     /* CQT stuff */
 
     float minCQTfreq = 20.0f;
-    int numCQTbins = 256;
+    int numCQTbins = 128;
     std::vector<float> centerFrequencies;
 
     // Each filter is a complex-valued kernel vector (frequency domain)
