@@ -1,29 +1,52 @@
 #include "AudioAnalyzer.h"
 
 //=============================================================================
-AudioAnalyzer::AudioAnalyzer() {}
+AudioAnalyzer::AudioAnalyzer() {DBG("AudioAnalyzer created");}
 AudioAnalyzer::~AudioAnalyzer()
 {
     // Destroy worker, which joins the thread
-    worker.reset();
+    stopWorker();
 }
 
 //=============================================================================
 /*  Prepares the audio analyzer. */
-void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate)
+void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate, 
+                            int numCQTbins, int fftOrder, 
+                            float minCQTfreq)
 {
-    // DBG("Preparing AudioAnalyzer...");
+    // Stop any existing worker thread
+    stopWorker();
+
+    // Recalculate fftSize
+    fftSize = 1 << fftOrder;
+
+    // Clear any previously allocated buffers or objects
+    window.clear();
+    fftBuffer.clear();
+    cqtKernels.clear();
+    centerFrequencies.clear();
+    cqtMagnitudes.clear();
+
+    DBG("Preparing AudioAnalyzer...");
     this->samplesPerBlock = samplesPerBlock;
     this->sampleRate = sampleRate;
+    this->numCQTbins = numCQTbins;
+    this->fftOrder = fftOrder;
+    this->minCQTfreq = minCQTfreq;
 
     DBG("Block size = " << this->samplesPerBlock);
     DBG("Sample rate = " << this->sampleRate);
+    DBG("Number of CQT bins = " << this->numCQTbins);
+    DBG("FFT order = " << this->fftOrder);
+    DBG("Minimum CQT frequency = " << this->minCQTfreq);
 
     // Concise name for pi variable
     float pi = MathConstants<float>::pi;
 
     // Allocate hann window and FFT buffer
+    DBG("Resizing window to fftSize = " << fftSize);
     window.resize(fftSize);
+    DBG("Resizing fftBuffer to fftSize = " << fftSize);
     fftBuffer.resize(fftSize);
 
     // Build the Hann window
@@ -36,8 +59,9 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate)
         maxExpectedMag += w;
 
     // Prepare CQT kernels
-    cqtKernels.clear();
+    DBG("Resizing cqtKernels to numCQTbins = " << numCQTbins);
     cqtKernels.resize(numCQTbins);
+    DBG("Resizing centerFrequencies to numCQTbins = " << numCQTbins);
     centerFrequencies.resize(numCQTbins);
 
     // Set frequency from min to Nyquist
@@ -76,10 +100,23 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate)
         for (auto& v : kernelTime)
             v /= norm;
 
+        // Allocate JUCE-compatible buffers
+        juce::HeapBlock<juce::dsp::Complex<float>> fftInput(kernelLength);
+        juce::HeapBlock<juce::dsp::Complex<float>> fftOutput(kernelLength);
+
+        // Copy kernelTime to JUCE-compatible input
+        for (int i = 0; i < kernelLength; ++i)
+            fftInput[i] = kernelTime[i];
+
         // Zero-pad and FFT-- convert to frequency domain
+        juce::dsp::FFT kernelFFT((int)std::log2(kernelLength));
+        kernelFFT.perform(fftInput, fftOutput, false);
+
+
+        // Copy result back into std::vector<std::complex<float>>
         std::vector<std::complex<float>> kernelFreq(kernelLength);
-        juce::dsp::FFT kernelFFT((std::log2(kernelLength)));
-        kernelFFT.perform(kernelTime.data(), kernelFreq.data(), false);
+        for (int i = 0; i < kernelLength; ++i)
+            kernelFreq[i] = fftOutput[i];
 
         cqtKernels[bin] = std::move(kernelFreq);
 
@@ -92,6 +129,8 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate)
     }
 
     // Allocate CQT result: 2 channels default
+    DBG("Resizing cqtMagnitudes to 2 channels, numCQTbins = " 
+        << numCQTbins);
     cqtMagnitudes.resize(2, std::vector<float>(numCQTbins, 0.0f));
 
     // Prepare bandpass filters for GCC-PHAT (also initializes ITD)
@@ -99,6 +138,8 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate)
 
     // Initialize AnalyzerWorker
     int numSlots = 4;
+    DBG("Creating AnalyzerWorker with " << numSlots 
+        << " slots and block size " << samplesPerBlock);
     worker = std::make_unique<AnalyzerWorker>(
         numSlots, samplesPerBlock, *this);
 }
@@ -107,6 +148,15 @@ void AudioAnalyzer::enqueueBlock(const juce::AudioBuffer<float>* buffer)
 {
     if (worker && buffer != nullptr)
         worker->pushBlock(*buffer);
+}
+
+void AudioAnalyzer::stopWorker()
+{
+    if (worker)
+    {
+        worker->stop();    // Stop cleanly
+        worker.reset();    // Then delete
+    }
 }
 
 std::vector<frequency_band> AudioAnalyzer::getLatestResults() const
@@ -179,6 +229,7 @@ void AudioAnalyzer::prepareBandpassFilters()
     }
 
     // Initialize ITD estimates
+    DBG("Resizing itdPerBand to " << centerFrequencies.size());
     itdPerBand.resize(centerFrequencies.size(), 0.0f); 
 }
 

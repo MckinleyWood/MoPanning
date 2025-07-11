@@ -27,12 +27,33 @@ MainController::~MainController()
 //=============================================================================
 void MainController::prepareToPlay(int samplesPerBlock, double sampleRate)
 {
+    int numCQTbins = getNumCQTBins();
+    int fftOrder = getFFTOrder();
+    float minFrequency = getMinFrequency();
+
     settingsTree.setProperty(ParamIDs::sampleRate, sampleRate, nullptr);
     settingsTree.setProperty(ParamIDs::samplesPerBlock, 
                              samplesPerBlock, nullptr);
-
+    settingsTree.setProperty(ParamIDs::numCQTbins, 
+                             numCQTbins, nullptr);
+    settingsTree.setProperty(ParamIDs::fftOrder, 
+                             fftOrder, nullptr);
+    settingsTree.setProperty(ParamIDs::minFrequency, 
+                             minFrequency, nullptr);
+                             
     engine.prepareToPlay(samplesPerBlock, sampleRate);
-    analyzer.prepare(samplesPerBlock, sampleRate);
+    analyzer.prepare(samplesPerBlock, sampleRate,
+                     numCQTbins, fftOrder,
+                     minFrequency);
+}
+
+void MainController::prepareAnalyzer()
+{
+    analyzer.prepare(getSamplesPerBlock(), 
+                     getSampleRate(), 
+                     getNumCQTBins(),
+                     getFFTOrder(),
+                     getMinFrequency());
 }
 
 void MainController::releaseResources() 

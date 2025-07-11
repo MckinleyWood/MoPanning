@@ -266,7 +266,7 @@ void GLVisualizer::render()
     shader->setUniform("uFadeEndZ", fadeEndZ);
     shader->setUniform("uDotSize", dotSize);
 
-    DBG("Dot Size = " << dotSize);
+    // DBG("Dot Size = " << dotSize);
 
     // Draw all particles!!
     ext.glBindVertexArray(vao);

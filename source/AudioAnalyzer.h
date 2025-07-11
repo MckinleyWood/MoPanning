@@ -25,7 +25,9 @@ public:
     ~AudioAnalyzer();
 
     // Must be called before analyzeBlock()
-    void prepare(int samplesPerBlock, double sampleRate);
+    void prepare(int samplesPerBlock, double sampleRate, 
+                 int numCQTbins, int fftOrder,
+                 float minCQTfreq);
 
     // Called by audio thread
     void enqueueBlock(const juce::AudioBuffer<float>* buffer);
@@ -78,7 +80,7 @@ private:
     //=========================================================================
     /* FFT stuff */
 
-    int fftOrder = 9; // FFT order = log2(fftSize)
+    int fftOrder = 11; // FFT order = log2(fftSize)
     int fftSize = 1 << fftOrder;
     juce::dsp::FFT fft{ fftOrder }; // JUCE FFT engine
     fft_buffer_t fftBuffer;
@@ -119,6 +121,7 @@ private:
 
     // Worker 
     std::unique_ptr<AnalyzerWorker> worker;
+    void stopWorker();
 };
 
 
@@ -150,6 +153,17 @@ public:
         cv.notify_one();
         if (thread.joinable())
             thread.join();
+    }
+
+    void stop()
+    {
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            shouldExit = true;
+        }
+        cv.notify_one(); // Wake up the thread
+        if (thread.joinable())
+            thread.join(); // Wait for it to finish
     }
 
     /* Called on audio thread: enqueue a copy of 'input' into the FIFO. */

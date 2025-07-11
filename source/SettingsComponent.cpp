@@ -37,6 +37,7 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
     minFrequencyBox.setSelectedId((int)controller.getMinFrequency());
     minFrequencyBox.addListener(this);
 
+    numCQTbinsBox.addItem("64", 64);
     numCQTbinsBox.addItem("128", 128);
     numCQTbinsBox.addItem("256", 256);
     numCQTbinsBox.addItem("512", 512);
@@ -95,6 +96,8 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
         label->setFont(juce::Font(13.0f));
         addAndMakeVisible(label);
     }
+
+    initialized = true;
 }
 
 SettingsComponent::~SettingsComponent() 
@@ -179,23 +182,40 @@ void SettingsComponent::resized()
 //=============================================================================
 void SettingsComponent::comboBoxChanged(juce::ComboBox* b)
 {
+    if (!initialized) return; // skip early triggers
+
     if (b == &sampleRateBox)
+    {
         controller.setSampleRate((double)b->getSelectedId());
+        controller.prepareAnalyzer();
+    }
 
     else if (b == &samplesPerBlockBox)
+    {
         controller.setSamplesPerBlock(b->getSelectedId());
+        controller.prepareAnalyzer();
+    }
 
     else if (b == &analysisModeBox)
+    {
         controller.setAnalysisMode(b->getSelectedId() - 1);
+    }
 
     else if (b == &fftOrderBox)       
+    {
         controller.setFFTOrder(b->getSelectedId());
-
+        controller.prepareAnalyzer();
+    }
     else if (b == &minFrequencyBox)   
+    {
         controller.setMinFrequency((float)b->getSelectedId());
-
+        controller.prepareAnalyzer();
+    }
     else if (b == &numCQTbinsBox)
+    {
         controller.setNumCQTBins(b->getSelectedId());
+        controller.prepareAnalyzer();
+    }
 }
 
 void SettingsComponent::sliderValueChanged(juce::Slider* s)

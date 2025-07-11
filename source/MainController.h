@@ -46,6 +46,7 @@ public:
     void registerVisualizer(GLVisualizer* v) noexcept { visualizer = v; }
 
     void prepareToPlay(int samplesPerBlock, double sampleRate) override;
+    void prepareAnalyzer();
     void releaseResources() override;
     void getNextAudioBlock(const juce::AudioSourceChannelInfo& info) override;
 
