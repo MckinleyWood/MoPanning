@@ -59,6 +59,21 @@ void AudioEngine::togglePlayback()
         transport.start();
 }
 
+bool AudioEngine::isPlaying() const
+{
+    return transport.isPlaying();
+}
+
+void AudioEngine::stopPlayback()
+{
+    transport.stop();
+}
+
+void AudioEngine::startPlayback()
+{
+    transport.start();
+}
+
 //=============================================================================
 void AudioEngine::prepareToPlay(int samplesPerBlock, double sampleRate)
 {

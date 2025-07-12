@@ -14,6 +14,11 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate,
                             int numCQTbins, int fftOrder, 
                             float minCQTfreq)
 {
+    DBG("Preparing AudioAnalyzer...");
+
+    // Ensure we are on the GUI thread
+    std::scoped_lock lock(prepareMutex);
+
     // Stop any existing worker thread
     stopWorker();
 
@@ -27,7 +32,6 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate,
     centerFrequencies.clear();
     cqtMagnitudes.clear();
 
-    DBG("Preparing AudioAnalyzer...");
     this->samplesPerBlock = samplesPerBlock;
     this->sampleRate = sampleRate;
     this->numCQTbins = numCQTbins;
@@ -40,14 +44,25 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate,
     DBG("FFT order = " << this->fftOrder);
     DBG("Minimum CQT frequency = " << this->minCQTfreq);
 
-    // Concise name for pi variable
-    float pi = MathConstants<float>::pi;
-
     // Allocate hann window and FFT buffer
     DBG("Resizing window to fftSize = " << fftSize);
     window.resize(fftSize);
     DBG("Resizing fftBuffer to fftSize = " << fftSize);
     fftBuffer.resize(fftSize);
+
+    // Prepare CQT kernels
+    DBG("Resizing cqtKernels to numCQTbins = " << numCQTbins);
+    cqtKernels.resize(numCQTbins);
+    DBG("Resizing centerFrequencies to numCQTbins = " << numCQTbins);
+    centerFrequencies.resize(numCQTbins);
+
+    // Allocate CQT result: 2 channels default
+    DBG("Resizing cqtMagnitudes to 2 channels, numCQTbins = " 
+        << numCQTbins);
+    cqtMagnitudes.resize(2, std::vector<float>(numCQTbins, 0.0f));
+
+    // Concise name for pi variable
+    float pi = MathConstants<float>::pi;
 
     // Build the Hann window
     for (int n = 0; n < fftSize; ++n)
@@ -57,12 +72,6 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate,
     maxExpectedMag = 0.0;
     for (auto w : window)
         maxExpectedMag += w;
-
-    // Prepare CQT kernels
-    DBG("Resizing cqtKernels to numCQTbins = " << numCQTbins);
-    cqtKernels.resize(numCQTbins);
-    DBG("Resizing centerFrequencies to numCQTbins = " << numCQTbins);
-    centerFrequencies.resize(numCQTbins);
 
     // Set frequency from min to Nyquist
     const float nyquist = static_cast<float>(sampleRate * 0.5);
@@ -128,10 +137,9 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate,
         // DBG("Built " << cqtKernels.size() << " CQT kernels");
     }
 
-    // Allocate CQT result: 2 channels default
-    DBG("Resizing cqtMagnitudes to 2 channels, numCQTbins = " 
-        << numCQTbins);
-    cqtMagnitudes.resize(2, std::vector<float>(numCQTbins, 0.0f));
+    // Estimate memory use for CQT kernels
+    auto bytes = numCQTbins * fftSize * sizeof(std::complex<float>);
+    DBG("Estimated CQT kernel memory use: " << (bytes / 1024.0f) << " KB"); 
 
     // Prepare bandpass filters for GCC-PHAT (also initializes ITD)
     prepareBandpassFilters();
@@ -142,6 +150,8 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate,
         << " slots and block size " << samplesPerBlock);
     worker = std::make_unique<AnalyzerWorker>(
         numSlots, samplesPerBlock, *this);
+    worker->start();
+
 }
 
 void AudioAnalyzer::enqueueBlock(const juce::AudioBuffer<float>* buffer)

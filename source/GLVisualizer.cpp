@@ -173,6 +173,10 @@ void GLVisualizer::shutdown()
 
 void GLVisualizer::render()
 {
+    // Ensure we are on the message thread
+    if (!juce::MessageManager::getInstance()->isThisTheMessageThread())
+        return;
+
     using namespace juce::gl;
     auto& ext = openGLContext.extensions;
 

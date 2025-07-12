@@ -49,11 +49,26 @@ void MainController::prepareToPlay(int samplesPerBlock, double sampleRate)
 
 void MainController::prepareAnalyzer()
 {
+    if (engine.isPlaying())
+{
+    engine.stopPlayback();
+    juce::Thread::sleep(50); // Give time for audio thread to finish
     analyzer.prepare(getSamplesPerBlock(), 
                      getSampleRate(), 
                      getNumCQTBins(),
                      getFFTOrder(),
                      getMinFrequency());
+    engine.startPlayback();
+}
+else
+{
+    analyzer.prepare(getSamplesPerBlock(), 
+                     getSampleRate(), 
+                     getNumCQTBins(),
+                     getFFTOrder(),
+                     getMinFrequency());
+}
+
 }
 
 void MainController::releaseResources() 

@@ -69,6 +69,8 @@ private:
 
     enum AnalysisMode analysisMode = CQT;
 
+    std::mutex prepareMutex;
+
     int samplesPerBlock;
     double sampleRate;
 
@@ -143,7 +145,7 @@ public:
 
         // Launch background thread
         shouldExit = false;
-        thread = std::thread([this] { run(); });
+        // thread = std::thread([this] { run(); });
     }
 
     ~AnalyzerWorker()
@@ -155,6 +157,12 @@ public:
             thread.join();
     }
 
+    void start()
+    {
+        shouldExit = false;
+        thread = std::thread([this] { run(); });
+    }
+
     void stop()
     {
         {
@@ -163,7 +171,10 @@ public:
         }
         cv.notify_one(); // Wake up the thread
         if (thread.joinable())
+        {
             thread.join(); // Wait for it to finish
+            DBG("AnalyzerWorker thread has joined.");
+        } 
     }
 
     /* Called on audio thread: enqueue a copy of 'input' into the FIFO. */
@@ -192,6 +203,8 @@ private:
     // Background thread main loop 
     void run()
     {
+        DBG("AnalyzerWorker thread started.");
+        
         while (!shouldExit)
         {
             int start1, size1, start2, size2;

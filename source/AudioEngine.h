@@ -21,6 +21,11 @@ public:
     void releaseResources() override;
     void getNextAudioBlock(const juce::AudioSourceChannelInfo&) override;
 
+    //=========================================================================
+    bool isPlaying() const;
+    void stopPlayback();
+    void startPlayback();
+
 private:
     //=========================================================================
     juce::AudioDeviceManager deviceManager;
