@@ -16,7 +16,7 @@ public:
     ~SettingsComponent() override;
 
     //=========================================================================
-    void paint(juce::Graphics&) override;
+    // void paint(juce::Graphics&) override;
     void resized(void) override;
 
     void comboBoxChanged(juce::ComboBox* s) override;
@@ -56,6 +56,13 @@ private:
     juce::Label fadeEndZLabel;
     juce::Label farZLabel;
     juce::Label fovLabel;
+
+    // Viewport and content
+    juce::Viewport viewport;
+
+    // Declare inner component
+    class SettingsContentComponent;
+    std::unique_ptr<SettingsContentComponent> content;
 
     // Functions to get a list of all of our settings subcomponents and labels
     std::vector<juce::Component*> getSettings();
