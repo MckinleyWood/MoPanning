@@ -19,7 +19,8 @@ namespace ParamIDs
     static const juce::Identifier sampleRate { "sampleRate" };
     static const juce::Identifier samplesPerBlock { "samplesPerBlock" };
 
-    static const juce::Identifier analysisMode { "analysisMode" };
+    static const juce::Identifier transform { "transform" };
+    static const juce::Identifier panMethod { "panMethod" };
     static const juce::Identifier fftOrder { "fftOrder" };
     static const juce::Identifier minFrequency { "minFrequency" };
     static const juce::Identifier numCQTbins { "numCQTbins" };
@@ -57,7 +58,8 @@ public:
 
     double getSampleRate() const;
     int    getSamplesPerBlock() const;
-    int    getAnalysisMode() const;
+    int    getTransform() const;
+    int    getPanMethod() const;
     int    getFFTOrder() const;
     float  getMinFrequency() const;
     int    getNumCQTBins() const;
@@ -70,7 +72,8 @@ public:
 
     void setSampleRate(double newSampleRate);
     void setSamplesPerBlock(int newSamplesPerBlock);
-    void setAnalysisMode(int newAnalysisMode);
+    void setTransform(int newTransform);
+    void setPanMethod(int newPanMethod);
     void setFFTOrder(int newFftOrder);
     void setMinFrequency(float newMinFrequency);
     void setNumCQTBins(int newNumCQTbins);

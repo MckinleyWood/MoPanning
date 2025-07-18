@@ -4,7 +4,8 @@
 MainController::MainController()
     : settingsTree(ParamIDs::root)
 {
-    settingsTree.setProperty(ParamIDs::analysisMode, 1, nullptr);
+    settingsTree.setProperty(ParamIDs::transform, 1, nullptr);
+    settingsTree.setProperty(ParamIDs::panMethod, 3, nullptr);
     settingsTree.setProperty(ParamIDs::fftOrder, 11, nullptr);
     settingsTree.setProperty(ParamIDs::minFrequency, 20.f, nullptr);
     settingsTree.setProperty(ParamIDs::numCQTbins, 128, nullptr);
@@ -110,9 +111,14 @@ int MainController::getSamplesPerBlock() const
     return settingsTree[ParamIDs::samplesPerBlock];
 }
 
-int MainController::getAnalysisMode() const
+int MainController::getTransform() const
 {
-    return settingsTree[ParamIDs::analysisMode];
+    return settingsTree[ParamIDs::transform];
+}
+
+int MainController::getPanMethod() const
+{
+    return settingsTree[ParamIDs::panMethod];
 }
 
 int MainController::getFFTOrder() const
@@ -174,10 +180,16 @@ void MainController::setSamplesPerBlock(int newSamplesPerBlock)
     //                          newSamplesPerBlock, nullptr); 
 }
 
-void MainController::setAnalysisMode(int newAnalysisMode) 
+void MainController::setTransform(int newTransform) 
 { 
-    settingsTree.setProperty(ParamIDs::analysisMode,    
-                             newAnalysisMode, nullptr); 
+    settingsTree.setProperty(ParamIDs::transform,    
+                             newTransform, nullptr); 
+}
+
+void MainController::setPanMethod(int newPanMethod) 
+{ 
+    settingsTree.setProperty(ParamIDs::panMethod,    
+                             newPanMethod, nullptr); 
 }
 
 void MainController::setFFTOrder(int newFftOrder) 
@@ -236,8 +248,11 @@ void MainController::valueTreePropertyChanged(juce::ValueTree&,
     else if (id == ParamIDs::samplesPerBlock)
         analyzer.setSamplesPerBlock(getSamplesPerBlock());
 
-    else if (id == ParamIDs::analysisMode)
-        analyzer.setAnalysisMode(static_cast<AnalysisMode>(getAnalysisMode()));
+    else if (id == ParamIDs::transform)
+        analyzer.setTransform(static_cast<Transform>(getTransform()));
+
+    else if (id == ParamIDs::transform)
+        analyzer.setPanMethod(static_cast<PanMethod>(getPanMethod()));
 
     else if (id == ParamIDs::fftOrder)
         analyzer.setFFTOrder(getFFTOrder());

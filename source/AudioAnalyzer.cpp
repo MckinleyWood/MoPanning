@@ -72,6 +72,7 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate,
     maxExpectedMag = 0.0;
     for (auto w : window)
         maxExpectedMag += w;
+    maxExpectedMag /= 2; // Reasonable signals will be in this range
 
     // Set frequency from min to Nyquist
     const float nyquist = static_cast<float>(sampleRate * 0.5);
@@ -120,7 +121,6 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate,
         // Zero-pad and FFT-- convert to frequency domain
         juce::dsp::FFT kernelFFT((int)std::log2(kernelLength));
         kernelFFT.perform(fftInput, fftOutput, false);
-
 
         // Copy result back into std::vector<std::complex<float>>
         std::vector<std::complex<float>> kernelFreq(kernelLength);
@@ -185,11 +185,18 @@ void AudioAnalyzer::setSampleRate(double newSampleRate)
     this->sampleRate = newSampleRate;
 }
 
-void AudioAnalyzer::setAnalysisMode(AnalysisMode newAnalysisMode)
+void AudioAnalyzer::setTransform(Transform newTransform)
 {
-    analysisMode = newAnalysisMode;
-    DBG("new analysis mode = " << static_cast<int>(newAnalysisMode));
+    transform = newTransform;
+    DBG("new analysis mode = " << static_cast<int>(newTransform));
 }
+
+void AudioAnalyzer::setPanMethod(PanMethod newPanMethod)
+{
+    panMethod = newPanMethod;
+    DBG("new pan method = " << static_cast<int>(newPanMethod));
+}
+
 
 void AudioAnalyzer::setFFTOrder(float newFFTOrder)
 {

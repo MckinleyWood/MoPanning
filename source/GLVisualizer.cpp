@@ -218,6 +218,10 @@ void GLVisualizer::render()
 
         float aspect = getWidth() * 1.0f / getHeight();
 
+        // For determining the amplitude range
+        float minAmp = std::numeric_limits<float>::max();
+        float maxAmp = 0.f;
+
         for (frequency_band band : results)
         {
             if (band.frequency < minBandFreq || band.frequency > maxFreq) 
@@ -231,9 +235,17 @@ void GLVisualizer::render()
             Particle newParticle = { x, y, t, a};
             particles.push_back(newParticle);
 
+            if (a < minAmp)
+                minAmp = a;
+
+            if (a > maxAmp)
+                maxAmp = a;
+
             // DBG("Added new particle for frequency " << band.frequency << ": "
             //     << "x = " << x << ", y = " << y << ", a = " << a);
         }
+
+        DBG("Amplitude range: [" << minAmp << ", " << maxAmp << "]");
     }
 
     // Delete old particles

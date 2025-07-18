@@ -15,7 +15,8 @@ struct frequency_band {
 
 typedef std::vector<juce::dsp::Complex<float>> fft_buffer_t;
 
-enum AnalysisMode { FFT, CQT };
+enum Transform { FFT, CQT };
+enum PanMethod { level_pan, time_pan, both };
 
 class AudioAnalyzer
 {
@@ -37,7 +38,8 @@ public:
 
     void setSampleRate(double newSampleRate);
     void setSamplesPerBlock(int newSamplesPerBlock);
-    void setAnalysisMode(AnalysisMode newAnalysisMode);
+    void setTransform(Transform newTransform);
+    void setPanMethod(PanMethod newPanMethod);
     void setFFTOrder(float newFFTOrder);
     void setMinFrequency(float newMinFrequency);
     void setNumCQTBins(float newNumCQTBins);
@@ -67,7 +69,8 @@ private:
     //=========================================================================
     /* Basic stuff */
 
-    enum AnalysisMode analysisMode = CQT;
+    enum Transform transform = CQT;
+    enum PanMethod panMethod = both;
 
     std::mutex prepareMutex;
 
@@ -214,10 +217,10 @@ private:
                 fifo.prepareToRead(1, start1, size1, start2, size2);
                 if (size1 < 0) continue;
 
-                if (parentAnalyzer.analysisMode == CQT)
+                if (parentAnalyzer.transform == CQT)
                     parentAnalyzer.analyzeBlockCQT(buffers[start1]);
 
-                else if (parentAnalyzer.analysisMode == FFT)
+                else if (parentAnalyzer.transform == FFT)
                     parentAnalyzer.analyzeBlockFFT(buffers[start1]);
                 
                 fifo.finishedRead(size1);

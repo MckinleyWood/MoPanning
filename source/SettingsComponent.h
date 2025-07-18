@@ -6,9 +6,7 @@ class MainController;
 //=============================================================================
 /*  This is the component for the settings widget.
 */
-class SettingsComponent : public juce::Component,
-                          private juce::ComboBox::Listener,
-                          private juce::Slider::Listener
+class SettingsComponent : public juce::Component
 {
 public:
     //=========================================================================
@@ -19,8 +17,42 @@ public:
     // void paint(juce::Graphics&) override;
     void resized(void) override;
 
-    void comboBoxChanged(juce::ComboBox* s) override;
+private:
+    //=========================================================================
+    MainController& controller;
+
+    // Viewport and content
+    juce::Viewport viewport;
+
+    // Declare inner component
+    class SettingsContentComponent;
+    std::unique_ptr<SettingsContentComponent> content;
+
+    bool initialized = false;
+
+    //=========================================================================
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SettingsComponent)
+};
+
+//=============================================================================
+class SettingsComponent::SettingsContentComponent : public juce::Component,
+                                                    private juce::ComboBox::Listener,
+                                                    private juce::Slider::Listener
+{
+public:
+    //=========================================================================
+    SettingsContentComponent(MainController& c);
+    ~SettingsContentComponent();
+
+    void resized() override;
+    void paint(juce::Graphics& g) override;
+
+    void comboBoxChanged(juce::ComboBox* b) override;
     void sliderValueChanged(juce::Slider* s) override;
+
+    // Helpers
+    std::vector<juce::Component*> getSettings();
+    std::vector<juce::Label*> getLabels();
 
 private:
     //=========================================================================
@@ -32,7 +64,8 @@ private:
     // Settings subcomponents
     juce::ComboBox sampleRateBox;
     juce::ComboBox samplesPerBlockBox;
-    juce::ComboBox analysisModeBox;
+    juce::ComboBox transformBox;
+    juce::ComboBox panMethodBox;
     juce::ComboBox fftOrderBox;
     juce::ComboBox minFrequencyBox;
     juce::ComboBox numCQTbinsBox;
@@ -46,7 +79,8 @@ private:
     // Labels
     juce::Label sampleRateLabel;
     juce::Label samplesPerBlockLabel;
-    juce::Label analysisModeLabel;
+    juce::Label transformLabel;
+    juce::Label panMethodLabel;
     juce::Label fftOrderLabel;
     juce::Label minFrequencyLabel;
     juce::Label numCQTbinsLabel;
@@ -57,19 +91,5 @@ private:
     juce::Label farZLabel;
     juce::Label fovLabel;
 
-    // Viewport and content
-    juce::Viewport viewport;
-
-    // Declare inner component
-    class SettingsContentComponent;
-    std::unique_ptr<SettingsContentComponent> content;
-
-    // Functions to get a list of all of our settings subcomponents and labels
-    std::vector<juce::Component*> getSettings();
-    std::vector<juce::Label*> getLabels();
-
     bool initialized = false;
-
-    //=========================================================================
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SettingsComponent)
 };
