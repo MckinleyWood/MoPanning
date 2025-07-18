@@ -28,108 +28,108 @@ using sc = SettingsComponent;
 
 sc::SettingsContentComponent::SettingsContentComponent(MainController& c) 
                                                        : controller(c)
+{
+    // Set up combo boxes
+    sampleRateBox.addItem("24,000Hz", 24000);
+    sampleRateBox.addItem("44,100Hz", 44100);
+    sampleRateBox.addItem("48,000Hz", 48000);
+    sampleRateBox.setSelectedId((int)controller.getSampleRate());
+    sampleRateBox.addListener(this);
+
+    samplesPerBlockBox.addItem("64", 64);
+    samplesPerBlockBox.addItem("128", 128);
+    samplesPerBlockBox.addItem("256", 256);
+    samplesPerBlockBox.addItem("512", 512);
+    samplesPerBlockBox.addItem("1024", 1024);
+    samplesPerBlockBox.setSelectedId(controller.getSamplesPerBlock());
+    samplesPerBlockBox.addListener(this);
+
+    transformBox.addItem("FFT", 1);
+    transformBox.addItem("CQT", 2);
+    transformBox.setSelectedId(controller.getTransform() + 1);
+    transformBox.addListener(this);
+
+    panMethodBox.addItem("level", 1);
+    panMethodBox.addItem("time", 2);
+    panMethodBox.addItem("both", 3);
+    panMethodBox.setSelectedId(controller.getPanMethod() + 1);
+    panMethodBox.addListener(this);
+
+    fftOrderBox.addItem("8", 8);
+    fftOrderBox.addItem("9", 9);
+    fftOrderBox.addItem("10", 10);
+    fftOrderBox.addItem("11", 11);
+    fftOrderBox.setSelectedId(controller.getFFTOrder());
+    fftOrderBox.addListener(this);
+
+    minFrequencyBox.addItem("20Hz", 20);
+    minFrequencyBox.addItem("50Hz", 50);
+    minFrequencyBox.addItem("100Hz", 100);
+    minFrequencyBox.setSelectedId((int)controller.getMinFrequency());
+    minFrequencyBox.addListener(this);
+
+    numCQTbinsBox.addItem("64", 64);
+    numCQTbinsBox.addItem("128", 128);
+    numCQTbinsBox.addItem("256", 256);
+    numCQTbinsBox.addItem("512", 512);
+    numCQTbinsBox.setSelectedId(controller.getNumCQTBins());
+    numCQTbinsBox.addListener(this);
+
+    // Set up sliders
+    recedeSpeedSlider.setRange(0.1, 20.0);
+    recedeSpeedSlider.setValue(controller.getRecedeSpeed());
+    recedeSpeedSlider.addListener(this);
+
+    dotSizeSlider.setRange(0.001, 1.0);
+    dotSizeSlider.setValue(controller.getDotSize());
+    dotSizeSlider.addListener(this);
+
+    nearZSlider.setRange(0.01, 1.0);
+    nearZSlider.setValue(controller.getNearZ());
+    nearZSlider.addListener(this);
+
+    fadeEndZSlider.setRange(1.0, 100.0);
+    fadeEndZSlider.setValue(controller.getFadeEndZ());
+    fadeEndZSlider.addListener(this);
+
+    farZSlider.setRange(1.0, 1000.0);
+    farZSlider.setValue(controller.getFarZ());
+    farZSlider.addListener(this);
+
+    fovSlider.setRange(10.0, 120.0);
+    fovSlider.setValue(controller.getFOV());
+    fovSlider.addListener(this);
+
+    // Set up labels
+    sampleRateLabel.setText("Sample Rate", juce::dontSendNotification);
+    samplesPerBlockLabel.setText("Samples per Block", juce::dontSendNotification);
+    transformLabel.setText("Frequency Transform", juce::dontSendNotification);
+    panMethodLabel.setText("Pan Method", juce::dontSendNotification);
+    fftOrderLabel.setText("FFT Order", juce::dontSendNotification);
+    minFrequencyLabel.setText("Min Frequency", juce::dontSendNotification);
+    numCQTbinsLabel.setText("CQT Bin Count", juce::dontSendNotification);
+    recedeSpeedLabel.setText("Recede Speed", juce::dontSendNotification);
+    dotSizeLabel.setText("Dot Size", juce::dontSendNotification);
+    nearZLabel.setText("Near Z", juce::dontSendNotification);
+    fadeEndZLabel.setText("Fade End Z", juce::dontSendNotification);
+    farZLabel.setText("Far Z", juce::dontSendNotification);
+    fovLabel.setText("FOV", juce::dontSendNotification);
+
+    // Make all components visible
+    addAndMakeVisible(title);
+    for (const auto& setting : getSettings())
     {
-        // Set up combo boxes
-        sampleRateBox.addItem("24,000Hz", 24000);
-        sampleRateBox.addItem("44,100Hz", 44100);
-        sampleRateBox.addItem("48,000Hz", 48000);
-        sampleRateBox.setSelectedId((int)controller.getSampleRate());
-        sampleRateBox.addListener(this);
+        addAndMakeVisible(setting);
+    }
 
-        samplesPerBlockBox.addItem("64", 64);
-        samplesPerBlockBox.addItem("128", 128);
-        samplesPerBlockBox.addItem("256", 256);
-        samplesPerBlockBox.addItem("512", 512);
-        samplesPerBlockBox.addItem("1024", 1024);
-        samplesPerBlockBox.setSelectedId(controller.getSamplesPerBlock());
-        samplesPerBlockBox.addListener(this);
+    for (auto* label : getLabels())
+    {
+        label->setJustificationType(juce::Justification::left);
+        label->setFont(juce::Font(13.0f));
+        addAndMakeVisible(label);
+    }
 
-        transformBox.addItem("FFT", 1);
-        transformBox.addItem("CQT", 2);
-        transformBox.setSelectedId(controller.getTransform() + 1);
-        transformBox.addListener(this);
-
-        panMethodBox.addItem("level", 1);
-        panMethodBox.addItem("time", 2);
-        panMethodBox.addItem("both", 3);
-        panMethodBox.setSelectedId(controller.getPanMethod() + 1);
-        panMethodBox.addListener(this);
-
-        fftOrderBox.addItem("8", 8);
-        fftOrderBox.addItem("9", 9);
-        fftOrderBox.addItem("10", 10);
-        fftOrderBox.addItem("11", 11);
-        fftOrderBox.setSelectedId(controller.getFFTOrder());
-        fftOrderBox.addListener(this);
-
-        minFrequencyBox.addItem("20Hz", 20);
-        minFrequencyBox.addItem("50Hz", 50);
-        minFrequencyBox.addItem("100Hz", 100);
-        minFrequencyBox.setSelectedId((int)controller.getMinFrequency());
-        minFrequencyBox.addListener(this);
-
-        numCQTbinsBox.addItem("64", 64);
-        numCQTbinsBox.addItem("128", 128);
-        numCQTbinsBox.addItem("256", 256);
-        numCQTbinsBox.addItem("512", 512);
-        numCQTbinsBox.setSelectedId(controller.getNumCQTBins());
-        numCQTbinsBox.addListener(this);
-
-        // Set up sliders
-        recedeSpeedSlider.setRange(0.1, 20.0);
-        recedeSpeedSlider.setValue(controller.getRecedeSpeed());
-        recedeSpeedSlider.addListener(this);
-
-        dotSizeSlider.setRange(0.001, 1.0);
-        dotSizeSlider.setValue(controller.getDotSize());
-        dotSizeSlider.addListener(this);
-
-        nearZSlider.setRange(0.01, 1.0);
-        nearZSlider.setValue(controller.getNearZ());
-        nearZSlider.addListener(this);
-
-        fadeEndZSlider.setRange(1.0, 100.0);
-        fadeEndZSlider.setValue(controller.getFadeEndZ());
-        fadeEndZSlider.addListener(this);
-
-        farZSlider.setRange(1.0, 1000.0);
-        farZSlider.setValue(controller.getFarZ());
-        farZSlider.addListener(this);
-
-        fovSlider.setRange(10.0, 120.0);
-        fovSlider.setValue(controller.getFOV());
-        fovSlider.addListener(this);
-
-        // Set up labels
-        sampleRateLabel.setText("Sample Rate", juce::dontSendNotification);
-        samplesPerBlockLabel.setText("Samples per Block", juce::dontSendNotification);
-        transformLabel.setText("Frequency Transform", juce::dontSendNotification);
-        panMethodLabel.setText("Pan Method", juce::dontSendNotification);
-        fftOrderLabel.setText("FFT Order", juce::dontSendNotification);
-        minFrequencyLabel.setText("Min Frequency", juce::dontSendNotification);
-        numCQTbinsLabel.setText("CQT Bin Count", juce::dontSendNotification);
-        recedeSpeedLabel.setText("Recede Speed", juce::dontSendNotification);
-        dotSizeLabel.setText("Dot Size", juce::dontSendNotification);
-        nearZLabel.setText("Near Z", juce::dontSendNotification);
-        fadeEndZLabel.setText("Fade End Z", juce::dontSendNotification);
-        farZLabel.setText("Far Z", juce::dontSendNotification);
-        fovLabel.setText("FOV", juce::dontSendNotification);
-
-        // Make all components visible
-        addAndMakeVisible(title);
-        for (const auto& setting : getSettings())
-        {
-            addAndMakeVisible(setting);
-        }
-
-        for (auto* label : getLabels())
-        {
-            label->setJustificationType(juce::Justification::left);
-            label->setFont(juce::Font(13.0f));
-            addAndMakeVisible(label);
-        }
-
-        initialized = true;
+    initialized = true;
 }
 
 void sc::SettingsContentComponent::resized()
