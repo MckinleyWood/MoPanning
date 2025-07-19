@@ -10,6 +10,9 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
 }
 
 //=============================================================================
+SettingsComponent::~SettingsComponent() = default;
+
+//=============================================================================
 void SettingsComponent::resized() 
 {
     viewport.setBounds(getLocalBounds());
@@ -131,6 +134,8 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
 
     initialized = true;
 }
+
+SettingsComponent::SettingsContentComponent::~SettingsContentComponent() = default;
 
 void sc::SettingsContentComponent::resized()
 {
