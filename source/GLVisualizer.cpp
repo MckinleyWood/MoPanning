@@ -79,7 +79,14 @@ void GLVisualizer::initialise()
 
             // Pass depth factor for fade and spawn alpha
             vDepth = -z / uFadeEndZ;
-            vSpawnAlpha = instanceData.w;
+
+            // Log-scale the amplitude
+            // float uK = 100.0; // Logarithmic scaling factor
+            // vSpawnAlpha = log(1.0 + uK * instanceData.w) / log(1.0 + uK);
+
+            // Root-scale the amplitude
+            float d = 10.0; // Root scaling factor
+            vSpawnAlpha = pow(instanceData.w, 1.0 / d);
 
             // Build world position
             vec4 worldPos = vec4(instanceData.xy, z, 1.0);
