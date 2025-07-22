@@ -292,7 +292,7 @@ void GLVisualizer::render()
         DBG("OpenGL error: " << juce::String::toHexString((int)err));
         jassertfalse; // triggers the assertion so you still get a breakpoint
     }
-    }
+}
 
 void GLVisualizer::resized() 
 {

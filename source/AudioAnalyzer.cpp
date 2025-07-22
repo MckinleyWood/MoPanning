@@ -22,15 +22,18 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate,
     // Stop any existing worker thread
     stopWorker();
 
-    // Recalculate fftSize
-    fftSize = 1 << fftOrder;
+    // Recalculate fftSize - Ensure we are giving it a power of two
+    jassert(samplesPerBlock > 0 
+         && (samplesPerBlock & (samplesPerBlock - 1)) == 0);
+    fftSize = samplesPerBlock;
+    numFFTBins = fftSize / 2 + 1;
 
     // Clear any previously allocated buffers or objects
     window.clear();
     fftBuffer.clear();
     cqtKernels.clear();
     centerFrequencies.clear();
-    cqtMagnitudes.clear();
+    // cqtMagnitudes.clear();
 
     this->samplesPerBlock = samplesPerBlock;
     this->sampleRate = sampleRate;
@@ -52,23 +55,15 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate,
     DBG("Resizing fftBuffer to fftSize = " << fftSize);
     fftBuffer.resize(fftSize);
 
-    // Prepare CQT kernels
-    DBG("Resizing cqtKernels to numCQTbins = " << numCQTbins);
-    cqtKernels.resize(numCQTbins);
-    DBG("Resizing centerFrequencies to numCQTbins = " << numCQTbins);
-    centerFrequencies.resize(numCQTbins);
-
-    // Allocate CQT result: 2 channels default
-    DBG("Resizing cqtMagnitudes to 2 channels, numCQTbins = " 
-        << numCQTbins);
-    cqtMagnitudes.resize(2, std::vector<float>(numCQTbins, 0.0f));
-
     // Concise name for pi variable
     float pi = MathConstants<float>::pi;
 
     // Build the Hann window
     for (int n = 0; n < fftSize; ++n)
         window[n] = 0.5f * (1.0f - std::cos(2.0f * pi * n / (fftSize - 1)));
+
+    // Initialize FFT engine
+    fft = std::make_unique<juce::dsp::FFT>((int)std::log2(fftSize));
 
     // Calculate maximum expected FFT bin magnitude
     maxExpectedMag = 0.0;
@@ -80,6 +75,17 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate,
     const float nyquist = static_cast<float>(sampleRate * 0.5);
     const float logMin = std::log2(minCQTfreq);
     const float logMax = std::log2(nyquist);
+
+    // Prepare CQT kernels
+    DBG("Resizing cqtKernels to numCQTbins = " << numCQTbins);
+    cqtKernels.resize(numCQTbins);
+    DBG("Resizing centerFrequencies to numCQTbins = " << numCQTbins);
+    centerFrequencies.resize(numCQTbins);
+
+    // Allocate CQT result: 2 channels default
+    // DBG("Resizing cqtMagnitudes to 2 channels, numCQTbins = " 
+    //     << numCQTbins);
+    // cqtMagnitudes.resize(2, std::vector<float>(numCQTbins, 0.0f));
 
     // Precompute CQT kernels
     for (int bin = 0; bin < numCQTbins; ++bin)
@@ -246,10 +252,6 @@ void AudioAnalyzer::prepareBandpassFilters()
         leftBandpassFilters.push_back(std::move(leftFilter));
         rightBandpassFilters.push_back(std::move(rightFilter));
     }
-
-    // Initialize ITD estimates
-    DBG("Resizing itdPerBand to " << centerFrequencies.size());
-    itdPerBand.resize(centerFrequencies.size(), 0.0f); 
 }
 
 /*  Computes the FFT of each channel of the input buffer and stores the
@@ -258,19 +260,18 @@ void AudioAnalyzer::prepareBandpassFilters()
 void AudioAnalyzer::computeFFT(const juce::AudioBuffer<float>& buffer,
                                std::array<fft_buffer_t, 2>& outSpectra)
 {
-    int numSamples = (buffer.getNumSamples());
     for (int ch = 0; ch < 2; ++ch)
     {
         // Copy & window the buffer data
         auto* readPtr = buffer.getReadPointer(ch);
         for (int n = 0; n < fftSize; ++n)
         {
-            float s = (n < numSamples ? readPtr[n] : 0.0f);
+            float s = readPtr[n];
             fftBuffer[n].real(s * window[n]);
             fftBuffer[n].imag(0.0f);
         }
 
-        fft.perform(fftBuffer.data(), fftBuffer.data(), false);
+        fft->perform(fftBuffer.data(), fftBuffer.data(), false);
 
         // DBG("First few FFT buffer values after transform:");
         // for (int i = 0; i < 5; ++i)
@@ -279,79 +280,64 @@ void AudioAnalyzer::computeFFT(const juce::AudioBuffer<float>& buffer,
         //      << " + " << fftBuffer[i].imag() << "i");
         // }
 
-        // Extract just the first half (up to the Nyquist frequency)
-        outSpectra[ch].resize(numBins);
-        for (int b = 0; b < numBins; ++b)
+        outSpectra[ch].resize(fftSize);
+        for (int b = 0; b < fftSize; ++b)
             outSpectra[ch][b] = fftBuffer[b];
     }
 }
 
 /*  Computes the inter-channel level difference for each frequency bin
-    and stores the results in outPan. As this is basically straight from
-    ChatGPT, it would be worth checking whether it is really the same as
-    in the MarPanning paper.
+    and stores the results in panIndices.
 */
-void AudioAnalyzer::computeILDs(std::array<fft_buffer_t, 2>& spectra,
-                                std::vector<float>& outPan)
+void AudioAnalyzer::computeILDs(std::array<std::vector<float>, 2>& magnitudes,
+                                int numBands, std::vector<float>& panIndices)
 {
-    outPan.resize(numBins);
+    panIndices.resize(numBands);
 
-    for (int b = 0; b < numBins; ++b)
+    for (int b = 0; b < numBands; ++b)
     {
-        float L = std::abs(spectra[0][b]);
-        float R = std::abs(spectra[1][b]);
-        float denom = L*L + R*R + 1e-12f; // Avoid zero
+        float L = magnitudes[0][b];
+        float R = magnitudes[1][b];
+        float denom = L * L + R * R + 1e-12f; // Avoid zero
         float sim = (2.0f * L * R) / denom;
 
         // Direction: L > R => left => -1; R > L => right => +1
         float dir = (L > R ? -1.0f : (R > L ? 1.0f : 0.0f));
 
         // Final pan is in the range [-1, +1]
-        outPan[b] = dir * (1.0f - sim);
+        panIndices[b] = dir * (1.0f - sim);
     }
 }
 
-/*  Computes the CQT of a channel. We could possibly split this into 
-    "computeFFT" and "applyCQT" if we need just FFT for other 
-    calculations.
+/*  Computes the CQT of an audio buffer given the FFT results and stores
+    the magnitudes (one for each channel and CQT bin) in cqtMags.
 */
-void AudioAnalyzer::computeCQT(const float* channelData, int channelIndex)
+void AudioAnalyzer::computeCQT(const juce::AudioBuffer<float>& buffer,
+                               std::array<fft_buffer_t, 2> ffts,
+                               std::array<std::vector<float>, 2>& cqtMags)
 {
-    // Use end of buffer to match GCC-PHAT (if large enough)
-    const float* input = channelData;
-    if (samplesPerBlock >= fftSize)
-        input = channelData + (samplesPerBlock - fftSize);
-
-    // DBG("Reading input from offset: " << (input - channelData));
-
-    // Load windowed samples (real part) and zero-pad imag part
-    for (int n = 0; n < fftSize; ++n)
+    for (int ch = 0; ch < 2; ++ch)
     {
-        float x = (n < (samplesPerBlock)) ? input[n] : 0.0f;
-        fftBuffer[n] = std::complex<float>(x * window[n], 0.0f);
-    }
+        const float* channelData = buffer.getReadPointer(ch);
+        cqtMags[ch].resize(numCQTbins, 0.0f);
+        
+        // Compute CQT by inner product with each kernel
+        for (int bin = 0; bin < numCQTbins; ++bin)
+        {
+            std::complex<float> sum = 0.0f;
+            const auto& kernel = cqtKernels[bin];
+            for (int i = 0; i < fftSize; ++i)
+                sum += ffts[ch][i] * std::conj(kernel[i]);
 
-    // In-place complex FFT (real -> complex)
-    // Data layout: [ real[0], real[1], ..., real[fftSize-1], 
-    // imag[0], imag[1], ..., imag[fftSize-1] ]
-    fft.perform(fftBuffer.data(), fftBuffer.data(), false);
-
-    // Compute CQT by inner product with each kernel
-    for (int bin = 0; bin < numCQTbins; ++bin)
-    {
-        std::complex<float> sum = 0.0f;
-        const auto& kernel = cqtKernels[bin];
-        for (int i = 0; i < fftSize; ++i)
-            sum += fftBuffer[i] * std::conj(kernel[i]);
-
-        cqtMagnitudes[(channelIndex)][bin] = std::abs(sum);
+            cqtMags[ch][bin] = std::abs(sum);
+        }
     }
 
     // juce::StringArray mags;
-    // for (float m : cqtMagnitudes[channelIndex])
+    // for (float m : cqtMags[0])
     //     mags.add(juce::String(m, 3));
-    // DBG("CQT magnitudes (post inner product) for ch " << channelIndex 
-    //  << ": " << mags.joinIntoString(", "));
+    // DBG("CQT magnitudes (post inner product) for channel 0: " 
+    //     << mags.joinIntoString(", ")); 
 }
 
 /*  Compute GCC-PHAT delay for a specific frequency band */
@@ -386,8 +372,8 @@ float AudioAnalyzer::gccPhatDelayPerBand(const float* x, const float* y,
         Y[i] = std::complex<float>(filteredY[i] * window[i], 0.0f);
     }
 
-    fft.perform(X.data(), X.data(), false);
-    fft.perform(Y.data(), Y.data(), false);
+    fft->perform(X.data(), X.data(), false);
+    fft->perform(Y.data(), Y.data(), false);
 
     for (int i = 0; i < fftSize; ++i)
     {
@@ -403,7 +389,7 @@ float AudioAnalyzer::gccPhatDelayPerBand(const float* x, const float* y,
     //  << "corr[0] = " + juce::String(corr[0].real()) 
     //  << " + " + juce::String(corr[0].imag()) + "i");
 
-    fft.perform(R.data(), corr.data(), true);
+    fft->perform(R.data(), corr.data(), true);
 
     // Find peak in cross-correlation
     int maxIndex = 0;
@@ -427,15 +413,18 @@ float AudioAnalyzer::gccPhatDelayPerBand(const float* x, const float* y,
 
     return static_cast<float>(delay);
 
-    float energyX = std::accumulate(filteredX.begin(), filteredX.end(), 0.0f,
-    [](float acc, float v) { return acc + v*v; });
-    float energyY = std::accumulate(filteredY.begin(), filteredY.end(), 0.0f,
-    [](float acc, float v) { return acc + v*v; });
+    // float energyX = std::accumulate(filteredX.begin(), filteredX.end(), 0.0f,
+    // [](float acc, float v) { return acc + v*v; });
+    // float energyY = std::accumulate(filteredY.begin(), filteredY.end(), 0.0f,
+    // [](float acc, float v) { return acc + v*v; });
 
     // DBG("Filtered signal energy: X = " << energyX << ", Y = " << energyY);
 }
 
-void AudioAnalyzer::computeGCCPHAT_ITD(const juce::AudioBuffer<float>& buffer)
+void AudioAnalyzer::computeGCCPHAT_ITD(const juce::AudioBuffer<float>& buffer,
+                                       int numBands, 
+                                       std::vector<float>& panIndices)
+                                       
 {
     const float* left = buffer.getReadPointer(0);
     const float* right = buffer.getReadPointer(1);
@@ -446,9 +435,9 @@ void AudioAnalyzer::computeGCCPHAT_ITD(const juce::AudioBuffer<float>& buffer)
     const float* leftSegment = left + (samplesPerBlock - fftSize);
     const float* rightSegment = right + (samplesPerBlock - fftSize);
 
-    itdPerBand.resize(numCQTbins, 0.0f);
+    panIndices.resize(numBands, 0.0f);
     
-    for (int b = 0; b < numCQTbins; ++b)
+    for (int b = 0; b < numBands; ++b)
     {
         // Use precomputed bandpass filters
         auto& leftFilter = leftBandpassFilters[b];
@@ -465,43 +454,124 @@ void AudioAnalyzer::computeGCCPHAT_ITD(const juce::AudioBuffer<float>& buffer)
             rightFilter
         );
 
-        itdPerBand[b] = delaySamples / sampleRate;
+        panIndices[b] = delaySamples / sampleRate;
 
-        // DBG("ITD bin " << b 
+        // DBG("ITD bin " << b
         //     << ": delaySamples = " << delaySamples
         //     << ", delaySeconds = " << itdPerBand[b]);
     }
 }
 
 //=============================================================================
-/* Analyze a block of audio data - MCKINLEY FFT + ILD VERSION */
-void AudioAnalyzer::analyzeBlockFFT(const juce::AudioBuffer<float>& buffer)
+void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
 {
-    // DBG("Analyzing the next audio block");
+    DBG("Analyzing the next audio block");
+    DBG("Transform = " << static_cast<int>(transform)
+     << ", Pan Method = " << static_cast<int>(panMethod));
 
-    // FFT & get complex spectra
-    std::array<fft_buffer_t, 2> spectra;
-    computeFFT(buffer, spectra);
+    std::array<std::vector<float>, 2> magnitudes;
+    std::vector<float> ilds;
+    std::vector<float> itds;
+    std::vector<float> panIndices;
+    int numBands = 0;
+    float ildWeight = 0.75f; // Can change these weights later
+    float itdWeight = 0.25f;
+    
+    // Compute FFT for the block
+    std::array<fft_buffer_t, 2> ffts;
+    computeFFT(buffer, ffts);
 
-    // Compute ILD pan indices
-    std::vector<float> panIndex;
-    computeILDs(spectra, panIndex);
+    switch (transform)
+    {
+    case FFT:
+        // Copy magnitudes to spectra
+        for (int ch = 0; ch < 2; ++ch)
+        {
+            magnitudes[ch].resize(numFFTBins);
+            for (int b = 0; b < numFFTBins; ++b)
+                magnitudes[ch][b] = std::abs(ffts[ch][b]);
+        }
+        numBands = numFFTBins;
+        break;
+    
+    case CQT:
+        // Compute CQT magnitudes
+        computeCQT(buffer, ffts, magnitudes);
+        numBands = numCQTbins;
+        break;
+
+    default:
+        jassertfalse;
+        return;
+    }
+
+    switch (panMethod)
+    {
+    case level_pan:
+        // Use ILD pan indices
+        computeILDs(magnitudes, numBands, panIndices);
+        break;
+    
+    case time_pan:
+        // Use ITD pan indices
+        panIndices.resize(numBands);
+        break;
+    
+    case both:
+        computeILDs(magnitudes, numBands, ilds);
+        computeGCCPHAT_ITD(buffer, numBands, itds);
+
+        panIndices.resize(numBands);
+
+        for (int b = 0; b < numCQTbins; ++b)
+        {
+            panIndices[b] = (ildWeight * ilds[b] + itdWeight * itds[b]) 
+                          / (ildWeight + itdWeight);
+        }
+        break;
+
+    default:
+        jassertfalse;
+        return;
+    }
 
     // Build frequency_band list
     std::vector<frequency_band> newResults;
-    newResults.reserve(numBins);
+    newResults.reserve(numBands);
+    float binWidth;
 
-    float binWidth = (float)sampleRate / (float)fftSize;
-    for (int b = 0; b < numBins; ++b)
+    switch (transform)
     {
-        float freq = b * binWidth;
-        float ampL = std::abs(spectra[0][b]);
-        float ampR = std::abs(spectra[1][b]);
-        float amp  = (ampL + ampR) * 0.5f; // Average amplitude
-        amp = juce::jlimit(0.0f, 1.0f, amp / maxExpectedMag);
-        amp = sqrt(amp);
-        newResults.push_back({ freq, amp, panIndex[b] });
+    case FFT:
+        binWidth = (float)sampleRate / numBands;
+        for (int b = 0; b < numBands; ++b)
+        {
+            float freq = b * binWidth;
+            float ampL = std::abs(magnitudes[0][b]);
+            float ampR = std::abs(magnitudes[1][b]);
+            float amp  = (ampL + ampR) * 0.5f; // Average amplitude
+            amp = juce::jlimit(0.0f, 1.0f, amp / 150);
+            newResults.push_back({ freq, amp, panIndices[b] });
+        }
+        break;
+
+    case CQT:
+        for (int b = 0; b < numBands; ++b)
+        {
+            float freq = centerFrequencies[b];
+            float ampL = std::abs(magnitudes[0][b]);
+            float ampR = std::abs(magnitudes[1][b]);
+            float amp  = (ampL + ampR) * 0.5f; // Average amplitude
+            amp = juce::jlimit(0.0f, 1.0f, amp / 6000);
+            newResults.push_back({ freq, amp, panIndices[b] });
+        }
+        break;
+    
+    default:
+        break;
     }
+
+    
 
     // Hand results to GUI
     {
@@ -509,146 +579,3 @@ void AudioAnalyzer::analyzeBlockFFT(const juce::AudioBuffer<float>& buffer)
         results = std::move(newResults);
     }
 }
-
-/* Analyze a block of audio data - OWEN VERSION */
-void AudioAnalyzer::analyzeBlockCQT(const juce::AudioBuffer<float>& buffer)
-{
-    // DBG("Analyzing the next audio block");
-
-    // DBG("numCQTbins = " << numCQTbins << ", fftSize = " << fftSize);
-
-    // Compute CQT for each channel
-    for (int ch = 0; ch < 2; ++ch)
-    {
-        const float* channelData = buffer.getReadPointer(ch);
-        computeCQT(channelData, ch);  // populate cqtMagnitudes[ch]
-    }
-
-    // for (int ch = 0; ch < 2; ++ch)
-    // {
-    //     juce::StringArray mags;
-    //     for (float m : cqtMagnitudes[ch])
-    //         mags.add(juce::String(m, 3));
-    //     DBG("CQT magnitudes (ch " << ch << "): " 
-    //      << mags.joinIntoString(", "));
-    // }
-
-    // === ILD/ITD Panning Index Calculation ===
-    
-    ILDpanningSpectrum.setSize(1, numCQTbins);
-    ITDpanningSpectrum.resize(numCQTbins);
-
-    const auto& leftCQT = cqtMagnitudes[0];
-    const auto& rightCQT = cqtMagnitudes[1];
-    auto* panningData = ILDpanningSpectrum.getWritePointer(0);
-
-    // Compute GCC-PHAT ITD for each CQT band
-    computeGCCPHAT_ITD(buffer);
-
-    for (int k = 0; k < numCQTbins; ++k)
-    {
-        // === ITD panning index ===
-        ITDpanningSpectrum[k] = juce::jlimit(-1.0f, 1.0f, itdPerBand[k] / maxITD);
-
-        // === ILD panning index === (from Avendano)
-        const float L = leftCQT[k];
-        const float R = rightCQT[k];
-
-        const float denom = (L * L + R * R);
-        if (denom < 1e-6f)
-        {
-            panningData[k] = 0.0f; // Avoid division by zero
-            continue;
-        }
-        
-        const float cross = 2.0f * L * R;
-        const float similarity = cross / denom;
-
-        // Compute directional component Δ(m,k)
-        const float psi1 = (L * R) / (L * L + 1e-6f);
-        const float psi2 = (L * R) / (R * R + 1e-6f);
-        const float delta = psi1 - psi2;
-
-        float direction = 0.0f;
-        if (delta > 0) direction = 1.0f;
-        else if (delta < 0) direction = -1.0f;
-
-        panningData[k] = (1.0f - similarity) * direction;
-    }
-
-    // Log ITD and ILD panning values
-    juce::StringArray itdStrs, ildStrs;
-    for (int k = 0; k < numCQTbins; ++k)
-    {
-        itdStrs.add(juce::String(ITDpanningSpectrum[k], 3));
-        ildStrs.add(juce::String(ILDpanningSpectrum.getSample(0, k), 3));
-    }
-    // DBG("ITD panning: " << itdStrs.joinIntoString(", "));
-    // DBG("ILD panning: " << ildStrs.joinIntoString(", "));
-
-
-    // Combine ILD and ITD into a single panning index
-    std::vector<float> combinedPanning(numCQTbins);
-    float ildWeight = 0.75f; // Can change these weights later
-    float itdWeight = 0.25f;
-
-    for (int b = 0; b < numCQTbins; ++b)
-    {
-        float ild = ILDpanningSpectrum.getSample(0, (b)); 
-        float itd = ITDpanningSpectrum[b];
-
-        combinedPanning[b] = (ildWeight * ild + itdWeight * itd) 
-                           / (ildWeight + itdWeight);
-    }
-
-    // juce::StringArray combinedStrs;
-    // for (int k = 0; k < numCQTbins; ++k)
-    //     combinedStrs.add(juce::String(combinedPanning[k], 3));
-    // DBG("Combined panning indices: " 
-    //  << combinedStrs.joinIntoString(", "));
-
-    // Construct frequency_band results
-    std::vector<frequency_band> newResults;
-    newResults.reserve(numCQTbins);
-    for (int k = 0; k < numCQTbins; ++k)
-    {
-        float freq = centerFrequencies[k];
-        float amp = (leftCQT[k] + rightCQT[k]) * 0.5f;
-        amp = juce::jlimit(0.0f, 1.0f, amp / maxExpectedMag);  // normalize
-        amp = std::sqrt(amp);  // same perceptual scaling as in FFT version
-        float pan = 0.0f;
-
-        switch (panMethod)
-        {
-            case level_pan:
-                pan = ILDpanningSpectrum.getSample(0, (k));
-                break;
-            case time_pan:
-                pan = ITDpanningSpectrum[k];
-                break;
-            case both:
-                pan = combinedPanning[k];
-                break;
-            default:
-                pan = 0.0f; // fallback in case of bad enum
-                break;
-        }
-        newResults.push_back({ freq, amp, pan });
-    }
-
-    // juce::StringArray bandStrs;
-    // for (int k = 0; k < std::min((10), numCQTbins); ++k)
-    // {
-    //     auto& band = newResults[k];
-    //     bandStrs.add("f=" + juce::String(band.frequency, 1) +
-    //                 " A=" + juce::String(band.amplitude, 3) +
-    //                 " P=" + juce::String(band.pan_index, 3));
-    // }
-    // DBG("First 10 frequency_band structs: " << bandStrs.joinIntoString(" | "));
-
-    {
-        std::lock_guard<std::mutex> lock(resultsMutex);
-        results = std::move(newResults);
-    }
-}
-

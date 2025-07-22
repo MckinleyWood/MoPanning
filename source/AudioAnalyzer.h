@@ -14,6 +14,7 @@ struct frequency_band {
 };
 
 typedef std::vector<juce::dsp::Complex<float>> fft_buffer_t;
+typedef std::array<std::vector<float>, 2> magnitude_spectrums_t;
 
 enum Transform { FFT, CQT };
 enum PanMethod { level_pan, time_pan, both };
@@ -55,13 +56,18 @@ private:
 
     void computeFFT(const juce::AudioBuffer<float>& buffer,
                     std::array<fft_buffer_t, 2>& outSpectra);
-    void computeILDs(std::array<fft_buffer_t, 2>& spectra,
-                     std::vector<float>& outPan);
-    void computeCQT(const float* channelData, int channelIndex);
+    void computeILDs(std::array<std::vector<float>, 2>& magnitudes,
+                     int numBands, std::vector<float>& outPan);
+    void computeCQT(const juce::AudioBuffer<float>& buffer,
+                    std::array<fft_buffer_t, 2> ffts,
+                    std::array<std::vector<float>, 2>& cqtMags);
     float gccPhatDelayPerBand(const float* x, const float* y, 
                               juce::dsp::IIR::Filter<float>& bandpassLeft, 
                               juce::dsp::IIR::Filter<float>& bandpassRight);
-    void computeGCCPHAT_ITD(const juce::AudioBuffer<float>& buffer);
+    void computeGCCPHAT_ITD(const juce::AudioBuffer<float>& buffer, 
+                            int numBands, std::vector<float>& panIndices);
+
+    void analyzeBlock(const juce::AudioBuffer<float>& buffer);
 
     void analyzeBlockFFT(const juce::AudioBuffer<float>& buffer);
     void analyzeBlockCQT(const juce::AudioBuffer<float>& buffer);
@@ -79,18 +85,16 @@ private:
 
     std::vector<float> window; // Hann window of length fftSize
 
-    float Qtarget = 1.0f / (std::pow(2.0f, 1.0f / numCQTbins) - 1.0f);
-    float Q = juce::jlimit(1.0f, 12.0f, Qtarget);  // Clamp Q
-
     //=========================================================================
     /* FFT stuff */
 
     int fftOrder = 11; // FFT order = log2(fftSize)
-    int fftSize = 1 << fftOrder;
-    juce::dsp::FFT fft{ fftOrder }; // JUCE FFT engine
+    // int fftSize = 1 << fftOrder;
+    int fftSize;
+    std::unique_ptr<juce::dsp::FFT> fft; // JUCE FFT engine
     fft_buffer_t fftBuffer;
-    int numBins = fftSize / 2 + 1; // Number of useful bins from FFT
-    float maxExpectedMag; 
+    int numFFTBins; // Number of useful bins from FFT
+    float maxExpectedMag;
     
     //=========================================================================
     /* CQT stuff */
@@ -99,19 +103,15 @@ private:
     int numCQTbins = 128;
     std::vector<float> centerFrequencies;
 
+    float Qtarget = 1.0f / (std::pow(2.0f, 1.0f / numCQTbins) - 1.0f);
+    float Q = jlimit(1.0f, 12.0f, Qtarget);  // Clamp Q
+
     // Each filter is a complex-valued kernel vector (frequency domain)
     std::vector<std::vector<std::complex<float>>> cqtKernels;
 
-    // CQT result: [numChannels][numCQTbins]
-    std::vector<std::vector<float>> cqtMagnitudes;
-
     //=========================================================================
-    /* Panning - Owen version */
+    /* GCC-PHAT stuff */
 
-    juce::AudioBuffer<float> ILDpanningSpectrum;
-    std::vector<float> ITDpanningSpectrum;
-
-    std::vector<float> itdPerBand;
     std::vector<juce::dsp::IIR::Filter<float>> leftBandpassFilters;
     std::vector<juce::dsp::IIR::Filter<float>> rightBandpassFilters;
 
@@ -217,24 +217,7 @@ private:
                 fifo.prepareToRead(1, start1, size1, start2, size2);
                 if (size1 < 0) continue;
 
-                if (parentAnalyzer.transform == CQT)
-                    parentAnalyzer.analyzeBlockCQT(buffers[start1]);
-
-                else if (parentAnalyzer.transform == FFT)
-                    parentAnalyzer.analyzeBlockFFT(buffers[start1]);
-
-                switch (parentAnalyzer.panMethod)
-                {
-                    case level_pan:
-                        // Handle level panning
-                        break;
-                    case time_pan:
-                        // Handle time panning
-                        break;
-                    case both:
-                        // Handle both methods
-                        break;
-                }
+                parentAnalyzer.analyzeBlock(buffers[start1]);
                 
                 fifo.finishedRead(size1);
             }

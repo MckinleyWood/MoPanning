@@ -215,6 +215,11 @@ void sc::SettingsContentComponent::comboBoxChanged(juce::ComboBox* b)
         controller.setTransform(b->getSelectedId() - 1);
     }
 
+    else if (b == &panMethodBox)
+    {
+        controller.setPanMethod(b->getSelectedId() - 1);
+    }
+
     else if (b == &fftOrderBox)       
     {
         controller.setFFTOrder(b->getSelectedId());

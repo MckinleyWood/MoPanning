@@ -5,7 +5,7 @@ MainController::MainController()
     : settingsTree(ParamIDs::root)
 {
     settingsTree.setProperty(ParamIDs::transform, 1, nullptr);
-    settingsTree.setProperty(ParamIDs::panMethod, 3, nullptr);
+    settingsTree.setProperty(ParamIDs::panMethod, 2, nullptr);
     settingsTree.setProperty(ParamIDs::fftOrder, 11, nullptr);
     settingsTree.setProperty(ParamIDs::minFrequency, 20.f, nullptr);
     settingsTree.setProperty(ParamIDs::numCQTbins, 128, nullptr);
@@ -51,25 +51,24 @@ void MainController::prepareToPlay(int samplesPerBlock, double sampleRate)
 void MainController::prepareAnalyzer()
 {
     if (engine.isPlaying())
-{
-    engine.stopPlayback();
-    juce::Thread::sleep(50); // Give time for audio thread to finish
-    analyzer.prepare(getSamplesPerBlock(), 
-                     getSampleRate(), 
-                     getNumCQTBins(),
-                     getFFTOrder(),
-                     getMinFrequency());
-    engine.startPlayback();
-}
-else
-{
-    analyzer.prepare(getSamplesPerBlock(), 
-                     getSampleRate(), 
-                     getNumCQTBins(),
-                     getFFTOrder(),
-                     getMinFrequency());
-}
-
+    {
+        engine.stopPlayback();
+        juce::Thread::sleep(50); // Give time for audio thread to finish
+        analyzer.prepare(getSamplesPerBlock(), 
+                        getSampleRate(), 
+                        getNumCQTBins(),
+                        getFFTOrder(),
+                        getMinFrequency());
+        engine.startPlayback();
+    }
+    else
+    {
+        analyzer.prepare(getSamplesPerBlock(), 
+                        getSampleRate(), 
+                        getNumCQTBins(),
+                        getFFTOrder(),
+                        getMinFrequency());
+    }
 }
 
 void MainController::releaseResources() 

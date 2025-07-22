@@ -42,7 +42,7 @@ class SettingsComponent::SettingsContentComponent : public juce::Component,
 public:
     //=========================================================================
     SettingsContentComponent(MainController& c);
-    ~SettingsContentComponent();
+    ~SettingsContentComponent() override;
 
     void resized() override;
     void paint(juce::Graphics& g) override;
