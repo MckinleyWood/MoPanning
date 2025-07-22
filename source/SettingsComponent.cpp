@@ -52,9 +52,9 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     transformBox.setSelectedId(controller.getTransform() + 1);
     transformBox.addListener(this);
 
-    panMethodBox.addItem("level", 1);
-    panMethodBox.addItem("time", 2);
-    panMethodBox.addItem("both", 3);
+    panMethodBox.addItem("Level", 1);
+    panMethodBox.addItem("Time", 2);
+    panMethodBox.addItem("Both", 3);
     panMethodBox.setSelectedId(controller.getPanMethod() + 1);
     panMethodBox.addListener(this);
 
@@ -228,6 +228,12 @@ void sc::SettingsContentComponent::comboBoxChanged(juce::ComboBox* b)
     else if (b == &numCQTbinsBox)
     {
         controller.setNumCQTBins(b->getSelectedId());
+        controller.prepareAnalyzer();
+    }
+
+    else if (b == &panMethodBox)
+    {
+        controller.setPanMethod(b->getSelectedId() - 1);
         controller.prepareAnalyzer();
     }
 }

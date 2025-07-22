@@ -222,6 +222,19 @@ private:
 
                 else if (parentAnalyzer.transform == FFT)
                     parentAnalyzer.analyzeBlockFFT(buffers[start1]);
+
+                switch (parentAnalyzer.panMethod)
+                {
+                    case level_pan:
+                        // Handle level panning
+                        break;
+                    case time_pan:
+                        // Handle time panning
+                        break;
+                    case both:
+                        // Handle both methods
+                        break;
+                }
                 
                 fifo.finishedRead(size1);
             }

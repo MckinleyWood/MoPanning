@@ -251,7 +251,7 @@ void MainController::valueTreePropertyChanged(juce::ValueTree&,
     else if (id == ParamIDs::transform)
         analyzer.setTransform(static_cast<Transform>(getTransform()));
 
-    else if (id == ParamIDs::transform)
+    else if (id == ParamIDs::panMethod)
         analyzer.setPanMethod(static_cast<PanMethod>(getPanMethod()));
 
     else if (id == ParamIDs::fftOrder)

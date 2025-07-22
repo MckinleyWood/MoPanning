@@ -43,6 +43,8 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate,
     DBG("Number of CQT bins = " << this->numCQTbins);
     DBG("FFT order = " << this->fftOrder);
     DBG("Minimum CQT frequency = " << this->minCQTfreq);
+    DBG("Panning Method = " << (panMethod == level_pan ? "Level" :
+                                    panMethod == time_pan ? "Time" : "Both"));
 
     // Allocate hann window and FFT buffer
     DBG("Resizing window to fftSize = " << fftSize);
@@ -548,7 +550,7 @@ void AudioAnalyzer::analyzeBlockCQT(const juce::AudioBuffer<float>& buffer)
         // === ITD panning index ===
         ITDpanningSpectrum[k] = juce::jlimit(-1.0f, 1.0f, itdPerBand[k] / maxITD);
 
-        // === ILD panning index ===
+        // === ILD panning index === (from Avendano)
         const float L = leftCQT[k];
         const float R = rightCQT[k];
 
@@ -614,7 +616,24 @@ void AudioAnalyzer::analyzeBlockCQT(const juce::AudioBuffer<float>& buffer)
         float amp = (leftCQT[k] + rightCQT[k]) * 0.5f;
         amp = juce::jlimit(0.0f, 1.0f, amp / maxExpectedMag);  // normalize
         amp = std::sqrt(amp);  // same perceptual scaling as in FFT version
-        newResults.push_back({ freq, amp, combinedPanning[k] });
+        float pan = 0.0f;
+
+        switch (panMethod)
+        {
+            case level_pan:
+                pan = ILDpanningSpectrum.getSample(0, (k));
+                break;
+            case time_pan:
+                pan = ITDpanningSpectrum[k];
+                break;
+            case both:
+                pan = combinedPanning[k];
+                break;
+            default:
+                pan = 0.0f; // fallback in case of bad enum
+                break;
+        }
+        newResults.push_back({ freq, amp, pan });
     }
 
     // juce::StringArray bandStrs;
