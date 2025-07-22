@@ -83,7 +83,7 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     recedeSpeedSlider.setValue(controller.getRecedeSpeed());
     recedeSpeedSlider.addListener(this);
 
-    dotSizeSlider.setRange(0.001, 1.0);
+    dotSizeSlider.setRange(0.001, 2.0);
     dotSizeSlider.setValue(controller.getDotSize());
     dotSizeSlider.addListener(this);
 

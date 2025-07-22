@@ -78,7 +78,7 @@ private:
 
     double startTime = 0.; // App-launch time in seconds
     float recedeSpeed = 5.f; // Speed that objects recede
-    float dotSize = 0.05f; // Radius of the dots
+    float dotSize = 0.5f; // Radius of the dots
     float nearZ = 0.1f;
     float fadeEndZ = 5.0f;
     float farZ = 100.0f; // Distance to the end of clip space (m)
