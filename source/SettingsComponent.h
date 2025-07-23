@@ -71,6 +71,7 @@ private:
     juce::ComboBox numCQTbinsBox;
     juce::Slider recedeSpeedSlider;
     juce::Slider dotSizeSlider;
+    juce::Slider ampScaleSlider;
     juce::Slider nearZSlider;
     juce::Slider fadeEndZSlider;
     juce::Slider farZSlider;
@@ -86,6 +87,7 @@ private:
     juce::Label numCQTbinsLabel;
     juce::Label recedeSpeedLabel;
     juce::Label dotSizeLabel;
+    juce::Label ampScaleLabel;
     juce::Label nearZLabel;
     juce::Label fadeEndZLabel;
     juce::Label farZLabel;

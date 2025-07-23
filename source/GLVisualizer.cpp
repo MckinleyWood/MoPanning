@@ -30,6 +30,11 @@ void GLVisualizer::setDotSize(float newDotSize)
     dotSize = newDotSize;
 }
 
+void GLVisualizer::setAmpScale(float newAmpScale)
+{
+    ampScale = newAmpScale;
+}
+
 void GLVisualizer::setNearZ(float newNearZ)
 {
     nearZ = newNearZ;
@@ -50,7 +55,6 @@ void GLVisualizer::setFOV(float newFOV)
     fov = newFOV;
 }
 
-
 //=============================================================================
 void GLVisualizer::initialise() 
 {
@@ -67,9 +71,11 @@ void GLVisualizer::initialise()
         uniform float uSpeed;
         uniform float uFadeEndZ;
         uniform float uDotSize;
+        uniform float uAmpScale;
 
         out float vDepth;
         out float vSpawnAlpha;
+        out vec3 vColour;
 
         void main()
         {
@@ -85,8 +91,7 @@ void GLVisualizer::initialise()
             // vSpawnAlpha = log(1.0 + uK * instanceData.w) / log(1.0 + uK);
 
             // Root-scale the amplitude
-            float d = 10.0; // Root scaling factor
-            vSpawnAlpha = pow(instanceData.w, 1.0 / d);
+            vSpawnAlpha = pow(instanceData.w, 1.0 / uAmpScale); 
 
             // Build world position
             vec4 worldPos = vec4(instanceData.xy, z, 1.0);
@@ -97,6 +102,8 @@ void GLVisualizer::initialise()
             // Size in pixels
             gl_PointSize = 100.0 * uDotSize * sqrt(instanceData.w);
             // gl_PointSize = 20.0;
+
+            vColour = vec3(1.0, 1.0, 1.0); // White color for now
         }
     )";
 
@@ -104,6 +111,7 @@ void GLVisualizer::initialise()
     static const char* fragSrc = R"(#version 150
         in float vDepth;        
         in float vSpawnAlpha;
+        in vec3 vColour;
         out vec4 frag;
 
         void main()
@@ -113,7 +121,7 @@ void GLVisualizer::initialise()
             if (dot(p, p) > 1.0) discard;
 
             float alpha = vSpawnAlpha * (1.0 - vDepth);
-            frag = vec4(1.0, 1.0, 1.0, alpha);
+            frag = vec4(vColour, alpha);
         }
     )";
     
@@ -284,6 +292,7 @@ void GLVisualizer::render()
     shader->setUniform("uSpeed", recedeSpeed);
     shader->setUniform("uFadeEndZ", fadeEndZ);
     shader->setUniform("uDotSize", dotSize);
+    shader->setUniform("uAmpScale", ampScale);
 
     // DBG("Dot Size = " << dotSize);
 

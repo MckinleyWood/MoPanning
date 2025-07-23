@@ -11,6 +11,7 @@ MainController::MainController()
     settingsTree.setProperty(ParamIDs::numCQTbins, 128, nullptr);
     settingsTree.setProperty(ParamIDs::recedeSpeed, 5.f, nullptr);
     settingsTree.setProperty(ParamIDs::dotSize, 0.5f,nullptr);
+    settingsTree.setProperty(ParamIDs::ampScale, 5.f, nullptr);
     settingsTree.setProperty(ParamIDs::nearZ, 0.1f, nullptr);
     settingsTree.setProperty(ParamIDs::fadeEndZ, 5.f, nullptr);
     settingsTree.setProperty(ParamIDs::farZ, 100.f, nullptr);
@@ -145,6 +146,11 @@ float  MainController::getDotSize() const
     return settingsTree[ParamIDs::dotSize];
 }
 
+float MainController::getAmpScale() const
+{
+    return settingsTree[ParamIDs::ampScale];
+}
+
 float MainController::getNearZ() const
 {
     return settingsTree[ParamIDs::nearZ];
@@ -217,6 +223,11 @@ void MainController::setDotSize(float newDotSize)
     settingsTree.setProperty(ParamIDs::dotSize, newDotSize, nullptr); 
 }
 
+void MainController::setAmpScale(float newAmpScale) 
+{ 
+    settingsTree.setProperty(ParamIDs::ampScale, newAmpScale, nullptr); 
+}
+
 void MainController::setNearZ(float newNearZ) 
 { 
     settingsTree.setProperty(ParamIDs::nearZ, newNearZ, nullptr); 
@@ -267,6 +278,9 @@ void MainController::valueTreePropertyChanged(juce::ValueTree&,
 
     else if (id == ParamIDs::dotSize)
         visualizer->setDotSize(getDotSize());
+
+    else if (id == ParamIDs::ampScale)
+        visualizer->setAmpScale(getAmpScale());
 
     else if (id == ParamIDs::nearZ)
         visualizer->setNearZ(getNearZ());

@@ -39,6 +39,7 @@ public:
     //=========================================================================
     void setRecedeSpeed(float newRecedeSpeed);
     void setDotSize(float newDotSize);
+    void setAmpScale(float newAmpScale);
     void setNearZ(float newNearZ);
     void setFadeEndZ(float newFadeEndZ);
     void setFarZ(float newFarZ);
@@ -79,6 +80,7 @@ private:
     double startTime = 0.; // App-launch time in seconds
     float recedeSpeed = 5.f; // Speed that objects recede
     float dotSize = 0.5f; // Radius of the dots
+    float ampScale = 5.f; // Amplitude scale factor
     float nearZ = 0.1f;
     float fadeEndZ = 5.0f;
     float farZ = 100.0f; // Distance to the end of clip space (m)

@@ -69,9 +69,6 @@ private:
 
     void analyzeBlock(const juce::AudioBuffer<float>& buffer);
 
-    void analyzeBlockFFT(const juce::AudioBuffer<float>& buffer);
-    void analyzeBlockCQT(const juce::AudioBuffer<float>& buffer);
-
     //=========================================================================
     /* Basic stuff */
 
@@ -88,13 +85,12 @@ private:
     //=========================================================================
     /* FFT stuff */
 
-    int fftOrder = 11; // FFT order = log2(fftSize)
-    // int fftSize = 1 << fftOrder;
+    int fftOrder; // FFT order = log2(fftSize) - not used at the moment
     int fftSize;
     std::unique_ptr<juce::dsp::FFT> fft; // JUCE FFT engine
     fft_buffer_t fftBuffer;
     int numFFTBins; // Number of useful bins from FFT
-    float maxExpectedMag;
+    // float maxExpectedMag;
     
     //=========================================================================
     /* CQT stuff */

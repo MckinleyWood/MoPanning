@@ -27,6 +27,7 @@ namespace ParamIDs
 
     static const juce::Identifier recedeSpeed { "recedeSpeed" };
     static const juce::Identifier dotSize { "dotSize" };
+    static const juce::Identifier ampScale { "ampScale" };
     static const juce::Identifier nearZ { "nearZ" };
     static const juce::Identifier fadeEndZ { "fadeEndZ" };
     static const juce::Identifier farZ { "farZ" };
@@ -65,6 +66,7 @@ public:
     int    getNumCQTBins() const;
     float  getRecedeSpeed() const;
     float  getDotSize() const;
+    float  getAmpScale() const;
     float  getNearZ() const;
     float  getFadeEndZ() const;
     float  getFarZ() const;
@@ -79,6 +81,7 @@ public:
     void setNumCQTBins(int newNumCQTbins);
     void setRecedeSpeed(float newRecedeSpeed);
     void setDotSize(float newDotSize);
+    void setAmpScale(float newAmpScale);
     void setNearZ(float newNearZ);
     void setFadeEndZ(float newFadeEndZ);
     void setFarZ(float newFarZ);

@@ -24,7 +24,7 @@ void AudioEngine::setAudioCallbackSource(juce::AudioSource* src)
     // Disconnect previous
     deviceManager.removeAudioCallback(&player);
     player.setSource(nullptr);
-
+    
     // Connect new
     player.setSource(src);
     deviceManager.addAudioCallback(&player);

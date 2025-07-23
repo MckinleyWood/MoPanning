@@ -33,7 +33,6 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate,
     fftBuffer.clear();
     cqtKernels.clear();
     centerFrequencies.clear();
-    // cqtMagnitudes.clear();
 
     this->samplesPerBlock = samplesPerBlock;
     this->sampleRate = sampleRate;
@@ -47,7 +46,7 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate,
     DBG("FFT order = " << this->fftOrder);
     DBG("Minimum CQT frequency = " << this->minCQTfreq);
     DBG("Panning Method = " << (panMethod == level_pan ? "Level" :
-                                    panMethod == time_pan ? "Time" : "Both"));
+                                panMethod == time_pan ? "Time" : "Both"));
 
     // Allocate hann window and FFT buffer
     DBG("Resizing window to fftSize = " << fftSize);
@@ -64,12 +63,13 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate,
 
     // Initialize FFT engine
     fft = std::make_unique<juce::dsp::FFT>((int)std::log2(fftSize));
-
+    
     // Calculate maximum expected FFT bin magnitude
-    maxExpectedMag = 0.0;
-    for (auto w : window)
-        maxExpectedMag += w;
-    maxExpectedMag /= 2; // Reasonable signals will be in this range
+    // Currently we are using a hardcoded value
+    // maxExpectedMag = 0.0;
+    // for (auto w : window)
+    //     maxExpectedMag += w;
+    // maxExpectedMag /= 2; // Reasonable signals will be in this range
 
     // Set frequency from min to Nyquist
     const float nyquist = static_cast<float>(sampleRate * 0.5);
@@ -81,11 +81,6 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate,
     cqtKernels.resize(numCQTbins);
     DBG("Resizing centerFrequencies to numCQTbins = " << numCQTbins);
     centerFrequencies.resize(numCQTbins);
-
-    // Allocate CQT result: 2 channels default
-    // DBG("Resizing cqtMagnitudes to 2 channels, numCQTbins = " 
-    //     << numCQTbins);
-    // cqtMagnitudes.resize(2, std::vector<float>(numCQTbins, 0.0f));
 
     // Precompute CQT kernels
     for (int bin = 0; bin < numCQTbins; ++bin)
@@ -99,7 +94,7 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate,
         // Generate complex sinusoid for this frequency (for inner products)
         int kernelLength = fftSize;
         std::vector<std::complex<float>> kernelTime(kernelLength, 0.0f);
-
+        
         for (int n = 0; n < kernelLength; ++n)
         {
             // Edited for centering
@@ -318,7 +313,6 @@ void AudioAnalyzer::computeCQT(const juce::AudioBuffer<float>& buffer,
 {
     for (int ch = 0; ch < 2; ++ch)
     {
-        const float* channelData = buffer.getReadPointer(ch);
         cqtMags[ch].resize(numCQTbins, 0.0f);
         
         // Compute CQT by inner product with each kernel
@@ -447,14 +441,11 @@ void AudioAnalyzer::computeGCCPHAT_ITD(const juce::AudioBuffer<float>& buffer,
         leftFilter.reset();
         rightFilter.reset();
 
-        float delaySamples = gccPhatDelayPerBand(
-            leftSegment,
-            rightSegment,
-            leftFilter,
-            rightFilter
-        );
+        float delaySamples = gccPhatDelayPerBand(leftSegment, rightSegment,
+                                                 leftFilter, rightFilter);
 
-        panIndices[b] = delaySamples / sampleRate;
+        float delaySeconds = delaySamples / sampleRate;
+        panIndices[b] = juce::jlimit(-1.0f, 1.0f, delaySeconds / maxITD);
 
         // DBG("ITD bin " << b
         //     << ": delaySamples = " << delaySamples
@@ -481,6 +472,7 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
     std::array<fft_buffer_t, 2> ffts;
     computeFFT(buffer, ffts);
 
+    // Compute the selected frequency transform for the signal
     switch (transform)
     {
     case FFT:
@@ -505,6 +497,7 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
         return;
     }
 
+    // Compute panning indices based on the selected pan method
     switch (panMethod)
     {
     case level_pan:
@@ -570,8 +563,6 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
     default:
         break;
     }
-
-    
 
     // Hand results to GUI
     {

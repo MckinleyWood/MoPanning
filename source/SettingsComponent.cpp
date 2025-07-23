@@ -87,6 +87,10 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     dotSizeSlider.setValue(controller.getDotSize());
     dotSizeSlider.addListener(this);
 
+    ampScaleSlider.setRange(1.0, 10.0);
+    ampScaleSlider.setValue(controller.getAmpScale());
+    ampScaleSlider.addListener(this);
+
     nearZSlider.setRange(0.01, 1.0);
     nearZSlider.setValue(controller.getNearZ());
     nearZSlider.addListener(this);
@@ -113,6 +117,7 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     numCQTbinsLabel.setText("CQT Bin Count", juce::dontSendNotification);
     recedeSpeedLabel.setText("Recede Speed", juce::dontSendNotification);
     dotSizeLabel.setText("Dot Size", juce::dontSendNotification);
+    ampScaleLabel.setText("Amplitude Scale", juce::dontSendNotification);
     nearZLabel.setText("Near Z", juce::dontSendNotification);
     fadeEndZLabel.setText("Fade End Z", juce::dontSendNotification);
     farZLabel.setText("Far Z", juce::dontSendNotification);
@@ -251,6 +256,9 @@ void sc::SettingsContentComponent::sliderValueChanged(juce::Slider* s)
     else if (s == &dotSizeSlider)    
         controller.setDotSize((float)s->getValue());
 
+    else if (s == &ampScaleSlider)
+        controller.setAmpScale((float)s->getValue());
+
     else if (s == &nearZSlider)      
         controller.setNearZ((float)s->getValue());
 
@@ -276,6 +284,7 @@ std::vector<juce::Component*> sc::SettingsContentComponent::getSettings()
         &numCQTbinsBox,
         &recedeSpeedSlider,
         &dotSizeSlider,
+        &ampScaleSlider,
         // &nearZSlider,
         &fadeEndZSlider
         // ,&farZSlider,
@@ -295,6 +304,7 @@ std::vector<juce::Label*> sc::SettingsContentComponent::getLabels()
         &numCQTbinsLabel,
         &recedeSpeedLabel,
         &dotSizeLabel,
+        &ampScaleLabel,
         // &nearZLabel,
         &fadeEndZLabel
         // ,&farZLabel,
