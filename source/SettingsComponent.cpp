@@ -208,7 +208,6 @@ void sc::SettingsContentComponent::comboBoxChanged(juce::ComboBox* b)
         controller.setSampleRate((double)b->getSelectedId());
         controller.prepareAnalyzer();
     }
-
     else if (b == &samplesPerBlockBox)
     {
         controller.setSamplesPerBlock(b->getSelectedId());
@@ -216,21 +215,17 @@ void sc::SettingsContentComponent::comboBoxChanged(juce::ComboBox* b)
     }
 
     else if (b == &transformBox)
-    {
         controller.setTransform(b->getSelectedId() - 1);
-    }
 
     else if (b == &panMethodBox)
-    {
         controller.setPanMethod(b->getSelectedId() - 1);
-    }
 
     else if (b == &fftOrderBox)       
     {
         controller.setFFTOrder(b->getSelectedId());
         controller.prepareAnalyzer();
     }
-    else if (b == &minFrequencyBox)   
+    else if (b == &minFrequencyBox)
     {
         controller.setMinFrequency((float)b->getSelectedId());
         controller.prepareAnalyzer();
@@ -240,7 +235,6 @@ void sc::SettingsContentComponent::comboBoxChanged(juce::ComboBox* b)
         controller.setNumCQTBins(b->getSelectedId());
         controller.prepareAnalyzer();
     }
-
     else if (b == &panMethodBox)
     {
         controller.setPanMethod(b->getSelectedId() - 1);
@@ -279,15 +273,15 @@ std::vector<juce::Component*> sc::SettingsContentComponent::getSettings()
         // &samplesPerBlockBox,
         &transformBox,
         &panMethodBox,
-        &fftOrderBox,
-        &minFrequencyBox,
+        // &fftOrderBox,
+        // &minFrequencyBox,
         &numCQTbinsBox,
         &recedeSpeedSlider,
         &dotSizeSlider,
         &ampScaleSlider,
         // &nearZSlider,
         &fadeEndZSlider
-        // ,&farZSlider,
+        // &farZSlider,
         // &fovSlider
     };
 }
@@ -299,15 +293,15 @@ std::vector<juce::Label*> sc::SettingsContentComponent::getLabels()
         // &samplesPerBlockLabel,
         &transformLabel,
         &panMethodLabel,
-        &fftOrderLabel,
-        &minFrequencyLabel,
+        // &fftOrderLabel,
+        // &minFrequencyLabel,
         &numCQTbinsLabel,
         &recedeSpeedLabel,
         &dotSizeLabel,
         &ampScaleLabel,
         // &nearZLabel,
         &fadeEndZLabel
-        // ,&farZLabel,
+        // &farZLabel,
         // &fovLabel
     };
 }

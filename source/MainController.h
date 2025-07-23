@@ -45,7 +45,7 @@ public:
     MainController();
     ~MainController() override;
 
-    void registerVisualizer(GLVisualizer* v) noexcept { visualizer = v; }
+    void registerVisualizer(GLVisualizer* v);
 
     void prepareToPlay(int samplesPerBlock, double sampleRate) override;
     void prepareAnalyzer();

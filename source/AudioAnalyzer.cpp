@@ -10,14 +10,12 @@ AudioAnalyzer::~AudioAnalyzer()
 
 //=============================================================================
 /*  Prepares the audio analyzer. */
-void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate, 
-                            int numCQTbins, int fftOrder, 
-                            float minCQTfreq)
+void AudioAnalyzer::prepare()
 {
     DBG("Preparing AudioAnalyzer...");
 
-    // Ensure we are on the GUI thread
-    std::scoped_lock lock(prepareMutex);
+    // // Ensure we are on the GUI thread
+    // std::scoped_lock lock(prepareMutex);
 
     // Stop any existing worker thread
     stopWorker();
@@ -33,12 +31,6 @@ void AudioAnalyzer::prepare(int samplesPerBlock, double sampleRate,
     fftBuffer.clear();
     cqtKernels.clear();
     centerFrequencies.clear();
-
-    this->samplesPerBlock = samplesPerBlock;
-    this->sampleRate = sampleRate;
-    this->numCQTbins = numCQTbins;
-    this->fftOrder = fftOrder;
-    this->minCQTfreq = minCQTfreq;
 
     DBG("Block size = " << this->samplesPerBlock);
     DBG("Sample rate = " << this->sampleRate);

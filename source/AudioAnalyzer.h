@@ -4,7 +4,13 @@
 #include <mutex>
 #include <vector>
 
-/*  AudioAnalyzer...
+/*  AudioAnalyzer.h
+
+This file defines the AudioAnalyzer class, which is responsible for 
+analyzing audio data using FFT and CQT transforms. It can compute 
+frequency bands, magnitudes, and pan indices based on the audio input. 
+The class also manages a worker thread for processing audio blocks 
+asynchronously.
 */
 
 struct frequency_band {
@@ -27,9 +33,7 @@ public:
     ~AudioAnalyzer();
 
     // Must be called before analyzeBlock()
-    void prepare(int samplesPerBlock, double sampleRate, 
-                 int numCQTbins, int fftOrder,
-                 float minCQTfreq);
+    void prepare();
 
     // Called by audio thread
     void enqueueBlock(const juce::AudioBuffer<float>* buffer);
@@ -70,33 +74,29 @@ private:
     void analyzeBlock(const juce::AudioBuffer<float>& buffer);
 
     //=========================================================================
-    /* Basic stuff */
-
-    enum Transform transform = CQT;
-    enum PanMethod panMethod = both;
-
-    std::mutex prepareMutex;
+    /* Parameters */
 
     int samplesPerBlock;
     double sampleRate;
 
-    std::vector<float> window; // Hann window of length fftSize
+    enum Transform transform;
+    enum PanMethod panMethod;
+    
+    int fftOrder; // FFT order = log2(fftSize) - not used at the moment
+    float minCQTfreq;
+    int numCQTbins;
 
     //=========================================================================
-    /* FFT stuff */
 
-    int fftOrder; // FFT order = log2(fftSize) - not used at the moment
+    std::vector<float> window; // Hann window of length fftSize
+
     int fftSize;
     std::unique_ptr<juce::dsp::FFT> fft; // JUCE FFT engine
     fft_buffer_t fftBuffer;
     int numFFTBins; // Number of useful bins from FFT
     // float maxExpectedMag;
     
-    //=========================================================================
-    /* CQT stuff */
-
-    float minCQTfreq = 20.0f;
-    int numCQTbins = 128;
+    // CQT stuff
     std::vector<float> centerFrequencies;
 
     float Qtarget = 1.0f / (std::pow(2.0f, 1.0f / numCQTbins) - 1.0f);
@@ -105,20 +105,17 @@ private:
     // Each filter is a complex-valued kernel vector (frequency domain)
     std::vector<std::vector<std::complex<float>>> cqtKernels;
 
-    //=========================================================================
-    /* GCC-PHAT stuff */
-
+    // Bandpass filters for each CQT center frequency
     std::vector<juce::dsp::IIR::Filter<float>> leftBandpassFilters;
     std::vector<juce::dsp::IIR::Filter<float>> rightBandpassFilters;
+    
 
     float maxITD = 0.09f / 343.0f; // ~0.00026 sec (0.09m from center of head 
                                    // to each ear, 343 m/s speed of sound)
 
-    //=========================================================================
-    /* Output for GUI */
-
     std::vector<frequency_band> results; // Must be sorted by frequency!!!
     mutable std::mutex resultsMutex;
+    // mutable std::mutex prepareMutex;
 
     // Worker 
     std::unique_ptr<AnalyzerWorker> worker;

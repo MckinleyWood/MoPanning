@@ -77,14 +77,14 @@ private:
 
     MainController& controller;
 
-    double startTime = 0.; // App-launch time in seconds
-    float recedeSpeed = 5.f; // Speed that objects recede
-    float dotSize = 0.5f; // Radius of the dots
-    float ampScale = 5.f; // Amplitude scale factor
-    float nearZ = 0.1f;
-    float fadeEndZ = 5.0f;
-    float farZ = 100.0f; // Distance to the end of clip space (m)
-    float fov = 45.f;
+    double startTime; // App-launch time in seconds
+    float recedeSpeed; // Speed that objects recede
+    float dotSize; // Radius of the dots
+    float ampScale; // Amplitude scale factor
+    float nearZ;
+    float fadeEndZ;
+    float farZ; // Distance to the end of clip space (m)
+    float fov;
     int maxParticles = 200000;
     
     //=========================================================================

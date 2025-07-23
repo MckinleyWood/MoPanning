@@ -4,8 +4,9 @@
 MainController::MainController()
     : settingsTree(ParamIDs::root)
 {
+    // Initialize settings tree with default values
     settingsTree.setProperty(ParamIDs::transform, 1, nullptr);
-    settingsTree.setProperty(ParamIDs::panMethod, 2, nullptr);
+    settingsTree.setProperty(ParamIDs::panMethod, 0, nullptr);
     settingsTree.setProperty(ParamIDs::fftOrder, 11, nullptr);
     settingsTree.setProperty(ParamIDs::minFrequency, 20.f, nullptr);
     settingsTree.setProperty(ParamIDs::numCQTbins, 128, nullptr);
@@ -36,40 +37,42 @@ void MainController::prepareToPlay(int samplesPerBlock, double sampleRate)
     settingsTree.setProperty(ParamIDs::sampleRate, sampleRate, nullptr);
     settingsTree.setProperty(ParamIDs::samplesPerBlock, 
                              samplesPerBlock, nullptr);
-    settingsTree.setProperty(ParamIDs::numCQTbins, 
-                             numCQTbins, nullptr);
-    settingsTree.setProperty(ParamIDs::fftOrder, 
-                             fftOrder, nullptr);
-    settingsTree.setProperty(ParamIDs::minFrequency, 
-                             minFrequency, nullptr);
                              
     engine.prepareToPlay(samplesPerBlock, sampleRate);
-    analyzer.prepare(samplesPerBlock, sampleRate,
-                     numCQTbins, fftOrder,
-                     minFrequency);
+    prepareAnalyzer();
+}
+
+void MainController::registerVisualizer(GLVisualizer* v)
+{
+    visualizer = v;
+
+    // Push default settings
+    visualizer->setRecedeSpeed(getRecedeSpeed());
+    visualizer->setDotSize(getDotSize());
+    visualizer->setAmpScale(getAmpScale());
+    visualizer->setNearZ(getNearZ());
+    visualizer->setFadeEndZ(getFadeEndZ());
+    visualizer->setFarZ(getFarZ());
+    visualizer->setFOV(getFOV());
 }
 
 void MainController::prepareAnalyzer()
 {
-    if (engine.isPlaying())
-    {
-        engine.stopPlayback();
-        juce::Thread::sleep(50); // Give time for audio thread to finish
-        analyzer.prepare(getSamplesPerBlock(), 
-                        getSampleRate(), 
-                        getNumCQTBins(),
-                        getFFTOrder(),
-                        getMinFrequency());
-        engine.startPlayback();
-    }
-    else
-    {
-        analyzer.prepare(getSamplesPerBlock(), 
-                        getSampleRate(), 
-                        getNumCQTBins(),
-                        getFFTOrder(),
-                        getMinFrequency());
-    }
+    engine.stopPlayback();
+    juce::Thread::sleep(50); // Give time for audio thread to finish
+
+    // Set analyzer parameters from settings tree
+    analyzer.setSampleRate(getSampleRate());
+    analyzer.setSamplesPerBlock(getSamplesPerBlock());
+    analyzer.setTransform(static_cast<Transform>(getTransform()));
+    analyzer.setPanMethod(static_cast<PanMethod>(getPanMethod()));
+    analyzer.setFFTOrder(getFFTOrder());
+    analyzer.setMinFrequency(getMinFrequency());
+    analyzer.setNumCQTBins(getNumCQTBins());
+
+    analyzer.prepare();
+
+    engine.startPlayback();
 }
 
 void MainController::releaseResources() 
