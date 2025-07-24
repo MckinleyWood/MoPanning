@@ -60,10 +60,6 @@ void MainController::prepareAnalyzer()
 {
     DBG("MainController: Calling analyzer.prepare()");
     DBG(juce::String::formatted("MainController analyzer instance is: %p", (void*)&analyzer));
-    // analyzer.setPrepared(false);
-
-    engine.stopPlayback();
-    // juce::Thread::sleep(50); // Give time for audio thread to finish
 
     // Set analyzer parameters from settings tree
     analyzer.setSampleRate(getSampleRate()); 
@@ -81,8 +77,6 @@ void MainController::prepareAnalyzer()
     analyzer.setNumCQTBins(getNumCQTBins()); 
     DBG("Set num CQT bins");
     analyzer.prepare();
-
-    engine.startPlayback();
 }
 
 void MainController::releaseResources() 
