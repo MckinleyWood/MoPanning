@@ -1,12 +1,7 @@
 #include "AudioAnalyzer.h"
 
 //=============================================================================
-AudioAnalyzer::AudioAnalyzer() 
-{
-    DBG("AudioAnalyzer created");
-    DBG(juce::String::formatted("AudioAnalyzer constructor: %p", this));
-
-}
+AudioAnalyzer::AudioAnalyzer() {}
 AudioAnalyzer::~AudioAnalyzer()
 {
     // Destroy worker, which joins the thread
@@ -17,9 +12,6 @@ AudioAnalyzer::~AudioAnalyzer()
 /*  Prepares the audio analyzer. */
 void AudioAnalyzer::prepare()
 {
-    DBG("Preparing AudioAnalyzer...");
-    DBG(juce::String::formatted("AudioAnalyzer::prepare() called on %p", (void*)this));
-
     isPrepared.store(false);
 
     // Stop any existing worker thread
@@ -37,18 +29,8 @@ void AudioAnalyzer::prepare()
     cqtKernels.clear();
     centerFrequencies.clear();
 
-    DBG("Block size = " << this->samplesPerBlock);
-    DBG("Sample rate = " << this->sampleRate);
-    DBG("Number of CQT bins = " << this->numCQTbins);
-    DBG("FFT order = " << this->fftOrder);
-    DBG("Minimum CQT frequency = " << this->minCQTfreq);
-    DBG("Panning Method = " << (panMethod == level_pan ? "Level" :
-                                panMethod == time_pan ? "Time" : "Both"));
-
     // Allocate hann window and FFT buffer
-    DBG("Resizing window to fftSize = " << fftSize);
     window.resize(fftSize);
-    DBG("Resizing fftBuffer to fftSize = " << fftSize);
     fftBuffer.resize(fftSize);
 
     // Concise name for pi variable
@@ -74,9 +56,7 @@ void AudioAnalyzer::prepare()
     const float logMax = std::log2(nyquist);
 
     // Prepare CQT kernels
-    DBG("Resizing cqtKernels to numCQTbins = " << numCQTbins);
     cqtKernels.resize(numCQTbins);
-    DBG("Resizing centerFrequencies to numCQTbins = " << numCQTbins);
     centerFrequencies.resize(numCQTbins);
 
     // Precompute CQT kernels
@@ -86,7 +66,6 @@ void AudioAnalyzer::prepare()
         float frac = bin * 1.0f / (numCQTbins + 1);
         float freq = std::pow(2.0f, logMin + frac * (logMax - logMin));
         centerFrequencies[bin] = freq;
-        // DBG("Center frequency for bin " << bin << " = " << freq);
 
         // Generate complex sinusoid for this frequency (for inner products)
         int kernelLength = fftSize;
@@ -132,22 +111,17 @@ void AudioAnalyzer::prepare()
         float energy = 0.0f;
         for (const auto& c : kernelFreq)
             energy += std::abs(c);
-        // DBG("Kernel " << bin << " energy = " << energy);
-
-        // DBG("Built " << cqtKernels.size() << " CQT kernels");
     }
 
     // Estimate memory use for CQT kernels
     auto bytes = numCQTbins * fftSize * sizeof(std::complex<float>);
-    DBG("Estimated CQT kernel memory use: " << (bytes / 1024.0f) << " KB"); 
+    // DBG("Estimated CQT kernel memory use: " << (bytes / 1024.0f) << " KB"); 
 
     // Prepare bandpass filters for GCC-PHAT (also initializes ITD)
     prepareBandpassFilters();
 
     // Initialize AnalyzerWorker
     int numSlots = 4;
-    DBG("Creating AnalyzerWorker with " << numSlots 
-        << " slots and block size " << samplesPerBlock);
     worker = std::make_unique<AnalyzerWorker>(
         numSlots, samplesPerBlock, *this);
     worker->start();
@@ -266,13 +240,6 @@ void AudioAnalyzer::computeFFT(const juce::AudioBuffer<float>& buffer,
 
         fft->perform(fftBuffer.data(), fftBuffer.data(), false);
 
-        // DBG("First few FFT buffer values after transform:");
-        // for (int i = 0; i < 5; ++i)
-        // {
-        //     DBG("fftBuffer[" << i << "] = " << fftBuffer[i].real() 
-        //      << " + " << fftBuffer[i].imag() << "i");
-        // }
-
         outSpectra[ch].resize(fftSize);
         jassert(fftBuffer.size() == fftSize);
         jassert(outSpectra[ch].size() == fftSize);
@@ -333,11 +300,11 @@ void AudioAnalyzer::computeCQT(const juce::AudioBuffer<float>& buffer,
         }
     }
 
-    juce::StringArray mags;
-    for (float m : cqtMags[0])
-        mags.add(juce::String(m, 3));
-    DBG("CQT magnitudes (post inner product) for channel 0: " 
-        << mags.joinIntoString(", ")); 
+    // juce::StringArray mags;
+    // for (float m : cqtMags[0])
+    //     mags.add(juce::String(m, 3));
+    // DBG("CQT magnitudes (post inner product) for channel 0: " 
+    //     << mags.joinIntoString(", ")); 
 }
 
 /*  Compute GCC-PHAT delay for a specific frequency band */
@@ -358,8 +325,8 @@ float AudioAnalyzer::gccPhatDelayPerBand(const float* x, const float* y,
         filteredY[i] = bandpassRight.processSample(y[i]);
     }
 
-    DBG("filteredX[0] = " << filteredX[0] 
-     << ", filteredY[0] = " << filteredY[0]);
+    // DBG("filteredX[0] = " << filteredX[0] 
+    //  << ", filteredY[0] = " << filteredY[0]);
 
     std::vector<juce::dsp::Complex<float>> X(fftSize, 0.0f);
     std::vector<juce::dsp::Complex<float>> Y(fftSize, 0.0f);
@@ -384,10 +351,10 @@ float AudioAnalyzer::gccPhatDelayPerBand(const float* x, const float* y,
         R[i] = (mag > 0.0f) ? crossSpec / mag : 0.0f;
     }
 
-    DBG("R[0] = " << juce::String(R[0].real()) 
-     << " + " << juce::String(R[0].imag()) + "i, "
-     << "corr[0] = " + juce::String(corr[0].real()) 
-     << " + " + juce::String(corr[0].imag()) + "i");
+    // DBG("R[0] = " << juce::String(R[0].real()) 
+    //  << " + " << juce::String(R[0].imag()) + "i, "
+    //  << "corr[0] = " + juce::String(corr[0].real()) 
+    //  << " + " + juce::String(corr[0].imag()) + "i");
 
     fft->perform(R.data(), corr.data(), true);
 
@@ -407,9 +374,9 @@ float AudioAnalyzer::gccPhatDelayPerBand(const float* x, const float* y,
     int center = fftSize / 2;
     int delay = (maxIndex <= center) ? maxIndex : maxIndex - fftSize;
 
-    DBG("GCC-PHAT delay: maxIndex = " << maxIndex
-        << ", delay = " << delay
-        << ", maxCorr = " << maxValue);
+    // DBG("GCC-PHAT delay: maxIndex = " << maxIndex
+    //     << ", delay = " << delay
+    //     << ", maxCorr = " << maxValue);
 
     return static_cast<float>(delay);
 
@@ -462,10 +429,6 @@ void AudioAnalyzer::computeGCCPHAT_ITD(const juce::AudioBuffer<float>& buffer,
 //=============================================================================
 void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
 {
-    DBG("Analyzing the next audio block");
-    DBG("Transform = " << static_cast<int>(transform)
-     << ", Pan Method = " << static_cast<int>(panMethod));
-
     std::array<std::vector<float>, 2> magnitudes;
     std::vector<float> ilds;
     std::vector<float> itds;

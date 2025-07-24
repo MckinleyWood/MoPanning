@@ -176,7 +176,6 @@ public:
         if (thread.joinable())
         {
             thread.join(); // Wait for it to finish
-            DBG("AnalyzerWorker thread has joined.");
         } 
     }
 
@@ -206,8 +205,6 @@ private:
     // Background thread main loop 
     void run()
     {
-        DBG("AnalyzerWorker thread started.");
-        
         while (!shouldExit)
         {
             int start1, size1, start2, size2;

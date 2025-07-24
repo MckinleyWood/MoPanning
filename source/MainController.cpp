@@ -58,24 +58,14 @@ void MainController::registerVisualizer(GLVisualizer* v)
 
 void MainController::prepareAnalyzer()
 {
-    DBG("MainController: Calling analyzer.prepare()");
-    DBG(juce::String::formatted("MainController analyzer instance is: %p", (void*)&analyzer));
-
     // Set analyzer parameters from settings tree
     analyzer.setSampleRate(getSampleRate()); 
-    DBG("Set sample rate");
     analyzer.setSamplesPerBlock(getSamplesPerBlock()); 
-    DBG("Set samples per block");
     analyzer.setTransform(static_cast<Transform>(getTransform())); 
-    DBG("Set transform");
     analyzer.setPanMethod(static_cast<PanMethod>(getPanMethod())); 
-    DBG("Set pan method");
     analyzer.setFFTOrder(getFFTOrder()); 
-    DBG("Set FFT order");
     analyzer.setMinFrequency(getMinFrequency()); 
-    DBG("Set min frequency");
     analyzer.setNumCQTBins(getNumCQTBins()); 
-    DBG("Set num CQT bins");
     analyzer.prepare();
 }
 

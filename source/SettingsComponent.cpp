@@ -95,7 +95,7 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     nearZSlider.setValue(controller.getNearZ());
     nearZSlider.addListener(this);
 
-    fadeEndZSlider.setRange(1.0, 100.0);
+    fadeEndZSlider.setRange(1.0, 20.0);
     fadeEndZSlider.setValue(controller.getFadeEndZ());
     fadeEndZSlider.addListener(this);
 
@@ -109,7 +109,8 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
 
     // Set up labels
     sampleRateLabel.setText("Sample Rate", juce::dontSendNotification);
-    samplesPerBlockLabel.setText("Samples per Block", juce::dontSendNotification);
+    samplesPerBlockLabel.setText("Samples per Block", 
+                                 juce::dontSendNotification);
     transformLabel.setText("Frequency Transform", juce::dontSendNotification);
     panMethodLabel.setText("Pan Method", juce::dontSendNotification);
     fftOrderLabel.setText("FFT Order", juce::dontSendNotification);
@@ -140,7 +141,7 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     initialized = true;
 }
 
-SettingsComponent::SettingsContentComponent::~SettingsContentComponent() = default;
+sc::SettingsContentComponent::~SettingsContentComponent() = default;
 
 void sc::SettingsContentComponent::resized()
 {

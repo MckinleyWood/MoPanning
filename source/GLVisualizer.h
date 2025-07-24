@@ -25,6 +25,8 @@ struct VertexBufferObject
     ~VertexBufferObject() = default;
 };
 
+enum Texture { example};
+
 //=============================================================================
 /*  This is the component for the OpenGL canvas. It handles rendering 
     the visualization.
@@ -45,6 +47,8 @@ public:
     void setFarZ(float newFarZ);
     void setFOV(float newFOV);
 
+    void buildTexture(Texture newTexture);
+
     //=========================================================================
     void initialise() override;
     void shutdown() override;
@@ -64,7 +68,6 @@ private:
     
     std::unique_ptr<juce::OpenGLShaderProgram> shader;
     VertexBufferObject vbo; // Vertex buffer object
-    // juce::Matrix3D<float> mvp; // Model-View-Projection matrix - not using
     GLuint vao = 0; // Vertex-array object
     GLuint instanceVBO = 0;  // buffer ID for per-instance data
     struct InstanceData { float x, y, spawnTime, spawnAlpha; };
@@ -76,6 +79,8 @@ private:
     juce::Matrix3D<float> projection; // Projection matrix
 
     MainController& controller;
+
+    GLuint colourMapTex = 0;
 
     double startTime; // App-launch time in seconds
     float recedeSpeed; // Speed that objects recede

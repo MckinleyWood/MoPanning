@@ -55,6 +55,45 @@ void GLVisualizer::setFOV(float newFOV)
     fov = newFOV;
 }
 
+void GLVisualizer::buildTexture(Texture newTexture)
+{
+    using namespace juce::gl;
+    auto& ext = openGLContext.extensions;
+
+    if (colourMapTex != 0)
+        glDeleteTextures(1, &colourMapTex);
+
+    // Create a 1D texture for color mapping
+    glGenTextures(1, &colourMapTex);
+    glBindTexture(GL_TEXTURE_1D, colourMapTex);
+
+    // Define the color map data - this is just an example
+    const int numColours = 256;
+    std::vector<juce::Colour> colours(numColours);
+    
+    for (int i = 0; i < numColours; ++i)
+        colours[i] = juce::Colour::fromHSV((float)i / numColours, 
+                                           1.0f, 1.0f, 1.0f);
+
+    std::vector<float> colorData(numColours * 3);
+    
+    for (int i = 0; i < numColours; ++i)
+    {
+        colorData[i * 3 + 0] = colours[i].getFloatRed();
+        colorData[i * 3 + 1] = colours[i].getFloatGreen();
+        colorData[i * 3 + 2] = colours[i].getFloatBlue();
+    }
+
+    // Upload the texture data
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, numColours, 0,
+                 GL_RGB, GL_FLOAT, colorData.data());
+
+    // Set texture parameters
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+}
+
 //=============================================================================
 void GLVisualizer::initialise() 
 {
@@ -67,31 +106,37 @@ void GLVisualizer::initialise()
 
         uniform mat4 uProjection;
         uniform mat4 uView;
+        uniform sampler1D uColourMap;
         uniform float uCurrentTime;
         uniform float uSpeed;
         uniform float uFadeEndZ;
         uniform float uDotSize;
         uniform float uAmpScale;
 
-        out float vDepth;
-        out float vSpawnAlpha;
-        out vec3 vColour;
-
+        out vec4 vColour;
+        
         void main()
         {
+            // Log-scale the amplitude - could try this out
+            // float denom = log(1.0 + uAmpScale)
+            // float amp = log(1.0 + uAmpScale * instanceData.w) / denom;
+
+            // Root-scale the amplitude
+            float amp = pow(instanceData.w, 1.0 / uAmpScale); 
+
             // Compute age-based z
             float age = uCurrentTime - instanceData.z;
             float z = -age * uSpeed;
 
-            // Pass depth factor for fade and spawn alpha
-            vDepth = -z / uFadeEndZ;
+            // Depth factor for fading effect
+            float depth = -z / uFadeEndZ;
+            float alpha = amp * (1.0 - depth);
+            
+            // Look up color from the texture
+            vec3 rgb = texture(uColourMap, amp).rgb;
 
-            // Log-scale the amplitude
-            // float uK = 100.0; // Logarithmic scaling factor
-            // vSpawnAlpha = log(1.0 + uK * instanceData.w) / log(1.0 + uK);
-
-            // Root-scale the amplitude
-            vSpawnAlpha = pow(instanceData.w, 1.0 / uAmpScale); 
+            // Set the color with alpha
+            vColour = vec4(rgb, alpha);
 
             // Build world position
             vec4 worldPos = vec4(instanceData.xy, z, 1.0);
@@ -100,28 +145,25 @@ void GLVisualizer::initialise()
             gl_Position = uProjection * uView * worldPos;
 
             // Size in pixels
-            gl_PointSize = 100.0 * uDotSize * sqrt(instanceData.w);
-            // gl_PointSize = 20.0;
-
-            vColour = vec3(1.0, 1.0, 1.0); // White color for now
+            gl_PointSize = 100.0 * uDotSize * amp;
         }
     )";
 
     // GLSL fragment shader initialization code
     static const char* fragSrc = R"(#version 150
-        in float vDepth;        
-        in float vSpawnAlpha;
-        in vec3 vColour;
+        in vec4 vColour;
         out vec4 frag;
 
         void main()
         {
-            // remap to -1..+1
+            // Remap coordinates to [-1, +1]
             vec2 p = gl_PointCoord * 2.0 - 1.0;
+
+            // Discard fragments outside the circle
             if (dot(p, p) > 1.0) discard;
 
-            float alpha = vSpawnAlpha * (1.0 - vDepth);
-            frag = vec4(vColour, alpha);
+            // Set the fragment colour!
+            frag = vec4(vColour);
         }
     )";
     
@@ -135,6 +177,8 @@ void GLVisualizer::initialise()
     bool shaderLinked = shader->link();
     jassert(shaderLinked);
     juce::ignoreUnused(shaderLinked);
+
+    buildTexture(Texture::example);
 
     // Generate and bind the vertex-array object
     ext.glGenVertexArrays(1, &vao);
@@ -288,26 +332,23 @@ void GLVisualizer::render()
     // Set uniforms
     shader->setUniformMat4("uProjection", projection.mat, 1, GL_FALSE);
     shader->setUniformMat4("uView", view.mat, 1, GL_FALSE);
+    shader->setUniform("uColourMap", 0);
     shader->setUniform("uCurrentTime", t);
     shader->setUniform("uSpeed", recedeSpeed);
     shader->setUniform("uFadeEndZ", fadeEndZ);
     shader->setUniform("uDotSize", dotSize);
     shader->setUniform("uAmpScale", ampScale);
 
-    // DBG("Dot Size = " << dotSize);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_1D, colourMapTex);
 
     // Draw all particles!!
     ext.glBindVertexArray(vao);
     glDrawArraysInstanced(GL_POINTS, 0, 1, (GLsizei)instances.size());
 
-    // ext.glBindVertexArray(0);
-
     GLenum err = glGetError();
     if (err != GL_NO_ERROR)
-    {
         DBG("OpenGL error: " << juce::String::toHexString((int)err));
-        jassertfalse; // triggers the assertion so you still get a breakpoint
-    }
 }
 
 void GLVisualizer::resized() 
