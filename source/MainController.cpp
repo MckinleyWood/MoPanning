@@ -58,18 +58,28 @@ void MainController::registerVisualizer(GLVisualizer* v)
 
 void MainController::prepareAnalyzer()
 {
+    DBG("MainController: Calling analyzer.prepare()");
+    DBG(juce::String::formatted("MainController analyzer instance is: %p", (void*)&analyzer));
+    // analyzer.setPrepared(false);
+
     engine.stopPlayback();
-    juce::Thread::sleep(50); // Give time for audio thread to finish
+    // juce::Thread::sleep(50); // Give time for audio thread to finish
 
     // Set analyzer parameters from settings tree
-    analyzer.setSampleRate(getSampleRate());
-    analyzer.setSamplesPerBlock(getSamplesPerBlock());
-    analyzer.setTransform(static_cast<Transform>(getTransform()));
-    analyzer.setPanMethod(static_cast<PanMethod>(getPanMethod()));
-    analyzer.setFFTOrder(getFFTOrder());
-    analyzer.setMinFrequency(getMinFrequency());
-    analyzer.setNumCQTBins(getNumCQTBins());
-
+    analyzer.setSampleRate(getSampleRate()); 
+    DBG("Set sample rate");
+    analyzer.setSamplesPerBlock(getSamplesPerBlock()); 
+    DBG("Set samples per block");
+    analyzer.setTransform(static_cast<Transform>(getTransform())); 
+    DBG("Set transform");
+    analyzer.setPanMethod(static_cast<PanMethod>(getPanMethod())); 
+    DBG("Set pan method");
+    analyzer.setFFTOrder(getFFTOrder()); 
+    DBG("Set FFT order");
+    analyzer.setMinFrequency(getMinFrequency()); 
+    DBG("Set min frequency");
+    analyzer.setNumCQTBins(getNumCQTBins()); 
+    DBG("Set num CQT bins");
     analyzer.prepare();
 
     engine.startPlayback();

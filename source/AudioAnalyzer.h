@@ -49,8 +49,14 @@ public:
     void setMinFrequency(float newMinFrequency);
     void setNumCQTBins(float newNumCQTBins);
 
+    bool getPrepared() const { return isPrepared.load(); }
+    void setPrepared(bool prepared) { isPrepared.store(prepared); }
+
+
     //=========================================================================
     class AnalyzerWorker;
+
+    void stopWorker();
     
 private:
     //=========================================================================
@@ -115,11 +121,12 @@ private:
 
     std::vector<frequency_band> results; // Must be sorted by frequency!!!
     mutable std::mutex resultsMutex;
-    // mutable std::mutex prepareMutex;
 
     // Worker 
     std::unique_ptr<AnalyzerWorker> worker;
-    void stopWorker();
+
+    // Atomic flag to indicate if the analyzer is prepared
+    std::atomic<bool> isPrepared { false };
 };
 
 
@@ -210,7 +217,8 @@ private:
                 fifo.prepareToRead(1, start1, size1, start2, size2);
                 if (size1 < 0) continue;
 
-                parentAnalyzer.analyzeBlock(buffers[start1]);
+                if (parentAnalyzer.getPrepared())
+                    parentAnalyzer.analyzeBlock(buffers[start1]);
                 
                 fifo.finishedRead(size1);
             }

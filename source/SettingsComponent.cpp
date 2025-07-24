@@ -232,6 +232,9 @@ void sc::SettingsContentComponent::comboBoxChanged(juce::ComboBox* b)
     }
     else if (b == &numCQTbinsBox)
     {
+        DBG("Combo box changed, new numCQTbins: " << b->getSelectedId());
+        controller.getAnalyzer().stopWorker();
+        controller.getAnalyzer().setPrepared(false);
         controller.setNumCQTBins(b->getSelectedId());
         controller.prepareAnalyzer();
     }

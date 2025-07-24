@@ -260,7 +260,7 @@ void GLVisualizer::render()
             //     << "x = " << x << ", y = " << y << ", a = " << a);
         }
 
-        DBG("Amplitude range: [" << minAmp << ", " << maxAmp << "]");
+        // DBG("Amplitude range: [" << minAmp << ", " << maxAmp << "]");
     }
 
     // Delete old particles
