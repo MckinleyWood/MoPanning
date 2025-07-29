@@ -18,9 +18,11 @@ void SettingsComponent::resized()
     viewport.setBounds(getLocalBounds());
 
     const int titleHeight = 60;
+    const int deviceSelectorHeight = 200;
     const int rowHeight = 50;
     const int numSettings = (int)content->getSettings().size();
-    const int contentHeight = titleHeight + rowHeight * numSettings + 20;
+    const int contentHeight = titleHeight + deviceSelectorHeight
+                            + rowHeight * numSettings + 20;
 
     if (content)
         content->setSize(getWidth(), contentHeight);
@@ -32,6 +34,11 @@ using sc = SettingsComponent;
 sc::SettingsContentComponent::SettingsContentComponent(MainController& c) 
                                                        : controller(c)
 {
+    deviceSelector.reset(new juce::AudioDeviceSelectorComponent(
+        controller.getDeviceManager(), 
+        2, 2, 2, 2,                 // Min/max input/output channels
+        false, false, true, true)); // Show MIDI/Audio meters
+
     // Set up combo boxes
     sampleRateBox.addItem("24,000Hz", 24000);
     sampleRateBox.addItem("44,100Hz", 44100);
@@ -46,6 +53,11 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     samplesPerBlockBox.addItem("1024", 1024);
     samplesPerBlockBox.setSelectedId(controller.getSamplesPerBlock());
     samplesPerBlockBox.addListener(this);
+
+    inputTypeBox.addItem("File", 1);
+    inputTypeBox.addItem("Streaming", 2);
+    inputTypeBox.setSelectedId(controller.getInputType() + 1);
+    inputTypeBox.addListener(this);
 
     transformBox.addItem("FFT", 1);
     transformBox.addItem("CQT", 2);
@@ -111,6 +123,7 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     sampleRateLabel.setText("Sample Rate", juce::dontSendNotification);
     samplesPerBlockLabel.setText("Samples per Block", 
                                  juce::dontSendNotification);
+    inputTypeLabel.setText("Input Type", juce::dontSendNotification);
     transformLabel.setText("Frequency Transform", juce::dontSendNotification);
     panMethodLabel.setText("Pan Method", juce::dontSendNotification);
     fftOrderLabel.setText("FFT Order", juce::dontSendNotification);
@@ -126,6 +139,7 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
 
     // Make all components visible
     addAndMakeVisible(title);
+    addAndMakeVisible(deviceSelector.get());
     for (const auto& setting : getSettings())
     {
         addAndMakeVisible(setting);
@@ -154,6 +168,10 @@ void sc::SettingsContentComponent::resized()
     // Layout the title at the top
     auto titleZone = bounds.removeFromTop(60);
     title.setBounds(titleZone);
+
+    // Layout the device selector below the title
+    auto deviceSelectorZone = bounds.removeFromTop(200);
+    deviceSelector->setBounds(deviceSelectorZone);
 
     // Layout each setting below the title
     auto settings = getSettings();
@@ -214,6 +232,8 @@ void sc::SettingsContentComponent::comboBoxChanged(juce::ComboBox* b)
         controller.setSamplesPerBlock(b->getSelectedId());
         controller.prepareAnalyzer();
     }
+    else if (b == &inputTypeBox)
+        controller.setInputType(b->getSelectedId() - 1);
 
     else if (b == &transformBox)
         controller.setTransform(b->getSelectedId() - 1);
@@ -233,7 +253,6 @@ void sc::SettingsContentComponent::comboBoxChanged(juce::ComboBox* b)
     }
     else if (b == &numCQTbinsBox)
     {
-        DBG("Combo box changed, new numCQTbins: " << b->getSelectedId());
         controller.getAnalyzer().stopWorker();
         controller.getAnalyzer().setPrepared(false);
         controller.setNumCQTBins(b->getSelectedId());
@@ -275,6 +294,7 @@ std::vector<juce::Component*> sc::SettingsContentComponent::getSettings()
     return {
         // &sampleRateBox,
         // &samplesPerBlockBox,
+        &inputTypeBox,
         &transformBox,
         &panMethodBox,
         // &fftOrderBox,
@@ -295,6 +315,7 @@ std::vector<juce::Label*> sc::SettingsContentComponent::getLabels()
     return {
         // &sampleRateLabel,
         // &samplesPerBlockLabel,
+        &inputTypeLabel,
         &transformLabel,
         &panMethodLabel,
         // &fftOrderLabel,

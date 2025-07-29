@@ -9,7 +9,8 @@ juce_add_gui_app(MoPanning
     # ICON_SMALL ... 
     # DOCUMENT_EXTENSIONS ... # Asscociated file extensions
     # COMPANY_NAME ... # The name of the app's author
-    PRODUCT_NAME "MoPanning") # The name of the final executable
+    PRODUCT_NAME "MoPanning" # The name of the final executable
+    PLIST_TO_MERGE "<key>NSMicrophoneUsageDescription</key><string>This app requires access to the microphone for live audio input.</string>") 
 
 juce_generate_juce_header(MoPanning)
 
@@ -44,6 +45,7 @@ target_link_libraries(MoPanning
     PRIVATE
         juce::juce_audio_devices
         juce::juce_audio_formats
+        juce::juce_audio_utils
         juce::juce_dsp
         juce::juce_gui_extra
         juce::juce_opengl

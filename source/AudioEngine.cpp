@@ -5,29 +5,46 @@ AudioEngine::AudioEngine()
 {
     // Tell JUCE which formats we can open
     formatManager.registerBasicFormats();
-
-    // Open the default output device (0 inputs, 2 outputs)
-    deviceManager.initialise(0, 2, nullptr, true);
 }
 
 //=============================================================================
 AudioEngine::~AudioEngine()
 {
-    player.setSource(nullptr);
-    deviceManager.removeAudioCallback(&player);
     transport.setSource(nullptr);
 }
 
 //=============================================================================
-void AudioEngine::setAudioCallbackSource(juce::AudioSource* src)
+void AudioEngine::audioDeviceIOCallback(const float *const *inputChannelData,
+                                        int numInputChannels,
+                                        float *const *outputChannelData,
+                                        int numOutputChannels,
+                                        int numSamples)
 {
-    // Disconnect previous
-    deviceManager.removeAudioCallback(&player);
-    player.setSource(nullptr);
-    
-    // Connect new
-    player.setSource(src);
-    deviceManager.addAudioCallback(&player);
+    juce::AudioBuffer<float> buffer(numOutputChannels, numSamples);
+    juce::AudioSourceChannelInfo info(&buffer, 0, numSamples);
+
+    switch (inputType)
+    {
+        case file:
+            // Fill the buffer with audio data from the transport
+            transport.getNextAudioBlock(info);
+
+            // Copy the output data to the output channels
+            for (int ch = 0; ch < numOutputChannels; ++ch)
+                std::memcpy(outputChannelData[ch],
+                            buffer.getReadPointer(ch),
+                            sizeof(float) * (size_t)numSamples);
+            break;
+
+        case streaming:
+            DBG("Streaming input type selected, passing through input data directly.");
+            // Pass through the input data directly to output
+            for (int ch = 0; ch < numOutputChannels; ++ch)
+                std::memcpy(outputChannelData[ch],
+                            inputChannelData[ch],
+                            sizeof(float) * (size_t)numSamples);
+            break;
+    }
 }
 
 bool AudioEngine::loadFile(const juce::File& file)
@@ -59,6 +76,24 @@ void AudioEngine::togglePlayback()
         transport.start();
 }
 
+//=============================================================================
+void AudioEngine::setInputType(InputType type)
+{
+    this->inputType = type;
+
+    switch (inputType)
+    {
+    case file:
+        transport.setPosition (0.0);
+        transport.start();
+        break;
+    
+    case streaming:
+        transport.stop();
+        break;
+    }
+}
+
 bool AudioEngine::isPlaying() const
 {
     return transport.isPlaying();
@@ -83,9 +118,4 @@ void AudioEngine::prepareToPlay(int samplesPerBlock, double sampleRate)
 void AudioEngine::releaseResources()
 {
     transport.releaseResources();
-}
-
-void AudioEngine::getNextAudioBlock(const juce::AudioSourceChannelInfo& info)
-{
-    transport.getNextAudioBlock(info);
 }

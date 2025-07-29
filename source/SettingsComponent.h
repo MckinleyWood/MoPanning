@@ -61,9 +61,13 @@ private:
     // Title label subcomponent
     juce::Label title;
 
+    // Device selector
+    std::unique_ptr<juce::AudioDeviceSelectorComponent> deviceSelector;
+
     // Settings subcomponents
     juce::ComboBox sampleRateBox;
     juce::ComboBox samplesPerBlockBox;
+    juce::ComboBox inputTypeBox;
     juce::ComboBox transformBox;
     juce::ComboBox panMethodBox;
     juce::ComboBox fftOrderBox;
@@ -80,6 +84,7 @@ private:
     // Labels
     juce::Label sampleRateLabel;
     juce::Label samplesPerBlockLabel;
+    juce::Label inputTypeLabel;
     juce::Label transformLabel;
     juce::Label panMethodLabel;
     juce::Label fftOrderLabel;

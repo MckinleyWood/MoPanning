@@ -1,35 +1,44 @@
 #pragma once
 #include <JuceHeader.h>
 
+
+
+enum InputType { file, streaming };
+
+//=============================================================================
 /*  This class handles retrieving the audio data from the input file or 
     device.
 */
-class AudioEngine : public juce::AudioSource
+class AudioEngine
 {
 public:
     //=========================================================================
     AudioEngine();
-    ~AudioEngine() override;
+    ~AudioEngine();
 
-    //=========================================================================
-    void setAudioCallbackSource(juce::AudioSource* src);
+    void audioDeviceIOCallback(const float *const *inputChannelData,
+                               int numInputChannels,
+                               float *const *outputChannelData,
+                               int numOutputChannels,
+                               int numSamples);
+
+    void setInputType(InputType type);
+
     bool loadFile(const juce::File&);
     void togglePlayback();
 
-    //=========================================================================
-    void prepareToPlay(int samplesPerBlock, double sampleRate) override;
-    void releaseResources() override;
-    void getNextAudioBlock(const juce::AudioSourceChannelInfo&) override;
+    void prepareToPlay(int samplesPerBlock, double sampleRate);
+    void releaseResources();
 
-    //=========================================================================
     bool isPlaying() const;
     void stopPlayback();
     void startPlayback();
 
+    juce::AudioDeviceManager& getDeviceManager() { return deviceManager; }
+
 private:
     //=========================================================================
     juce::AudioDeviceManager deviceManager;
-    juce::AudioSourcePlayer player;
     
     /*  The transport is the timeline controller that owns the file 
         reader source, supplies buffers to the sound card via 
@@ -39,6 +48,8 @@ private:
 
     std::unique_ptr<juce::AudioFormatReaderSource> fileSource;
     juce::AudioFormatManager formatManager;
+
+    InputType inputType;
 
     //=========================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AudioEngine)

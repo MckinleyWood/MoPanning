@@ -5,6 +5,7 @@ MainController::MainController()
     : settingsTree(ParamIDs::root)
 {
     // Initialize settings tree with default values
+    settingsTree.setProperty(ParamIDs::inputType, 0, nullptr);
     settingsTree.setProperty(ParamIDs::transform, 1, nullptr);
     settingsTree.setProperty(ParamIDs::panMethod, 0, nullptr);
     settingsTree.setProperty(ParamIDs::fftOrder, 11, nullptr);
@@ -19,17 +20,50 @@ MainController::MainController()
     settingsTree.setProperty(ParamIDs::fov, 45.f, nullptr);
 
     settingsTree.addListener(this);
-    engine.setAudioCallbackSource(this);
+
+    auto& dm = engine.getDeviceManager();
+    dm.addAudioCallback(this);
+    DBG("Added callback");
+    dm.initialise(2, 2, nullptr, true);
 }
 
 MainController::~MainController()
 {
     settingsTree.removeListener(this);
+    auto& dm = engine.getDeviceManager();
+    dm.removeAudioCallback(this);
 }
 
 //=============================================================================
-void MainController::prepareToPlay(int samplesPerBlock, double sampleRate)
+void MainController::audioDeviceIOCallbackWithContext(
+    const float *const *inputChannelData, int numInputChannels,
+    float *const *outputChannelData, int numOutputChannels, int numSamples,
+    const juce::AudioIODeviceCallbackContext& context)
 {
+    // DBG("AudioDeviceIOCallback called with "
+    //     << numInputChannels << " input channels and "
+    //     << numOutputChannels << " output channels, "
+    //     << numSamples << " samples per channel.");
+    
+    // Delegate to the audio engine
+    engine.audioDeviceIOCallback(inputChannelData, numInputChannels,
+                                 outputChannelData, numOutputChannels,
+                                 numSamples);
+
+    // Copy the output data to a juce::AudioBuffer
+    juce::AudioBuffer<float> buffer(numOutputChannels, numSamples);
+    for (int ch = 0; ch < numOutputChannels; ++ch)
+        buffer.copyFrom(ch, 0, outputChannelData[ch], numSamples); 
+
+    // Pass the buffer to the analyzer
+    analyzer.enqueueBlock(&buffer);
+}
+
+void MainController::audioDeviceAboutToStart(juce::AudioIODevice* device) 
+{
+    double sampleRate = device->getCurrentSampleRate();
+    int samplesPerBlock = device->getCurrentBufferSizeSamples();
+
     int numCQTbins = getNumCQTBins();
     int fftOrder = getFFTOrder();
     float minFrequency = getMinFrequency();
@@ -37,9 +71,30 @@ void MainController::prepareToPlay(int samplesPerBlock, double sampleRate)
     settingsTree.setProperty(ParamIDs::sampleRate, sampleRate, nullptr);
     settingsTree.setProperty(ParamIDs::samplesPerBlock, 
                              samplesPerBlock, nullptr);
-                             
+    
+    engine.setInputType(static_cast<InputType>(getInputType()));
     engine.prepareToPlay(samplesPerBlock, sampleRate);
+    
     prepareAnalyzer();
+}
+
+void MainController::audioDeviceStopped() 
+{
+    engine.releaseResources(); 
+}
+
+//=============================================================================
+void MainController::prepareAnalyzer()
+{
+    // Set analyzer parameters from settings tree
+    analyzer.setSampleRate(getSampleRate()); 
+    analyzer.setSamplesPerBlock(getSamplesPerBlock()); 
+    analyzer.setTransform(static_cast<Transform>(getTransform())); 
+    analyzer.setPanMethod(static_cast<PanMethod>(getPanMethod())); 
+    analyzer.setFFTOrder(getFFTOrder()); 
+    analyzer.setMinFrequency(getMinFrequency()); 
+    analyzer.setNumCQTBins(getNumCQTBins()); 
+    analyzer.prepare();
 }
 
 void MainController::registerVisualizer(GLVisualizer* v)
@@ -56,32 +111,6 @@ void MainController::registerVisualizer(GLVisualizer* v)
     visualizer->setFOV(getFOV());
 }
 
-void MainController::prepareAnalyzer()
-{
-    // Set analyzer parameters from settings tree
-    analyzer.setSampleRate(getSampleRate()); 
-    analyzer.setSamplesPerBlock(getSamplesPerBlock()); 
-    analyzer.setTransform(static_cast<Transform>(getTransform())); 
-    analyzer.setPanMethod(static_cast<PanMethod>(getPanMethod())); 
-    analyzer.setFFTOrder(getFFTOrder()); 
-    analyzer.setMinFrequency(getMinFrequency()); 
-    analyzer.setNumCQTBins(getNumCQTBins()); 
-    analyzer.prepare();
-}
-
-void MainController::releaseResources() 
-{ 
-    engine.releaseResources(); 
-}
-
-void MainController::getNextAudioBlock(
-    const juce::AudioSourceChannelInfo& info)
-{
-    engine.getNextAudioBlock(info);
-    analyzer.enqueueBlock(info.buffer);
-}
-
-//=============================================================================
 bool MainController::loadFile(const juce::File& f)
 {
     return engine.loadFile(f);
@@ -97,6 +126,11 @@ std::vector<frequency_band> MainController::getLatestResults() const
     return analyzer.getLatestResults();
 }
 
+juce::AudioDeviceManager& MainController::getDeviceManager()
+{
+    return engine.getDeviceManager();
+}
+
 //=============================================================================
 double MainController::getSampleRate() const
 {
@@ -106,6 +140,11 @@ double MainController::getSampleRate() const
 int MainController::getSamplesPerBlock() const
 {
     return settingsTree[ParamIDs::samplesPerBlock];
+}
+
+int MainController::getInputType() const
+{
+    return settingsTree[ParamIDs::inputType];
 }
 
 int MainController::getTransform() const
@@ -182,16 +221,19 @@ void MainController::setSamplesPerBlock(int newSamplesPerBlock)
     //                          newSamplesPerBlock, nullptr); 
 }
 
+void MainController::setInputType(int newInputType) 
+{ 
+    settingsTree.setProperty(ParamIDs::inputType, newInputType, nullptr); 
+}
+
 void MainController::setTransform(int newTransform) 
 { 
-    settingsTree.setProperty(ParamIDs::transform,    
-                             newTransform, nullptr); 
+    settingsTree.setProperty(ParamIDs::transform, newTransform, nullptr); 
 }
 
 void MainController::setPanMethod(int newPanMethod) 
 { 
-    settingsTree.setProperty(ParamIDs::panMethod,    
-                             newPanMethod, nullptr); 
+    settingsTree.setProperty(ParamIDs::panMethod, newPanMethod, nullptr); 
 }
 
 void MainController::setFFTOrder(int newFftOrder) 
@@ -254,6 +296,9 @@ void MainController::valueTreePropertyChanged(juce::ValueTree&,
 
     else if (id == ParamIDs::samplesPerBlock)
         analyzer.setSamplesPerBlock(getSamplesPerBlock());
+
+    else if (id == ParamIDs::inputType)
+        engine.setInputType(static_cast<InputType>(getInputType()));
 
     else if (id == ParamIDs::transform)
         analyzer.setTransform(static_cast<Transform>(getTransform()));

@@ -19,6 +19,8 @@ namespace ParamIDs
     static const juce::Identifier sampleRate { "sampleRate" };
     static const juce::Identifier samplesPerBlock { "samplesPerBlock" };
 
+    static const juce::Identifier inputType { "inputType" };
+
     static const juce::Identifier transform { "transform" };
     static const juce::Identifier panMethod { "panMethod" };
     static const juce::Identifier fftOrder { "fftOrder" };
@@ -37,7 +39,7 @@ namespace ParamIDs
 }
 
 //=============================================================================
-class MainController : public juce::AudioSource,
+class MainController : private juce::AudioIODeviceCallback,
                        private juce::ValueTree::Listener
 {
 public:
@@ -45,20 +47,24 @@ public:
     MainController();
     ~MainController() override;
 
-    void registerVisualizer(GLVisualizer* v);
+    void audioDeviceIOCallbackWithContext(
+        const float *const *inputChannelData, int numInputChannels,
+        float *const *outputChannelData, int numOutputChannels, int numSamples,
+        const juce::AudioIODeviceCallbackContext& context) override;
+    void audioDeviceAboutToStart (juce::AudioIODevice* device) override;
+    void audioDeviceStopped () override;
 
-    void prepareToPlay(int samplesPerBlock, double sampleRate) override;
     void prepareAnalyzer();
-    void releaseResources() override;
-    void getNextAudioBlock(const juce::AudioSourceChannelInfo& info) override;
-
+    void registerVisualizer(GLVisualizer* v);
     bool loadFile(const juce::File& f);
     void togglePlayback();
 
     std::vector<frequency_band> getLatestResults() const;
+    juce::AudioDeviceManager& getDeviceManager();
 
     double getSampleRate() const;
     int    getSamplesPerBlock() const;
+    int    getInputType() const;
     int    getTransform() const;
     int    getPanMethod() const;
     int    getFFTOrder() const;
@@ -74,6 +80,7 @@ public:
 
     void setSampleRate(double newSampleRate);
     void setSamplesPerBlock(int newSamplesPerBlock);
+    void setInputType(int newInputType);
     void setTransform(int newTransform);
     void setPanMethod(int newPanMethod);
     void setFFTOrder(int newFftOrder);

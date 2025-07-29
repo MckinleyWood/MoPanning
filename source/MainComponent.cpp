@@ -38,7 +38,7 @@ void MainComponent::resized()
     }
     else // ViewMode == Split
     {
-        const int sidebarW = 260;
+        const int sidebarW = 300;
         auto right = bounds.removeFromRight(sidebarW);
         settings.setBounds(right);
         visualizer.setBounds(bounds);

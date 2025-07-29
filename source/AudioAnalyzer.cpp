@@ -163,13 +163,13 @@ void AudioAnalyzer::setSampleRate(double newSampleRate)
 void AudioAnalyzer::setTransform(Transform newTransform)
 {
     transform = newTransform;
-    DBG("new analysis mode = " << static_cast<int>(newTransform));
+    // DBG("new analysis mode = " << static_cast<int>(newTransform));
 }
 
 void AudioAnalyzer::setPanMethod(PanMethod newPanMethod)
 {
     panMethod = newPanMethod;
-    DBG("new pan method = " << static_cast<int>(newPanMethod));
+    // DBG("new pan method = " << static_cast<int>(newPanMethod));
 }
 
 
