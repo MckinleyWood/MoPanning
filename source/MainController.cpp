@@ -44,16 +44,13 @@ void MainController::audioDeviceIOCallbackWithContext(
     //     << numInputChannels << " input channels and "
     //     << numOutputChannels << " output channels, "
     //     << numSamples << " samples per channel.");
+
+    juce::AudioBuffer<float> buffer(2, numSamples);
     
     // Delegate to the audio engine
-    engine.audioDeviceIOCallback(inputChannelData, numInputChannels,
-                                 outputChannelData, numOutputChannels,
-                                 numSamples);
-
-    // Copy the output data to a juce::AudioBuffer
-    juce::AudioBuffer<float> buffer(numOutputChannels, numSamples);
-    for (int ch = 0; ch < numOutputChannels; ++ch)
-        buffer.copyFrom(ch, 0, outputChannelData[ch], numSamples); 
+    engine.fillAudioBuffers(inputChannelData, numInputChannels,
+                            outputChannelData, numOutputChannels,
+                            numSamples, buffer);
 
     // Pass the buffer to the analyzer
     analyzer.enqueueBlock(&buffer);

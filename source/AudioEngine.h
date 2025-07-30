@@ -16,11 +16,12 @@ public:
     AudioEngine();
     ~AudioEngine();
 
-    void audioDeviceIOCallback(const float *const *inputChannelData,
-                               int numInputChannels,
-                               float *const *outputChannelData,
-                               int numOutputChannels,
-                               int numSamples);
+    void fillAudioBuffers(const float *const *inputChannelData,
+                          int numInputChannels,
+                          float *const *outputChannelData,
+                          int numOutputChannels,
+                          int numSamples,
+                          juce::AudioBuffer<float>& buffer);
 
     void setInputType(InputType type);
 

@@ -4,13 +4,12 @@ project(MOPANNING VERSION 0.0.1)
 add_subdirectory(JUCE)
 
 juce_add_gui_app(MoPanning
-    # VERSION ... # Set if the app version is different to the project version
     ICON_BIG resources/Mo.png # image file to use as an icon
-    # ICON_SMALL ... 
-    # DOCUMENT_EXTENSIONS ... # Asscociated file extensions
     # COMPANY_NAME ... # The name of the app's author
     PRODUCT_NAME "MoPanning" # The name of the final executable
-    PLIST_TO_MERGE "<key>NSMicrophoneUsageDescription</key><string>This app requires access to the microphone for live audio input.</string>") 
+    MICROPHONE_PERMISSION_ENABLED TRUE
+    MICROPHONE_PERMISSION_TEXT "This app requires access to the microphone for live audio input."
+)
 
 juce_generate_juce_header(MoPanning)
 
@@ -28,18 +27,21 @@ target_sources(MoPanning
         source/MainController.cpp
         source/MainController.h
         source/SettingsComponent.cpp
-        source/SettingsComponent.h)
+        source/SettingsComponent.h
+)
 
 target_compile_definitions(MoPanning
     PRIVATE
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
         JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:MoPanning,JUCE_PRODUCT_NAME>"
-        JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:MoPanning,JUCE_VERSION>")
+        JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:MoPanning,JUCE_VERSION>"
+)
 
 target_include_directories(MoPanning 
     PRIVATE 
-        ${CMAKE_CURRENT_SOURCE_DIR}/source)
+        ${CMAKE_CURRENT_SOURCE_DIR}/source
+)
 
 target_link_libraries(MoPanning
     PRIVATE
@@ -57,7 +59,6 @@ target_link_libraries(MoPanning
 
 target_compile_options(MoPanning
   PUBLIC
-    # core warning flags
     -Wall
     -Wshadow-all
     # -Wshorten-64-to-32
@@ -69,7 +70,7 @@ target_compile_options(MoPanning
     -Wint-conversion
     -Wconditional-uninitialized
     -Wconstant-conversion
-    # -Wsign-conversion # Annoying
+    # -Wsign-conversion
     -Wbool-conversion
     -Wextra-semi
     -Wunreachable-code
