@@ -14,36 +14,59 @@ AudioEngine::~AudioEngine()
 }
 
 //=============================================================================
-void AudioEngine::audioDeviceIOCallback(const float *const *inputChannelData,
-                                        int numInputChannels,
-                                        float *const *outputChannelData,
-                                        int numOutputChannels,
-                                        int numSamples)
+void AudioEngine::fillAudioBuffers(const float *const *inputChannelData,
+                                   int numInputChannels,
+                                   float *const *outputChannelData,
+                                   int numOutputChannels,
+                                   int numSamples,
+                                   juce::AudioBuffer<float>& buffer)
 {
-    juce::AudioBuffer<float> buffer(numOutputChannels, numSamples);
+    buffer.clear();
     juce::AudioSourceChannelInfo info(&buffer, 0, numSamples);
 
+    // Fill the analysis/intermediate buffer from the specified input
     switch (inputType)
     {
         case file:
             // Fill the buffer with audio data from the transport
             transport.getNextAudioBlock(info);
 
-            // Copy the output data to the output channels
-            for (int ch = 0; ch < numOutputChannels; ++ch)
-                std::memcpy(outputChannelData[ch],
-                            buffer.getReadPointer(ch),
-                            sizeof(float) * (size_t)numSamples);
             break;
 
         case streaming:
-            DBG("Streaming input type selected, passing through input data directly.");
-            // Pass through the input data directly to output
-            for (int ch = 0; ch < numOutputChannels; ++ch)
-                std::memcpy(outputChannelData[ch],
-                            inputChannelData[ch],
-                            sizeof(float) * (size_t)numSamples);
+            // Fill the buffer with the input data directly
+            if (numInputChannels >= 1)
+                buffer.copyFrom(0, 0, inputChannelData[0], numSamples);
+            if (numInputChannels >= 2)
+                buffer.copyFrom(1, 0, inputChannelData[1], numSamples);
+            
             break;
+    }
+
+    // Copy the filled buffer to the output channels
+    if (numOutputChannels == 1)
+    {
+        // Downmix to mono if only one output channel
+        static std::vector<float> temp;
+        temp.resize(numSamples);
+        const float *left = buffer.getReadPointer(0);
+        const float *right = buffer.getReadPointer(1);
+
+        for (int i = 0; i < numSamples; ++i)
+            temp[i] = (left[i] + right[i]) * 0.5f;
+            
+        std::memcpy(outputChannelData[0], temp.data(),
+                    sizeof(float) * numSamples);
+    }
+    else
+    {
+        // Else copy the buffer to the first two output channels
+        std::memcpy(outputChannelData[0],
+                    buffer.getReadPointer(0),
+                    sizeof(float) * numSamples);
+        std::memcpy(outputChannelData[1],
+                    buffer.getReadPointer(1),
+                    sizeof(float) * numSamples);
     }
 }
 
