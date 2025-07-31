@@ -308,12 +308,12 @@ void AudioAnalyzer::computeCQT(const juce::AudioBuffer<float>& buffer,
 }
 
 /*  Compute GCC-PHAT delay for a specific frequency band */
-float AudioAnalyzer::gccPhatDelayPerBand(const float* x, const float* y, 
+float AudioAnalyzer::gccPhatDelayPerBand(const float* left, const float* right, 
                                 juce::dsp::IIR::Filter<float>& bandpassLeft, 
                                 juce::dsp::IIR::Filter<float>& bandpassRight)
 {
-    std::vector<float> filteredX(fftSize);
-    std::vector<float> filteredY(fftSize);
+    std::vector<float> filteredLeft(fftSize);
+    std::vector<float> filteredRight(fftSize);
 
     bandpassLeft.reset();
     bandpassRight.reset();
@@ -321,32 +321,45 @@ float AudioAnalyzer::gccPhatDelayPerBand(const float* x, const float* y,
     // Process samples with given filters
     for (int i = 0; i < fftSize; ++i)
     {
-        filteredX[i] = bandpassLeft.processSample(x[i]);
-        filteredY[i] = bandpassRight.processSample(y[i]);
+        filteredLeft[i] = bandpassLeft.processSample(left[i]);
+        filteredRight[i] = bandpassRight.processSample(right[i]);
     }
+
+    float energyThreshold = 1e-6f; // Threshold to avoid division by zero
+    float energyLeft = std::inner_product(filteredLeft.begin(), filteredLeft.end(),
+                                        filteredLeft.begin(), 0.0f);
+    float energyRight = std::inner_product(filteredRight.begin(), filteredRight.end(),
+                                        filteredRight.begin(), 0.0f);
+
+    // If energy in one channel is too low, no reliable delay can be computed:
+    if (energyLeft < energyThreshold || energyRight < energyThreshold)
+    {
+        return 0.0f; // or some sentinel value meaning "no valid delay"
+    }
+
 
     // DBG("filteredX[0] = " << filteredX[0] 
     //  << ", filteredY[0] = " << filteredY[0]);
 
-    std::vector<juce::dsp::Complex<float>> X(fftSize, 0.0f);
-    std::vector<juce::dsp::Complex<float>> Y(fftSize, 0.0f);
+    std::vector<juce::dsp::Complex<float>> leftFFT(fftSize, 0.0f);
+    std::vector<juce::dsp::Complex<float>> rightFFT(fftSize, 0.0f);
     std::vector<juce::dsp::Complex<float>> R(fftSize);
     std::vector<juce::dsp::Complex<float>> corr(fftSize);
 
     for (int i = 0; i < fftSize; ++i)
     {
-        X[i] = std::complex<float>(filteredX[i] * window[i], 0.0f);
-        Y[i] = std::complex<float>(filteredY[i] * window[i], 0.0f);
+        leftFFT[i] = std::complex<float>(filteredLeft[i] * window[i], 0.0f);
+        rightFFT[i] = std::complex<float>(filteredRight[i] * window[i], 0.0f);
     }
 
-    fft->perform(X.data(), X.data(), false);
-    fft->perform(Y.data(), Y.data(), false);
+    fft->perform(leftFFT.data(), leftFFT.data(), false);
+    fft->perform(rightFFT.data(), rightFFT.data(), false);
 
     for (int i = 0; i < fftSize; ++i)
     {
-        auto Xf = X[i];
-        auto Yf = Y[i];
-        auto crossSpec = Xf * std::conj(Yf);
+        auto left_f = leftFFT[i];
+        auto right_f = rightFFT[i];
+        auto crossSpec = left_f * std::conj(right_f);
         float mag = std::abs(crossSpec);
         R[i] = (mag > 0.0f) ? crossSpec / mag : 0.0f;
     }
@@ -358,34 +371,36 @@ float AudioAnalyzer::gccPhatDelayPerBand(const float* x, const float* y,
 
     fft->perform(R.data(), corr.data(), true);
 
-    // Find peak in cross-correlation
-    int maxIndex = 0;
-    float maxValue = -1e10f;
-    for (int i = 0; i < fftSize; ++i)
+    int center = fftSize / 2;
+    int maxDelaySamples = static_cast<int>(std::round(maxITD * sampleRate));
+
+    int startIdx = center - maxDelaySamples;
+    int endIdx   = center + maxDelaySamples;
+
+    // Safe bounds check (in case maxDelaySamples is misconfigured)
+    startIdx = std::max(0, startIdx);
+    endIdx = std::min(fftSize - 1, endIdx);
+
+    float maxValue = std::abs(corr[center]) * 1.01f;
+    int maxIndex = center;
+
+    for (int i = startIdx; i <= endIdx; ++i)
     {
         float val = std::abs(corr[i]);
         if (val > maxValue)
         {
             maxValue = val;
-            maxIndex = (i);
+            maxIndex = i;
         }
     }
 
-    int center = fftSize / 2;
-    int delay = (maxIndex <= center) ? maxIndex : maxIndex - fftSize;
+    int delay = maxIndex - center;
 
     // DBG("GCC-PHAT delay: maxIndex = " << maxIndex
     //     << ", delay = " << delay
     //     << ", maxCorr = " << maxValue);
 
     return static_cast<float>(delay);
-
-    // float energyX = std::accumulate(filteredX.begin(), filteredX.end(), 0.0f,
-    // [](float acc, float v) { return acc + v*v; });
-    // float energyY = std::accumulate(filteredY.begin(), filteredY.end(), 0.0f,
-    // [](float acc, float v) { return acc + v*v; });
-
-    // DBG("Filtered signal energy: X = " << energyX << ", Y = " << energyY);
 }
 
 void AudioAnalyzer::computeGCCPHAT_ITD(const juce::AudioBuffer<float>& buffer,
@@ -393,17 +408,17 @@ void AudioAnalyzer::computeGCCPHAT_ITD(const juce::AudioBuffer<float>& buffer,
                                        std::vector<float>& panIndices)
                                        
 {
+    panIndices.resize(numBands);
+
     const float* left = buffer.getReadPointer(0);
     const float* right = buffer.getReadPointer(1);
 
-    if (samplesPerBlock < fftSize)
-        return;
+    // if (samplesPerBlock < fftSize)
+    //     return;
 
     const float* leftSegment = left + (samplesPerBlock - fftSize);
     const float* rightSegment = right + (samplesPerBlock - fftSize);
 
-    panIndices.resize(numBands, 0.0f);
-    
     for (int b = 0; b < numBands; ++b)
     {
         // Use precomputed bandpass filters
@@ -420,9 +435,9 @@ void AudioAnalyzer::computeGCCPHAT_ITD(const juce::AudioBuffer<float>& buffer,
         float delaySeconds = delaySamples / sampleRate;
         panIndices[b] = juce::jlimit(-1.0f, 1.0f, delaySeconds / maxITD);
 
-        DBG("ITD bin " << b
-            << ": delaySamples = " << delaySamples
-            << ", delaySeconds = " << delaySeconds);
+        // DBG("ITD bin " << b
+        //     << ": delaySamples = " << delaySamples
+        //     << ", delaySeconds = " << delaySeconds);
     }
 }
 
@@ -476,7 +491,11 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
     
     case time_pan:
         // Use ITD pan indices
-        panIndices.resize(numBands);
+        computeGCCPHAT_ITD(buffer, numBands, panIndices);
+        for (int i = 0; i < std::min<int>(itds.size(), numCQTbins); i += 10)
+        {
+            DBG("ITDbin[" << i << "] = " << panIndices[i]);
+        }
         break;
     
     case both:
@@ -485,8 +504,10 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
 
         panIndices.resize(numBands);
 
-        for (int b = 0; b < numCQTbins; ++b)
+        for (int b = 0; b < numCQTbins; b+=10)
         {
+            DBG("ILD[" << b << "] = " << ilds[b] 
+                << ", ITD[" << b << "] = " << itds[b]);
             panIndices[b] = (ildWeight * ilds[b] + itdWeight * itds[b]) 
                           / (ildWeight + itdWeight);
         }
