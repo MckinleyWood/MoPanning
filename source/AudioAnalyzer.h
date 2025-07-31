@@ -116,8 +116,12 @@ private:
     std::vector<juce::dsp::IIR::Filter<float>> rightBandpassFilters;
     
 
-    float maxITD = 0.09f / 343.0f; // ~0.00026 sec (0.09m from center of head 
+    // float maxITD = 0.09f / 343.0f; // ~0.00026 sec (0.09m from center of head 
                                    // to each ear, 343 m/s speed of sound)
+
+    float maxITD = 0.005f; // try others
+
+    std::vector<float> weights;
 
     std::vector<frequency_band> results; // Must be sorted by frequency!!!
     mutable std::mutex resultsMutex;

@@ -108,9 +108,9 @@ void AudioAnalyzer::prepare()
 
         cqtKernels[bin] = std::move(kernelFreq);
 
-        float energy = 0.0f;
-        for (const auto& c : kernelFreq)
-            energy += std::abs(c);
+        // float energy = 0.0f;
+        // for (const auto& c : kernelFreq)
+        //     energy += std::abs(c);
     }
 
     // Estimate memory use for CQT kernels
@@ -119,6 +119,14 @@ void AudioAnalyzer::prepare()
 
     // Prepare bandpass filters for GCC-PHAT (also initializes ITD)
     prepareBandpassFilters();
+
+    // TESTTTTTTTT
+    weights.resize(numCQTbins);
+    float f0 = 500.0f;
+    for (int i = 0; i < numCQTbins; ++i)
+    {
+        weights[i] = std::pow(centerFrequencies[i] / f0, 2.0f);
+    }
 
     // Initialize AnalyzerWorker
     int numSlots = 4;
@@ -199,7 +207,7 @@ void AudioAnalyzer::prepareBandpassFilters()
 
     juce::dsp::ProcessSpec spec;
     spec.sampleRate = sampleRate;
-    spec.maximumBlockSize = static_cast<uint32_t>(fftSize);
+    spec.maximumBlockSize = static_cast<uint32_t>(numCQTbins);
     spec.numChannels = 1; // Mono processing for each channel
 
     for (float freq : centerFrequencies)
@@ -325,7 +333,7 @@ float AudioAnalyzer::gccPhatDelayPerBand(const float* left, const float* right,
         filteredRight[i] = bandpassRight.processSample(right[i]);
     }
 
-    float energyThreshold = 1e-6f; // Threshold to avoid division by zero
+    float energyThreshold = 1e-1f; // Threshold to avoid division by zero
     float energyLeft = std::inner_product(filteredLeft.begin(), filteredLeft.end(),
                                         filteredLeft.begin(), 0.0f);
     float energyRight = std::inner_product(filteredRight.begin(), filteredRight.end(),
@@ -346,6 +354,7 @@ float AudioAnalyzer::gccPhatDelayPerBand(const float* left, const float* right,
     std::vector<juce::dsp::Complex<float>> R(fftSize);
     std::vector<juce::dsp::Complex<float>> corr(fftSize);
 
+    // window = std::vector<float>(fftSize, 1.0f); // Reset window to all ones to check something......
     for (int i = 0; i < fftSize; ++i)
     {
         leftFFT[i] = std::complex<float>(filteredLeft[i] * window[i], 0.0f);
@@ -394,7 +403,36 @@ float AudioAnalyzer::gccPhatDelayPerBand(const float* left, const float* right,
         }
     }
 
-    int delay = maxIndex - center;
+    // Interpolate
+    float y0 = std::abs(corr[maxIndex - 1]);
+    float y1 = std::abs(corr[maxIndex]);
+    float y2 = std::abs(corr[maxIndex + 1]);
+
+    float denom = 2 * (y0 - 2 * y1 + y2);
+    float delta = 0.0f;
+    if (std::abs(denom) > 1e-6f)
+        delta = (y0 - y2) / denom;
+
+    // Now your delay estimate is:
+    float delay = (maxIndex - center) + delta;
+
+    // int delay = maxIndex - center;
+
+    DBG("center val: " << std::abs(corr[center]));
+    DBG("max val: " << maxValue);
+
+    // float totalWeightedITD = 0.0f;
+    // float totalWeight = 0.0f;
+
+    // for (int i = 0; i < numCQTbins; ++i)
+    // {
+    //     totalWeightedITD += itdEstimates[i] * weights[i];
+    //     totalWeight += weights[i];
+    // }
+
+    // float avgITD = (totalWeight > 0.0f) ? totalWeightedITD / totalWeight : 0.0f;
+
+
 
     // DBG("GCC-PHAT delay: maxIndex = " << maxIndex
     //     << ", delay = " << delay
@@ -494,7 +532,7 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
         computeGCCPHAT_ITD(buffer, numBands, panIndices);
         for (int i = 0; i < std::min<int>(itds.size(), numCQTbins); i += 10)
         {
-            DBG("ITDbin[" << i << "] = " << panIndices[i]);
+            // DBG("ITDbin[" << i << "] = " << panIndices[i]);
         }
         break;
     
@@ -504,13 +542,13 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
 
         panIndices.resize(numBands);
 
-        for (int b = 0; b < numCQTbins; b+=10)
-        {
-            DBG("ILD[" << b << "] = " << ilds[b] 
-                << ", ITD[" << b << "] = " << itds[b]);
-            panIndices[b] = (ildWeight * ilds[b] + itdWeight * itds[b]) 
-                          / (ildWeight + itdWeight);
-        }
+        // for (int b = 0; b < numCQTbins; b+=10)
+        // {
+        //     DBG("ILD[" << b << "] = " << ilds[b] 
+        //         << ", ITD[" << b << "] = " << itds[b]);
+        //     panIndices[b] = (ildWeight * ilds[b] + itdWeight * itds[b]) 
+        //                   / (ildWeight + itdWeight);
+        // }
         break;
 
     default:
