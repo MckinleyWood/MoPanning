@@ -35,6 +35,37 @@ private:
 };
 
 //=============================================================================
+class CustomAudioDeviceSelectorComponent : public juce::AudioDeviceSelectorComponent
+{
+public:
+    std::function<void()> onHeightChanged;
+
+    using juce::AudioDeviceSelectorComponent::AudioDeviceSelectorComponent;
+
+    void resized() override
+    {
+        auto oldHeight = getHeight();
+        juce::AudioDeviceSelectorComponent::resized();
+        auto newHeight = getHeight();
+
+        if (oldHeight != newHeight && onHeightChanged)
+            onHeightChanged();
+    }
+};
+
+//=============================================================================
+class NonScrollingSlider : public juce::Slider
+{
+public:
+    using juce::Slider::Slider;
+
+    void mouseWheelMove(const juce::MouseEvent&, const juce::MouseWheelDetails&) override
+    {
+        // Intentionally do nothing so that the event can bubble up to the parent (viewport).
+    }
+};
+
+//=============================================================================
 class SettingsComponent::SettingsContentComponent : public juce::Component,
                                                     private juce::ComboBox::Listener,
                                                     private juce::Slider::Listener
@@ -53,6 +84,7 @@ public:
     // Helpers
     std::vector<juce::Component*> getSettings();
     std::vector<juce::Label*> getLabels();
+    int getDeviceSelectorHeight() const;
 
 private:
     //=========================================================================
@@ -73,13 +105,13 @@ private:
     juce::ComboBox fftOrderBox;
     juce::ComboBox minFrequencyBox;
     juce::ComboBox numCQTbinsBox;
-    juce::Slider recedeSpeedSlider;
-    juce::Slider dotSizeSlider;
-    juce::Slider ampScaleSlider;
-    juce::Slider nearZSlider;
-    juce::Slider fadeEndZSlider;
-    juce::Slider farZSlider;
-    juce::Slider fovSlider;
+    NonScrollingSlider recedeSpeedSlider;
+    NonScrollingSlider dotSizeSlider;
+    NonScrollingSlider ampScaleSlider;
+    NonScrollingSlider nearZSlider;
+    NonScrollingSlider fadeEndZSlider;
+    NonScrollingSlider farZSlider;
+    NonScrollingSlider fovSlider;
 
     // Labels
     juce::Label sampleRateLabel;

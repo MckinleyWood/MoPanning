@@ -18,14 +18,14 @@ void SettingsComponent::resized()
     viewport.setBounds(getLocalBounds());
 
     const int titleHeight = 60;
-    const int deviceSelectorHeight = 200;
+    const int deviceSelectorHeight = content->getDeviceSelectorHeight();
     const int rowHeight = 50;
     const int numSettings = (int)content->getSettings().size();
     const int contentHeight = titleHeight + deviceSelectorHeight
-                            + rowHeight * numSettings + 20;
+                            + rowHeight * numSettings + 500;
 
     if (content)
-        content->setSize(getWidth(), contentHeight);
+        content->setSize(getWidth() - 8, contentHeight);
 }
 
 //=============================================================================
@@ -34,10 +34,18 @@ using sc = SettingsComponent;
 sc::SettingsContentComponent::SettingsContentComponent(MainController& c) 
                                                        : controller(c)
 {
-    deviceSelector.reset(new juce::AudioDeviceSelectorComponent(
-        controller.getDeviceManager(), 
-        2, 2, 2, 2,                 // Min/max input/output channels
-        false, false, true, true)); // Show MIDI/Audio meters
+    deviceSelector = std::make_unique<CustomAudioDeviceSelectorComponent>(
+        controller.getDeviceManager(),
+        2, 2, 2, 2,
+        false, false, true, true);
+
+    static_cast<CustomAudioDeviceSelectorComponent*>(deviceSelector.get())->onHeightChanged = [this]()
+    {
+        if (auto* parent = findParentComponentOfClass<SettingsComponent>())
+        {
+            parent->resized();
+        }
+    };
 
     // Set up combo boxes
     sampleRateBox.addItem("24,000Hz", 24000);
@@ -77,6 +85,7 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     fftOrderBox.setSelectedId(controller.getFFTOrder());
     fftOrderBox.addListener(this);
 
+    minFrequencyBox.addItem("5Hz", 5);
     minFrequencyBox.addItem("20Hz", 20);
     minFrequencyBox.addItem("50Hz", 50);
     minFrequencyBox.addItem("100Hz", 100);
@@ -87,6 +96,7 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     numCQTbinsBox.addItem("128", 128);
     numCQTbinsBox.addItem("256", 256);
     numCQTbinsBox.addItem("512", 512);
+    numCQTbinsBox.addItem("1024", 1024);
     numCQTbinsBox.setSelectedId(controller.getNumCQTBins());
     numCQTbinsBox.addListener(this);
 
@@ -170,7 +180,10 @@ void sc::SettingsContentComponent::resized()
     title.setBounds(titleZone);
 
     // Layout the device selector below the title
-    auto deviceSelectorZone = bounds.removeFromTop(200);
+    auto deviceSelectorZone = bounds.removeFromTop(
+         deviceSelector->getHeight() - 30);
+    deviceSelectorZone.translate(-20, 0);
+    deviceSelectorZone.setWidth(deviceSelectorZone.getWidth() + 20);
     deviceSelector->setBounds(deviceSelectorZone);
 
     // Layout each setting below the title
@@ -198,12 +211,12 @@ void sc::SettingsContentComponent::paint(juce::Graphics& g)
     using Font = juce::FontOptions;
 
     // Set the font
-    Font normalFont = { "Comic Sans MS", 20.f, 0};
-    Font titleFont = normalFont.withHeight(bounds.getHeight() * 0.06f)
+    Font normalFont = {20.f, 0};
+    Font titleFont = normalFont.withHeight(40)
                             .withStyle("Bold");
 
     // Paint the title
-    title.setText("Hi Owen", juce::dontSendNotification);
+    title.setText("MoPanning", juce::dontSendNotification);
     title.setFont(titleFont);
     title.setJustificationType(juce::Justification::centred);
     title.setColour(juce::Label::textColourId, juce::Colours::white);
@@ -289,6 +302,11 @@ void sc::SettingsContentComponent::sliderValueChanged(juce::Slider* s)
         controller.setFOV((float)s->getValue());
 }
 
+int SettingsComponent::SettingsContentComponent::getDeviceSelectorHeight() const
+{
+    return deviceSelector ? deviceSelector->getHeight() : 0;
+}
+
 std::vector<juce::Component*> sc::SettingsContentComponent::getSettings()
 {
     return {
@@ -298,7 +316,7 @@ std::vector<juce::Component*> sc::SettingsContentComponent::getSettings()
         &transformBox,
         &panMethodBox,
         // &fftOrderBox,
-        // &minFrequencyBox,
+        &minFrequencyBox,
         &numCQTbinsBox,
         &recedeSpeedSlider,
         &dotSizeSlider,
@@ -319,7 +337,7 @@ std::vector<juce::Label*> sc::SettingsContentComponent::getLabels()
         &transformLabel,
         &panMethodLabel,
         // &fftOrderLabel,
-        // &minFrequencyLabel,
+        &minFrequencyLabel,
         &numCQTbinsLabel,
         &recedeSpeedLabel,
         &dotSizeLabel,
