@@ -21,9 +21,6 @@ MainComponent::MainComponent(MainController& mc,
 }
 
 //=============================================================================
-/* Since the child components visualizer and settings do all the 
-drawing, we don't need a paint() function here. */
-
 /*  This is called every time the window is resized, and is where we set
     the bounds of the subcomponents (visualizer and settings panel).
 */
@@ -44,6 +41,11 @@ void MainComponent::resized()
         visualizer.setBounds(bounds);
         settings.setVisible(true);
     }
+}
+
+void MainComponent::paint(juce::Graphics& g)
+{
+    g.fillAll(juce::Colours::darkgrey); // Clear background to grey
 }
 
 //=============================================================================

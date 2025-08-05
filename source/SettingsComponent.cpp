@@ -22,10 +22,14 @@ void SettingsComponent::resized()
     const int rowHeight = 50;
     const int numSettings = (int)content->getSettings().size();
     const int contentHeight = titleHeight + deviceSelectorHeight
-                            + rowHeight * numSettings + 500;
+                            + rowHeight * numSettings + 20;
+    int contentWidth = getWidth();
+
+    // if (contentHeight > getHeight())
+        contentWidth = getWidth() - 8; // Leave some space for scrollbar
 
     if (content)
-        content->setSize(getWidth() - 8, contentHeight);
+        content->setSize(contentWidth, contentHeight);
 }
 
 //=============================================================================
@@ -39,7 +43,7 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
         2, 2, 2, 2,
         false, false, true, true);
 
-    static_cast<CustomAudioDeviceSelectorComponent*>(deviceSelector.get())->onHeightChanged = [this]()
+    deviceSelector.get()->onHeightChanged = [this]()
     {
         if (auto* parent = findParentComponentOfClass<SettingsComponent>())
         {
@@ -181,12 +185,10 @@ void sc::SettingsContentComponent::resized()
 
     // Layout the device selector below the title
     auto deviceSelectorZone = bounds.removeFromTop(
-         deviceSelector->getHeight() - 30);
-    deviceSelectorZone.translate(-20, 0);
-    deviceSelectorZone.setWidth(deviceSelectorZone.getWidth() + 20);
+         getDeviceSelectorHeight());
     deviceSelector->setBounds(deviceSelectorZone);
 
-    // Layout each setting below the title
+    // Layout each setting
     auto settings = getSettings();
     auto labels = getLabels();
 
@@ -304,7 +306,7 @@ void sc::SettingsContentComponent::sliderValueChanged(juce::Slider* s)
 
 int SettingsComponent::SettingsContentComponent::getDeviceSelectorHeight() const
 {
-    return deviceSelector ? deviceSelector->getHeight() : 0;
+    return deviceSelector ? deviceSelector->getHeight() - 30 : 0;
 }
 
 std::vector<juce::Component*> sc::SettingsContentComponent::getSettings()

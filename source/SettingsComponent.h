@@ -14,7 +14,7 @@ public:
     ~SettingsComponent() override;
 
     //=========================================================================
-    // void paint(juce::Graphics&) override;
+    
     void resized(void) override;
 
 private:
@@ -35,7 +35,8 @@ private:
 };
 
 //=============================================================================
-class CustomAudioDeviceSelectorComponent : public juce::AudioDeviceSelectorComponent
+class CustomAudioDeviceSelectorComponent 
+    : public juce::AudioDeviceSelectorComponent
 {
 public:
     std::function<void()> onHeightChanged;
@@ -59,9 +60,15 @@ class NonScrollingSlider : public juce::Slider
 public:
     using juce::Slider::Slider;
 
-    void mouseWheelMove(const juce::MouseEvent&, const juce::MouseWheelDetails&) override
+    void mouseWheelMove(const juce::MouseEvent& event, 
+                        const juce::MouseWheelDetails& details) override
     {
-        // Intentionally do nothing so that the event can bubble up to the parent (viewport).
+        // Scroll the viewport instead
+        if (auto* viewport = findParentComponentOfClass<juce::Viewport>())
+        {
+            MouseEvent e2 = event.getEventRelativeTo(viewport);
+            viewport->mouseWheelMove(e2, details);
+        }
     }
 };
 
@@ -94,7 +101,7 @@ private:
     juce::Label title;
 
     // Device selector
-    std::unique_ptr<juce::AudioDeviceSelectorComponent> deviceSelector;
+    std::unique_ptr<CustomAudioDeviceSelectorComponent> deviceSelector;
 
     // Settings subcomponents
     juce::ComboBox sampleRateBox;

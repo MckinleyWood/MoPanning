@@ -23,7 +23,6 @@ MainController::MainController()
 
     auto& dm = engine.getDeviceManager();
     dm.addAudioCallback(this);
-    DBG("Added callback");
     dm.initialise(2, 2, nullptr, true);
 }
 
@@ -40,11 +39,6 @@ void MainController::audioDeviceIOCallbackWithContext(
     float *const *outputChannelData, int numOutputChannels, int numSamples,
     const juce::AudioIODeviceCallbackContext& context)
 {
-    // DBG("AudioDeviceIOCallback called with "
-    //     << numInputChannels << " input channels and "
-    //     << numOutputChannels << " output channels, "
-    //     << numSamples << " samples per channel.");
-
     juce::AudioBuffer<float> buffer(2, numSamples);
     
     // Delegate to the audio engine
