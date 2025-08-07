@@ -27,6 +27,7 @@ namespace ParamIDs
     static const juce::Identifier minFrequency { "minFrequency" };
     static const juce::Identifier numCQTbins { "numCQTbins" };
 
+    static const juce::Identifier dimension { "dimension" };
     static const juce::Identifier recedeSpeed { "recedeSpeed" };
     static const juce::Identifier dotSize { "dotSize" };
     static const juce::Identifier ampScale { "ampScale" };
@@ -70,6 +71,7 @@ public:
     int    getFFTOrder() const;
     float  getMinFrequency() const;
     int    getNumCQTBins() const;
+    int    getDimension() const;
     float  getRecedeSpeed() const;
     float  getDotSize() const;
     float  getAmpScale() const;
@@ -86,6 +88,7 @@ public:
     void setFFTOrder(int newFftOrder);
     void setMinFrequency(float newMinFrequency);
     void setNumCQTBins(int newNumCQTbins);
+    void setDimension(int newDimension);
     void setRecedeSpeed(float newRecedeSpeed);
     void setDotSize(float newDotSize);
     void setAmpScale(float newAmpScale);

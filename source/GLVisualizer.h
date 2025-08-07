@@ -25,7 +25,8 @@ struct VertexBufferObject
     ~VertexBufferObject() = default;
 };
 
-enum Texture { example};
+enum Texture { example };
+enum Dimension { Dim2D, Dim3D };
 
 //=============================================================================
 /*  This is the component for the OpenGL canvas. It handles rendering 
@@ -39,6 +40,7 @@ public:
     ~GLVisualizer() override;
 
     //=========================================================================
+    void setDimension(Dimension newDimension);
     void setRecedeSpeed(float newRecedeSpeed);
     void setDotSize(float newDotSize);
     void setAmpScale(float newAmpScale);
@@ -83,6 +85,7 @@ private:
     GLuint colourMapTex = 0;
 
     double startTime; // App-launch time in seconds
+    Dimension dimension;
     float recedeSpeed; // Speed that objects recede
     float dotSize; // Radius of the dots
     float ampScale; // Amplitude scale factor

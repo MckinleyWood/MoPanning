@@ -38,6 +38,19 @@ using sc = SettingsComponent;
 sc::SettingsContentComponent::SettingsContentComponent(MainController& c) 
                                                        : controller(c)
 {
+    using Font = juce::FontOptions;
+
+    // Set the font
+    Font normalFont = {13.f, 0};
+    Font titleFont = normalFont.withHeight(40).withStyle("Bold");
+
+    // Set up title label
+    title.setText("MoPanning", juce::dontSendNotification);
+    title.setFont(titleFont);
+    title.setJustificationType(juce::Justification::centred);
+    title.setColour(juce::Label::textColourId, juce::Colours::white);
+
+    // Set up device selector
     deviceSelector = std::make_unique<CustomAudioDeviceSelectorComponent>(
         controller.getDeviceManager(),
         2, 2, 2, 2,
@@ -52,12 +65,6 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     };
 
     // Set up combo boxes
-    sampleRateBox.addItem("24,000Hz", 24000);
-    sampleRateBox.addItem("44,100Hz", 44100);
-    sampleRateBox.addItem("48,000Hz", 48000);
-    sampleRateBox.setSelectedId((int)controller.getSampleRate());
-    sampleRateBox.addListener(this);
-
     samplesPerBlockBox.addItem("64", 64);
     samplesPerBlockBox.addItem("128", 128);
     samplesPerBlockBox.addItem("256", 256);
@@ -104,6 +111,11 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     numCQTbinsBox.setSelectedId(controller.getNumCQTBins());
     numCQTbinsBox.addListener(this);
 
+    dimensionBox.addItem("2D", 1);
+    dimensionBox.addItem("3D", 2);
+    dimensionBox.setSelectedId(controller.getDimension() + 1);
+    dimensionBox.addListener(this);
+
     // Set up sliders
     recedeSpeedSlider.setRange(0.1, 20.0);
     recedeSpeedSlider.setValue(controller.getRecedeSpeed());
@@ -134,7 +146,6 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     fovSlider.addListener(this);
 
     // Set up labels
-    sampleRateLabel.setText("Sample Rate", juce::dontSendNotification);
     samplesPerBlockLabel.setText("Samples per Block", 
                                  juce::dontSendNotification);
     inputTypeLabel.setText("Input Type", juce::dontSendNotification);
@@ -143,6 +154,7 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     fftOrderLabel.setText("FFT Order", juce::dontSendNotification);
     minFrequencyLabel.setText("Min Frequency", juce::dontSendNotification);
     numCQTbinsLabel.setText("CQT Bin Count", juce::dontSendNotification);
+    dimensionLabel.setText("Dimension", juce::dontSendNotification);
     recedeSpeedLabel.setText("Recede Speed", juce::dontSendNotification);
     dotSizeLabel.setText("Dot Size", juce::dontSendNotification);
     ampScaleLabel.setText("Amplitude Scale", juce::dontSendNotification);
@@ -162,7 +174,7 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     for (auto* label : getLabels())
     {
         label->setJustificationType(juce::Justification::left);
-        label->setFont(juce::Font(13.0f));
+        label->setFont(normalFont);
         addAndMakeVisible(label);
     }
 
@@ -205,23 +217,8 @@ void sc::SettingsContentComponent::resized()
 
 void sc::SettingsContentComponent::paint(juce::Graphics& g)
 {
-    auto bounds = getLocalBounds().reduced(10, 10);
-
     // Paint the background
     g.fillAll(juce::Colours::darkgrey);
-
-    using Font = juce::FontOptions;
-
-    // Set the font
-    Font normalFont = {20.f, 0};
-    Font titleFont = normalFont.withHeight(40)
-                            .withStyle("Bold");
-
-    // Paint the title
-    title.setText("MoPanning", juce::dontSendNotification);
-    title.setFont(titleFont);
-    title.setJustificationType(juce::Justification::centred);
-    title.setColour(juce::Label::textColourId, juce::Colours::white);
 
     // Paint boxes around all components (for testing)
     // g.setColour(juce::Colours::yellow);
@@ -237,11 +234,6 @@ void sc::SettingsContentComponent::comboBoxChanged(juce::ComboBox* b)
 {
     if (!initialized) return; // skip early triggers
 
-    if (b == &sampleRateBox)
-    {
-        controller.setSampleRate((double)b->getSelectedId());
-        controller.prepareAnalyzer();
-    }
     else if (b == &samplesPerBlockBox)
     {
         controller.setSamplesPerBlock(b->getSelectedId());
@@ -273,11 +265,8 @@ void sc::SettingsContentComponent::comboBoxChanged(juce::ComboBox* b)
         controller.setNumCQTBins(b->getSelectedId());
         controller.prepareAnalyzer();
     }
-    else if (b == &panMethodBox)
-    {
-        controller.setPanMethod(b->getSelectedId() - 1);
-        controller.prepareAnalyzer();
-    }
+    else if (b == &dimensionBox)
+        controller.setDimension(b->getSelectedId() - 1);
 }
 
 void sc::SettingsContentComponent::sliderValueChanged(juce::Slider* s)
@@ -320,6 +309,7 @@ std::vector<juce::Component*> sc::SettingsContentComponent::getSettings()
         // &fftOrderBox,
         &minFrequencyBox,
         &numCQTbinsBox,
+        &dimensionBox,
         &recedeSpeedSlider,
         &dotSizeSlider,
         &ampScaleSlider,
@@ -341,6 +331,7 @@ std::vector<juce::Label*> sc::SettingsContentComponent::getLabels()
         // &fftOrderLabel,
         &minFrequencyLabel,
         &numCQTbinsLabel,
+        &dimensionLabel,
         &recedeSpeedLabel,
         &dotSizeLabel,
         &ampScaleLabel,

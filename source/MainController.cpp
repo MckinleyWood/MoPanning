@@ -11,6 +11,7 @@ MainController::MainController()
     settingsTree.setProperty(ParamIDs::fftOrder, 11, nullptr);
     settingsTree.setProperty(ParamIDs::minFrequency, 20.f, nullptr);
     settingsTree.setProperty(ParamIDs::numCQTbins, 128, nullptr);
+    settingsTree.setProperty(ParamIDs::dimension, 1, nullptr);
     settingsTree.setProperty(ParamIDs::recedeSpeed, 5.f, nullptr);
     settingsTree.setProperty(ParamIDs::dotSize, 0.5f,nullptr);
     settingsTree.setProperty(ParamIDs::ampScale, 5.f, nullptr);
@@ -48,16 +49,14 @@ void MainController::audioDeviceIOCallbackWithContext(
 
     // Pass the buffer to the analyzer
     analyzer.enqueueBlock(&buffer);
+
+    juce::ignoreUnused(context);
 }
 
 void MainController::audioDeviceAboutToStart(juce::AudioIODevice* device) 
 {
     double sampleRate = device->getCurrentSampleRate();
     int samplesPerBlock = device->getCurrentBufferSizeSamples();
-
-    int numCQTbins = getNumCQTBins();
-    int fftOrder = getFFTOrder();
-    float minFrequency = getMinFrequency();
 
     settingsTree.setProperty(ParamIDs::sampleRate, sampleRate, nullptr);
     settingsTree.setProperty(ParamIDs::samplesPerBlock, 
@@ -93,6 +92,7 @@ void MainController::registerVisualizer(GLVisualizer* v)
     visualizer = v;
 
     // Push default settings
+    visualizer->setDimension(static_cast<Dimension>(getDimension()));
     visualizer->setRecedeSpeed(getRecedeSpeed());
     visualizer->setDotSize(getDotSize());
     visualizer->setAmpScale(getAmpScale());
@@ -163,6 +163,11 @@ int MainController::getNumCQTBins() const
     return settingsTree[ParamIDs::numCQTbins];
 }
 
+int MainController::getDimension() const
+{
+    return settingsTree[ParamIDs::dimension];
+}
+
 float  MainController::getRecedeSpeed() const
 {
     return settingsTree[ParamIDs::recedeSpeed];
@@ -203,6 +208,7 @@ void MainController::setSampleRate(double newSampleRate)
 {
     // Dont mess with this (yet)
     // settingsTree.setProperty(ParamIDs::sampleRate, newSampleRate, nullptr);
+    juce::ignoreUnused(newSampleRate);
 }
 
 void MainController::setSamplesPerBlock(int newSamplesPerBlock) 
@@ -210,6 +216,7 @@ void MainController::setSamplesPerBlock(int newSamplesPerBlock)
     // Dont mess with this (yet)
     // settingsTree.setProperty(ParamIDs::samplesPerBlock, 
     //                          newSamplesPerBlock, nullptr); 
+    juce::ignoreUnused(newSamplesPerBlock);
 }
 
 void MainController::setInputType(int newInputType) 
@@ -241,6 +248,11 @@ void MainController::setMinFrequency(float newMinFrequency)
 void MainController::setNumCQTBins(int newNumCQTBins) 
 { 
     settingsTree.setProperty(ParamIDs::numCQTbins, newNumCQTBins, nullptr); 
+}
+
+void MainController::setDimension(int newDimension) 
+{ 
+    settingsTree.setProperty(ParamIDs::dimension, newDimension, nullptr); 
 }
 
 void MainController::setRecedeSpeed(float newRecedeSpeed) 
@@ -305,6 +317,9 @@ void MainController::valueTreePropertyChanged(juce::ValueTree&,
 
     else if (id == ParamIDs::numCQTbins)
         analyzer.setNumCQTBins(getNumCQTBins());
+
+    else if (id == ParamIDs::dimension)
+        visualizer->setDimension(static_cast<Dimension>(getDimension()));
 
     else if (id == ParamIDs::recedeSpeed)
         visualizer->setRecedeSpeed(getRecedeSpeed());

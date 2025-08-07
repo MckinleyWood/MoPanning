@@ -4,37 +4,6 @@
 class MainController;
 
 //=============================================================================
-/*  This is the component for the settings widget.
-*/
-class SettingsComponent : public juce::Component
-{
-public:
-    //=========================================================================
-    explicit SettingsComponent(MainController&);
-    ~SettingsComponent() override;
-
-    //=========================================================================
-    
-    void resized(void) override;
-
-private:
-    //=========================================================================
-    MainController& controller;
-
-    // Viewport and content
-    juce::Viewport viewport;
-
-    // Declare inner component
-    class SettingsContentComponent;
-    std::unique_ptr<SettingsContentComponent> content;
-
-    bool initialized = false;
-
-    //=========================================================================
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SettingsComponent)
-};
-
-//=============================================================================
 class CustomAudioDeviceSelectorComponent 
     : public juce::AudioDeviceSelectorComponent
 {
@@ -73,6 +42,37 @@ public:
 };
 
 //=============================================================================
+/*  This is the component for the settings widget.
+*/
+class SettingsComponent : public juce::Component
+{
+public:
+    //=========================================================================
+    explicit SettingsComponent(MainController&);
+    ~SettingsComponent() override;
+
+    //=========================================================================
+    
+    void resized(void) override;
+
+private:
+    //=========================================================================
+    MainController& controller;
+
+    // Viewport and content
+    juce::Viewport viewport;
+
+    // Declare inner component
+    class SettingsContentComponent;
+    std::unique_ptr<SettingsContentComponent> content;
+
+    bool initialized = false;
+
+    //=========================================================================
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SettingsComponent)
+};
+
+//=============================================================================
 class SettingsComponent::SettingsContentComponent : public juce::Component,
                                                     private juce::ComboBox::Listener,
                                                     private juce::Slider::Listener
@@ -104,7 +104,6 @@ private:
     std::unique_ptr<CustomAudioDeviceSelectorComponent> deviceSelector;
 
     // Settings subcomponents
-    juce::ComboBox sampleRateBox;
     juce::ComboBox samplesPerBlockBox;
     juce::ComboBox inputTypeBox;
     juce::ComboBox transformBox;
@@ -112,6 +111,7 @@ private:
     juce::ComboBox fftOrderBox;
     juce::ComboBox minFrequencyBox;
     juce::ComboBox numCQTbinsBox;
+    juce::ComboBox dimensionBox;
     NonScrollingSlider recedeSpeedSlider;
     NonScrollingSlider dotSizeSlider;
     NonScrollingSlider ampScaleSlider;
@@ -121,7 +121,6 @@ private:
     NonScrollingSlider fovSlider;
 
     // Labels
-    juce::Label sampleRateLabel;
     juce::Label samplesPerBlockLabel;
     juce::Label inputTypeLabel;
     juce::Label transformLabel;
@@ -129,6 +128,7 @@ private:
     juce::Label fftOrderLabel;
     juce::Label minFrequencyLabel;
     juce::Label numCQTbinsLabel;
+    juce::Label dimensionLabel;
     juce::Label recedeSpeedLabel;
     juce::Label dotSizeLabel;
     juce::Label ampScaleLabel;

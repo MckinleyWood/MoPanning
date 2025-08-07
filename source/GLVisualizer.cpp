@@ -20,6 +20,12 @@ GLVisualizer::~GLVisualizer()
     openGLContext.detach();
 }
 //=============================================================================
+void GLVisualizer::setDimension(Dimension newDimension)
+{
+    dimension = newDimension;
+    resized(); // Force a resize to update projection matrix
+}
+
 void GLVisualizer::setRecedeSpeed(float newRecedeSpeed)
 {
     recedeSpeed = newRecedeSpeed;
@@ -58,7 +64,7 @@ void GLVisualizer::setFOV(float newFOV)
 void GLVisualizer::buildTexture(Texture newTexture)
 {
     using namespace juce::gl;
-    auto& ext = openGLContext.extensions;
+    // auto& ext = openGLContext.extensions;
 
     if (colourMapTex != 0)
         glDeleteTextures(1, &colourMapTex);
@@ -324,7 +330,7 @@ void GLVisualizer::render()
 
     // Upload instance data to GPU
     ext.glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-    jassert(instances.size() <= maxParticles);
+    jassert((int)instances.size() <= maxParticles);
     ext.glBufferSubData(GL_ARRAY_BUFFER, 0,
                         instances.size() * sizeof(InstanceData),
                         instances.data());
@@ -357,12 +363,35 @@ void GLVisualizer::resized()
     const float h = (float)getHeight();
     const float aspect = w / h;
     const float fovRadians = fov * juce::MathConstants<float>::pi / 180;
+    const float l = -aspect, r = +aspect;
+    const float b = -1.0f, t = +1.0f;
+    const float n = nearZ, f = farZ;
     
     view = juce::Matrix3D<float>::fromTranslation(cameraPosition);
-    projection = juce::Matrix3D<float>::fromFrustum(
-              -nearZ * std::tan (fovRadians * 0.5f) * aspect,   // left
-               nearZ * std::tan (fovRadians * 0.5f) * aspect,   // right
-              -nearZ * std::tan (fovRadians * 0.5f),            // bottom
-               nearZ * std::tan (fovRadians * 0.5f),            // top
+
+    switch (dimension)
+    {
+    case Dim2D:
+        // Orthographic projection for 2D
+        projection = juce::Matrix3D<float>(
+            2.0f / (r - l), 0, 0, 0,
+            0, 2.0f / (t - b), 0, 0,
+            0, 0, -2.0f / (f - n), 0,
+           -(r + l) / (r - l), -(t + b) / (t-b), -(f + n) / (f - n), 1.0f);
+        break;
+    
+    case Dim3D:
+        // Perspective projection for 3D
+        projection = juce::Matrix3D<float>::fromFrustum(
+              -nearZ * std::tan(fovRadians * 0.5f) * aspect,   // left
+               nearZ * std::tan(fovRadians * 0.5f) * aspect,   // right
+              -nearZ * std::tan(fovRadians * 0.5f),            // bottom
+               nearZ * std::tan(fovRadians * 0.5f),            // top
                nearZ, farZ);
+        break;
+    
+    default:
+        jassertfalse; // Unknown dimension
+    }
+    
 }
