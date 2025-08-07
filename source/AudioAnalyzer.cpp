@@ -333,7 +333,7 @@ float AudioAnalyzer::gccPhatDelayPerBand(const float* left, const float* right,
         filteredRight[i] = bandpassRight.processSample(right[i]);
     }
 
-    float energyThreshold = 1e-1f; // Threshold to avoid division by zero
+    float energyThreshold = 1e-3f; // Threshold to avoid division by zero
     float energyLeft = std::inner_product(filteredLeft.begin(), filteredLeft.end(),
                                         filteredLeft.begin(), 0.0f);
     float energyRight = std::inner_product(filteredRight.begin(), filteredRight.end(),
@@ -390,7 +390,8 @@ float AudioAnalyzer::gccPhatDelayPerBand(const float* left, const float* right,
     startIdx = std::max(0, startIdx);
     endIdx = std::min(fftSize - 1, endIdx);
 
-    float maxValue = std::abs(corr[center]) * 1.01f;
+    // Weight center very slightly more
+    float maxValue = std::abs(corr[center]) * 1.05f;
     int maxIndex = center;
 
     for (int i = startIdx; i <= endIdx; ++i)
@@ -418,8 +419,8 @@ float AudioAnalyzer::gccPhatDelayPerBand(const float* left, const float* right,
 
     // int delay = maxIndex - center;
 
-    DBG("center val: " << std::abs(corr[center]));
-    DBG("max val: " << maxValue);
+    // DBG("center val: " << std::abs(corr[center]));
+    // DBG("max val: " << maxValue);
 
     // float totalWeightedITD = 0.0f;
     // float totalWeight = 0.0f;

@@ -105,8 +105,9 @@ private:
     // CQT stuff
     std::vector<float> centerFrequencies;
 
-    float Qtarget = 1.0f / (std::pow(2.0f, 1.0f / numCQTbins) - 1.0f);
-    float Q = jlimit(1.0f, 12.0f, Qtarget);  // Clamp Q
+    // float Qtarget = 1.0f / (std::pow(2.0f, 1.0f / numCQTbins) - 1.0f);
+    // float Q = jlimit(1.0f, 12.0f, Qtarget);  // Clamp Q
+    float Q = 1.0f;
 
     // Each filter is a complex-valued kernel vector (frequency domain)
     std::vector<std::vector<std::complex<float>>> cqtKernels;
@@ -115,11 +116,10 @@ private:
     std::vector<juce::dsp::IIR::Filter<float>> leftBandpassFilters;
     std::vector<juce::dsp::IIR::Filter<float>> rightBandpassFilters;
     
-
     // float maxITD = 0.09f / 343.0f; // ~0.00026 sec (0.09m from center of head 
                                    // to each ear, 343 m/s speed of sound)
 
-    float maxITD = 0.005f; // try others
+    float maxITD = 0.00066f; // max itd according to some sources
 
     std::vector<float> weights;
 
