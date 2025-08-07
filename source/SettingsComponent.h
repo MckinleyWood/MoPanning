@@ -73,9 +73,10 @@ private:
 };
 
 //=============================================================================
-class SettingsComponent::SettingsContentComponent : public juce::Component,
-                                                    private juce::ComboBox::Listener,
-                                                    private juce::Slider::Listener
+class SettingsComponent::SettingsContentComponent 
+    : public juce::Component,
+      private juce::ComboBox::Listener,
+      private juce::Slider::Listener
 {
 public:
     //=========================================================================
@@ -112,6 +113,7 @@ private:
     juce::ComboBox minFrequencyBox;
     juce::ComboBox numCQTbinsBox;
     juce::ComboBox dimensionBox;
+    juce::ComboBox colourSchemeBox;
     NonScrollingSlider recedeSpeedSlider;
     NonScrollingSlider dotSizeSlider;
     NonScrollingSlider ampScaleSlider;
@@ -128,6 +130,7 @@ private:
     juce::Label fftOrderLabel;
     juce::Label minFrequencyLabel;
     juce::Label numCQTbinsLabel;
+    juce::Label colourSchemeLabel;
     juce::Label dimensionLabel;
     juce::Label recedeSpeedLabel;
     juce::Label dotSizeLabel;

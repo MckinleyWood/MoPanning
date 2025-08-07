@@ -199,6 +199,8 @@ void AudioAnalyzer::setNumCQTBins(float newNumCQTBins)
 //=============================================================================
 /*  Prepare bandpass filters for each CQT center frequency. Filter for 
     each CQT bin so that GCC-PHAT can be computed per band.
+
+    Should 
 */
 void AudioAnalyzer::prepareBandpassFilters()
 {
@@ -316,7 +318,8 @@ void AudioAnalyzer::computeCQT(const juce::AudioBuffer<float>& buffer,
 }
 
 /*  Compute GCC-PHAT delay for a specific frequency band */
-float AudioAnalyzer::gccPhatDelayPerBand(const float* left, const float* right, 
+float AudioAnalyzer::gccPhatDelayPerBand(const float* left, 
+                                         const float* right, 
                                 juce::dsp::IIR::Filter<float>& bandpassLeft, 
                                 juce::dsp::IIR::Filter<float>& bandpassRight)
 {
@@ -344,7 +347,6 @@ float AudioAnalyzer::gccPhatDelayPerBand(const float* left, const float* right,
     {
         return 0.0f; // or some sentinel value meaning "no valid delay"
     }
-
 
     // DBG("filteredX[0] = " << filteredX[0] 
     //  << ", filteredY[0] = " << filteredY[0]);
@@ -433,13 +435,11 @@ float AudioAnalyzer::gccPhatDelayPerBand(const float* left, const float* right,
 
     // float avgITD = (totalWeight > 0.0f) ? totalWeightedITD / totalWeight : 0.0f;
 
-
-
     // DBG("GCC-PHAT delay: maxIndex = " << maxIndex
     //     << ", delay = " << delay
     //     << ", maxCorr = " << maxValue);
 
-    return static_cast<float>(delay);
+    return delay;
 }
 
 void AudioAnalyzer::computeGCCPHAT_ITD(const juce::AudioBuffer<float>& buffer,

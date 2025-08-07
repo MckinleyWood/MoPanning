@@ -116,6 +116,11 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     dimensionBox.setSelectedId(controller.getDimension() + 1);
     dimensionBox.addListener(this);
 
+    colourSchemeBox.addItem("Greyscale", 1);
+    colourSchemeBox.addItem("Rainbow", 2);
+    colourSchemeBox.setSelectedId(controller.getColourScheme() + 1);
+    colourSchemeBox.addListener(this);
+
     // Set up sliders
     recedeSpeedSlider.setRange(0.1, 20.0);
     recedeSpeedSlider.setValue(controller.getRecedeSpeed());
@@ -155,6 +160,7 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     minFrequencyLabel.setText("Min Frequency", juce::dontSendNotification);
     numCQTbinsLabel.setText("CQT Bin Count", juce::dontSendNotification);
     dimensionLabel.setText("Dimension", juce::dontSendNotification);
+    colourSchemeLabel.setText("Colour Scheme", juce::dontSendNotification);
     recedeSpeedLabel.setText("Recede Speed", juce::dontSendNotification);
     dotSizeLabel.setText("Dot Size", juce::dontSendNotification);
     ampScaleLabel.setText("Amplitude Scale", juce::dontSendNotification);
@@ -267,6 +273,8 @@ void sc::SettingsContentComponent::comboBoxChanged(juce::ComboBox* b)
     }
     else if (b == &dimensionBox)
         controller.setDimension(b->getSelectedId() - 1);
+    else if (b == &colourSchemeBox)
+        controller.setColourScheme(b->getSelectedId() - 1);
 }
 
 void sc::SettingsContentComponent::sliderValueChanged(juce::Slider* s)
@@ -310,6 +318,7 @@ std::vector<juce::Component*> sc::SettingsContentComponent::getSettings()
         &minFrequencyBox,
         &numCQTbinsBox,
         &dimensionBox,
+        &colourSchemeBox,
         &recedeSpeedSlider,
         &dotSizeSlider,
         &ampScaleSlider,
@@ -332,6 +341,7 @@ std::vector<juce::Label*> sc::SettingsContentComponent::getLabels()
         &minFrequencyLabel,
         &numCQTbinsLabel,
         &dimensionLabel,
+        &colourSchemeLabel,
         &recedeSpeedLabel,
         &dotSizeLabel,
         &ampScaleLabel,

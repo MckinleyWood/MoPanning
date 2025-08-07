@@ -25,7 +25,7 @@ struct VertexBufferObject
     ~VertexBufferObject() = default;
 };
 
-enum Texture { example };
+enum ColourScheme { greyscale, rainbow };
 enum Dimension { Dim2D, Dim3D };
 
 //=============================================================================
@@ -40,7 +40,17 @@ public:
     ~GLVisualizer() override;
 
     //=========================================================================
+    void buildTexture();
+
+    void initialise() override;
+    void shutdown() override;
+    void render() override;
+    void resized() override;
+
+    //=========================================================================
     void setDimension(Dimension newDimension);
+    void setColourScheme(ColourScheme newColourScheme);
+    void setMinFrequency(float newMinFrequency);
     void setRecedeSpeed(float newRecedeSpeed);
     void setDotSize(float newDotSize);
     void setAmpScale(float newAmpScale);
@@ -48,14 +58,6 @@ public:
     void setFadeEndZ(float newFadeEndZ);
     void setFarZ(float newFarZ);
     void setFOV(float newFOV);
-
-    void buildTexture(Texture newTexture);
-
-    //=========================================================================
-    void initialise() override;
-    void shutdown() override;
-    void render() override;
-    void resized() override;
 
 private:
     //=========================================================================
@@ -71,12 +73,11 @@ private:
     std::unique_ptr<juce::OpenGLShaderProgram> shader;
     VertexBufferObject vbo; // Vertex buffer object
     GLuint vao = 0; // Vertex-array object
-    GLuint instanceVBO = 0;  // buffer ID for per-instance data
+    GLuint instanceVBO = 0; // buffer ID for per-instance data
     struct InstanceData { float x, y, spawnTime, spawnAlpha; };
 
     juce::Vector3D<float> cameraPosition { 0.0f, 0.0f, -2.0f };
 
-    // juce::Matrix3D<float> model; // Model matrix - not using
     juce::Matrix3D<float> view; // View matrix
     juce::Matrix3D<float> projection; // Projection matrix
 
@@ -85,7 +86,13 @@ private:
     GLuint colourMapTex = 0;
 
     double startTime; // App-launch time in seconds
+
     Dimension dimension;
+    ColourScheme colourScheme;
+
+    bool newTextureRequsted = false; // Flag to rebuild texture
+
+    float minFrequency;
     float recedeSpeed; // Speed that objects recede
     float dotSize; // Radius of the dots
     float ampScale; // Amplitude scale factor

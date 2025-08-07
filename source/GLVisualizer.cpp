@@ -20,48 +20,7 @@ GLVisualizer::~GLVisualizer()
     openGLContext.detach();
 }
 //=============================================================================
-void GLVisualizer::setDimension(Dimension newDimension)
-{
-    dimension = newDimension;
-    resized(); // Force a resize to update projection matrix
-}
-
-void GLVisualizer::setRecedeSpeed(float newRecedeSpeed)
-{
-    recedeSpeed = newRecedeSpeed;
-}
-
-void GLVisualizer::setDotSize(float newDotSize)
-{
-    dotSize = newDotSize;
-}
-
-void GLVisualizer::setAmpScale(float newAmpScale)
-{
-    ampScale = newAmpScale;
-}
-
-void GLVisualizer::setNearZ(float newNearZ)
-{
-    nearZ = newNearZ;
-}
-
-void GLVisualizer::setFadeEndZ(float newFadeEndZ)
-{
-    fadeEndZ = newFadeEndZ;
-}
-
-void GLVisualizer::setFarZ(float newFarZ)
-{
-    farZ = newFarZ;
-}
-
-void GLVisualizer::setFOV(float newFOV)
-{
-    fov = newFOV;
-}
-
-void GLVisualizer::buildTexture(Texture newTexture)
+void GLVisualizer::buildTexture()
 {
     using namespace juce::gl;
     // auto& ext = openGLContext.extensions;
@@ -73,13 +32,27 @@ void GLVisualizer::buildTexture(Texture newTexture)
     glGenTextures(1, &colourMapTex);
     glBindTexture(GL_TEXTURE_1D, colourMapTex);
 
-    // Define the color map data - this is just an example
+    // Define the color map data
     const int numColours = 256;
     std::vector<juce::Colour> colours(numColours);
     
-    for (int i = 0; i < numColours; ++i)
-        colours[i] = juce::Colour::fromHSV((float)i / numColours, 
-                                           1.0f, 1.0f, 1.0f);
+    switch (colourScheme)
+    {
+    case greyscale:
+        for (int i = 0; i < numColours; ++i)
+            colours[i] = juce::Colour(i, i, i);
+        break;
+    
+    case rainbow:
+        for (int i = 0; i < numColours; ++i)
+            colours[i] = juce::Colour::fromHSV((float)i / numColours, 
+                                               1.0f, 1.0f, 1.0f);
+        break;
+
+    default:
+        jassertfalse; // Unsupported colour scheme
+        break;
+    }
 
     std::vector<float> colorData(numColours * 3);
     
@@ -184,7 +157,7 @@ void GLVisualizer::initialise()
     jassert(shaderLinked);
     juce::ignoreUnused(shaderLinked);
 
-    buildTexture(Texture::example);
+    buildTexture();
 
     // Generate and bind the vertex-array object
     ext.glGenVertexArrays(1, &vao);
@@ -248,30 +221,35 @@ void GLVisualizer::render()
     glDepthFunc(GL_LEQUAL);
     glEnable(GL_PROGRAM_POINT_SIZE);
 
+    // Check if we need to rebuild the texture
+    if (newTextureRequsted)
+    {
+        buildTexture();
+        newTextureRequsted = false;
+    }
+
     // Clear to black
     juce::OpenGLHelpers::clear(juce::Colours::black);
     glClear(GL_DEPTH_BUFFER_BIT); 
 
-    if (shader == nullptr) return; // early-out on link failure
+    if (shader == nullptr) return; // Early-out on link failure
 
     shader->use();
 
     float t = (float)(juce::Time::getMillisecondCounterHiRes() * 0.001 
                     - startTime);
 
-    // First draft of audio-based visuals
     auto results = controller.getLatestResults();
 
     if (!results.empty())
     {
         float sampleRate = static_cast<float>(controller.getSampleRate());
-        float minFreq = 20.f; // Hardcoded for now
         float maxFreq = sampleRate * 0.5f;
         float minBandFreq = 0;
 
         for (frequency_band band : results)
         {
-            if (band.frequency > minFreq)
+            if (band.frequency > minFrequency)
             {
                 minBandFreq = band.frequency;
                 break; // Assuming frequencies in sorted order
@@ -394,4 +372,57 @@ void GLVisualizer::resized()
         jassertfalse; // Unknown dimension
     }
     
+}
+
+//=============================================================================
+void GLVisualizer::setDimension(Dimension newDimension)
+{
+    dimension = newDimension;
+    resized(); // Force a resize to update the projection matrix
+}
+
+void GLVisualizer::setColourScheme(ColourScheme newColourScheme)
+{
+    colourScheme = newColourScheme;
+    newTextureRequsted = true;
+}
+
+void GLVisualizer::setMinFrequency(float newMinFrequency)
+{
+    minFrequency = newMinFrequency;
+}
+
+void GLVisualizer::setRecedeSpeed(float newRecedeSpeed)
+{
+    recedeSpeed = newRecedeSpeed;
+}
+
+void GLVisualizer::setDotSize(float newDotSize)
+{
+    dotSize = newDotSize;
+}
+
+void GLVisualizer::setAmpScale(float newAmpScale)
+{
+    ampScale = newAmpScale;
+}
+
+void GLVisualizer::setNearZ(float newNearZ)
+{
+    nearZ = newNearZ;
+}
+
+void GLVisualizer::setFadeEndZ(float newFadeEndZ)
+{
+    fadeEndZ = newFadeEndZ;
+}
+
+void GLVisualizer::setFarZ(float newFarZ)
+{
+    farZ = newFarZ;
+}
+
+void GLVisualizer::setFOV(float newFOV)
+{
+    fov = newFOV;
 }

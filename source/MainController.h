@@ -28,6 +28,7 @@ namespace ParamIDs
     static const juce::Identifier numCQTbins { "numCQTbins" };
 
     static const juce::Identifier dimension { "dimension" };
+    static const juce::Identifier colourScheme { "colourScheme" };
     static const juce::Identifier recedeSpeed { "recedeSpeed" };
     static const juce::Identifier dotSize { "dotSize" };
     static const juce::Identifier ampScale { "ampScale" };
@@ -72,6 +73,7 @@ public:
     float  getMinFrequency() const;
     int    getNumCQTBins() const;
     int    getDimension() const;
+    int    getColourScheme() const;
     float  getRecedeSpeed() const;
     float  getDotSize() const;
     float  getAmpScale() const;
@@ -89,6 +91,7 @@ public:
     void setMinFrequency(float newMinFrequency);
     void setNumCQTBins(int newNumCQTbins);
     void setDimension(int newDimension);
+    void setColourScheme(int newColourScheme);
     void setRecedeSpeed(float newRecedeSpeed);
     void setDotSize(float newDotSize);
     void setAmpScale(float newAmpScale);

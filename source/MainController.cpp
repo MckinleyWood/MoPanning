@@ -12,6 +12,7 @@ MainController::MainController()
     settingsTree.setProperty(ParamIDs::minFrequency, 20.f, nullptr);
     settingsTree.setProperty(ParamIDs::numCQTbins, 128, nullptr);
     settingsTree.setProperty(ParamIDs::dimension, 1, nullptr);
+    settingsTree.setProperty(ParamIDs::colourScheme, 1, nullptr);
     settingsTree.setProperty(ParamIDs::recedeSpeed, 5.f, nullptr);
     settingsTree.setProperty(ParamIDs::dotSize, 0.5f,nullptr);
     settingsTree.setProperty(ParamIDs::ampScale, 5.f, nullptr);
@@ -93,6 +94,7 @@ void MainController::registerVisualizer(GLVisualizer* v)
 
     // Push default settings
     visualizer->setDimension(static_cast<Dimension>(getDimension()));
+    visualizer->setColourScheme(static_cast<ColourScheme>(getColourScheme()));
     visualizer->setRecedeSpeed(getRecedeSpeed());
     visualizer->setDotSize(getDotSize());
     visualizer->setAmpScale(getAmpScale());
@@ -166,6 +168,11 @@ int MainController::getNumCQTBins() const
 int MainController::getDimension() const
 {
     return settingsTree[ParamIDs::dimension];
+}
+
+int MainController::getColourScheme() const
+{
+    return settingsTree[ParamIDs::colourScheme];
 }
 
 float  MainController::getRecedeSpeed() const
@@ -255,6 +262,12 @@ void MainController::setDimension(int newDimension)
     settingsTree.setProperty(ParamIDs::dimension, newDimension, nullptr); 
 }
 
+void MainController::setColourScheme(int newColourScheme) 
+{ 
+    settingsTree.setProperty(ParamIDs::colourScheme, 
+                             newColourScheme, nullptr); 
+}
+
 void MainController::setRecedeSpeed(float newRecedeSpeed) 
 { 
     settingsTree.setProperty(ParamIDs::recedeSpeed, newRecedeSpeed, nullptr);
@@ -320,6 +333,10 @@ void MainController::valueTreePropertyChanged(juce::ValueTree&,
 
     else if (id == ParamIDs::dimension)
         visualizer->setDimension(static_cast<Dimension>(getDimension()));
+    
+    else if (id == ParamIDs::colourScheme)
+        visualizer->setColourScheme(
+            static_cast<ColourScheme>(getColourScheme()));
 
     else if (id == ParamIDs::recedeSpeed)
         visualizer->setRecedeSpeed(getRecedeSpeed());
