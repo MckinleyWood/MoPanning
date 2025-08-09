@@ -42,13 +42,6 @@ void AudioAnalyzer::prepare()
 
     // Initialize FFT engine
     fft = std::make_unique<juce::dsp::FFT>((int)std::log2(fftSize));
-    
-    // Calculate maximum expected FFT bin magnitude
-    // Currently we are using a hardcoded value
-    // maxExpectedMag = 0.0;
-    // for (auto w : window)
-    //     maxExpectedMag += w;
-    // maxExpectedMag /= 2; // Reasonable signals will be in this range
 
     // Set frequency from min to Nyquist
     const float nyquist = static_cast<float>(sampleRate * 0.5);
@@ -116,26 +109,11 @@ void AudioAnalyzer::prepare()
             kernelFreq[i] = fftOutput[i];
 
         cqtKernels[bin] = std::move(kernelFreq);
-
-        // float energy = 0.0f;
-        // for (const auto& c : kernelFreq)
-        //     energy += std::abs(c);
     }
 
     // Estimate memory use for CQT kernels
-    auto bytes = numCQTbins * fftSize * sizeof(std::complex<float>);
+    // auto bytes = numCQTbins * fftSize * sizeof(std::complex<float>);
     // DBG("Estimated CQT kernel memory use: " << (bytes / 1024.0f) << " KB"); 
-
-    // Prepare bandpass filters for GCC-PHAT (also initializes ITD)
-    // prepareBandpassFilters();
-
-    // TESTTTTTTTT
-    // weights.resize(numCQTbins);
-    // float f0 = 500.0f;
-    // for (int i = 0; i < numCQTbins; ++i)
-    // {
-    //     weights[i] = std::pow(centerFrequencies[i] / f0, 2.0f);
-    // }
 
     // Initialize AnalyzerWorker
     int numSlots = 4;
@@ -180,13 +158,11 @@ void AudioAnalyzer::setSampleRate(double newSampleRate)
 void AudioAnalyzer::setTransform(Transform newTransform)
 {
     transform = newTransform;
-    // DBG("new analysis mode = " << static_cast<int>(newTransform));
 }
 
 void AudioAnalyzer::setPanMethod(PanMethod newPanMethod)
 {
     panMethod = newPanMethod;
-    // DBG("new pan method = " << static_cast<int>(newPanMethod));
 }
 
 
@@ -206,40 +182,6 @@ void AudioAnalyzer::setNumCQTBins(float newNumCQTBins)
 }
 
 //=============================================================================
-/*  Prepare bandpass filters for each CQT center frequency. Filter for 
-    each CQT bin so that GCC-PHAT can be computed per band.
-
-    Should 
-*/
-// void AudioAnalyzer::prepareBandpassFilters()
-// {
-//     leftBandpassFilters.clear();
-//     rightBandpassFilters.clear();
-
-//     juce::dsp::ProcessSpec spec;
-//     spec.sampleRate = sampleRate;
-//     spec.maximumBlockSize = static_cast<uint32_t>(numCQTbins);
-//     spec.numChannels = 1; // Mono processing for each channel
-
-//     for (float freq : centerFrequencies)
-//     {
-//         auto coeffs = juce::dsp::IIR::Coefficients<float>::makeBandPass(
-//             sampleRate, freq, Q);
-
-//         juce::dsp::IIR::Filter<float> leftFilter;
-//         juce::dsp::IIR::Filter<float> rightFilter;
-
-//         leftFilter.prepare(spec);
-//         rightFilter.prepare(spec);
-
-//         leftFilter.coefficients = coeffs;
-//         rightFilter.coefficients = coeffs;
-
-//         leftBandpassFilters.push_back(std::move(leftFilter));
-//         rightBandpassFilters.push_back(std::move(rightFilter));
-//     }
-// }
-
 /*  Computes the FFT of each channel of the input buffer and stores the
     results in outSpectra.
 */
@@ -310,8 +252,6 @@ void AudioAnalyzer::computeCQT(const juce::AudioBuffer<float>& buffer,
             jassert(bin < cqtKernels.size());
             jassert(fullCQTspec[ch][bin].size() == fftSize);
 
-            // fullCQTspec[ch][bin].resize(fftSize);
-
             std::complex<float> sum = 0.0f;
             const auto& kernel = cqtKernels[bin];
             for (int i = 0; i < fftSize; ++i)
@@ -325,6 +265,7 @@ void AudioAnalyzer::computeCQT(const juce::AudioBuffer<float>& buffer,
     }
 }
 
+/* ITD stuff! will write desc soon*/
 void AudioAnalyzer::computeITDs(
     std::vector<std::vector<std::vector<std::complex<float>>>> CQTspec,
     int numBands,
@@ -392,169 +333,6 @@ void AudioAnalyzer::computeITDs(
     }
 }
 
-/*  Compute GCC-PHAT delay for a specific frequency band */
-// float AudioAnalyzer::gccPhatDelayPerBand(const float* left, 
-//                                          const float* right, 
-//                                 juce::dsp::IIR::Filter<float>& bandpassLeft, 
-//                                 juce::dsp::IIR::Filter<float>& bandpassRight)
-// {
-//     std::vector<float> filteredLeft(fftSize);
-//     std::vector<float> filteredRight(fftSize);
-
-//     bandpassLeft.reset();
-//     bandpassRight.reset();
-
-//     // Process samples with given filters
-//     for (int i = 0; i < fftSize; ++i)
-//     {
-//         filteredLeft[i] = bandpassLeft.processSample(left[i]);
-//         filteredRight[i] = bandpassRight.processSample(right[i]);
-//     }
-
-//     float energyThreshold = 1e-3f; // Threshold to avoid division by zero
-//     float energyLeft = std::inner_product(filteredLeft.begin(), filteredLeft.end(),
-//                                         filteredLeft.begin(), 0.0f);
-//     float energyRight = std::inner_product(filteredRight.begin(), filteredRight.end(),
-//                                         filteredRight.begin(), 0.0f);
-
-//     // If energy in one channel is too low, no reliable delay can be computed:
-//     if (energyLeft < energyThreshold || energyRight < energyThreshold)
-//     {
-//         return 0.0f; // or some sentinel value meaning "no valid delay"
-//     }
-
-//     // DBG("filteredX[0] = " << filteredX[0] 
-//     //  << ", filteredY[0] = " << filteredY[0]);
-
-//     std::vector<juce::dsp::Complex<float>> leftFFT(fftSize, 0.0f);
-//     std::vector<juce::dsp::Complex<float>> rightFFT(fftSize, 0.0f);
-//     std::vector<juce::dsp::Complex<float>> R(fftSize);
-//     std::vector<juce::dsp::Complex<float>> corr(fftSize);
-
-//     // window = std::vector<float>(fftSize, 1.0f); // Reset window to all ones to check something......
-//     for (int i = 0; i < fftSize; ++i)
-//     {
-//         leftFFT[i] = std::complex<float>(filteredLeft[i] * window[i], 0.0f);
-//         rightFFT[i] = std::complex<float>(filteredRight[i] * window[i], 0.0f);
-//     }
-
-//     fft->perform(leftFFT.data(), leftFFT.data(), false);
-//     fft->perform(rightFFT.data(), rightFFT.data(), false);
-
-//     for (int i = 0; i < fftSize; ++i)
-//     {
-//         auto left_f = leftFFT[i];
-//         auto right_f = rightFFT[i];
-//         auto crossSpec = left_f * std::conj(right_f);
-//         float mag = std::abs(crossSpec);
-//         R[i] = (mag > 0.0f) ? crossSpec / mag : 0.0f;
-//     }
-
-//     // DBG("R[0] = " << juce::String(R[0].real()) 
-//     //  << " + " << juce::String(R[0].imag()) + "i, "
-//     //  << "corr[0] = " + juce::String(corr[0].real()) 
-//     //  << " + " + juce::String(corr[0].imag()) + "i");
-
-//     fft->perform(R.data(), corr.data(), true);
-
-//     int center = fftSize / 2;
-//     int maxDelaySamples = static_cast<int>(std::round(maxITD * sampleRate));
-
-//     int startIdx = center - maxDelaySamples;
-//     int endIdx   = center + maxDelaySamples;
-
-//     // Safe bounds check (in case maxDelaySamples is misconfigured)
-//     startIdx = std::max(0, startIdx);
-//     endIdx = std::min(fftSize - 1, endIdx);
-
-//     // Weight center very slightly more
-//     float maxValue = std::abs(corr[center]) * 1.05f;
-//     int maxIndex = center;
-
-//     for (int i = startIdx; i <= endIdx; ++i)
-//     {
-//         float val = std::abs(corr[i]);
-//         if (val > maxValue)
-//         {
-//             maxValue = val;
-//             maxIndex = i;
-//         }
-//     }
-
-//     // Interpolate
-//     float y0 = std::abs(corr[maxIndex - 1]);
-//     float y1 = std::abs(corr[maxIndex]);
-//     float y2 = std::abs(corr[maxIndex + 1]);
-
-//     float denom = 2 * (y0 - 2 * y1 + y2);
-//     float delta = 0.0f;
-//     if (std::abs(denom) > 1e-6f)
-//         delta = (y0 - y2) / denom;
-
-//     // Now your delay estimate is:
-//     float delay = (maxIndex - center) + delta;
-
-//     // int delay = maxIndex - center;
-
-//     // DBG("center val: " << std::abs(corr[center]));
-//     // DBG("max val: " << maxValue);
-
-//     // float totalWeightedITD = 0.0f;
-//     // float totalWeight = 0.0f;
-
-//     // for (int i = 0; i < numCQTbins; ++i)
-//     // {
-//     //     totalWeightedITD += itdEstimates[i] * weights[i];
-//     //     totalWeight += weights[i];
-//     // }
-
-//     // float avgITD = (totalWeight > 0.0f) ? totalWeightedITD / totalWeight : 0.0f;
-
-//     // DBG("GCC-PHAT delay: maxIndex = " << maxIndex
-//     //     << ", delay = " << delay
-//     //     << ", maxCorr = " << maxValue);
-
-//     return delay;
-// }
-
-// void AudioAnalyzer::computeGCCPHAT_ITD(const juce::AudioBuffer<float>& buffer,
-//                                        int numBands, 
-//                                        std::vector<float>& panIndices)
-                                       
-// {
-//     panIndices.resize(numBands);
-
-//     const float* left = buffer.getReadPointer(0);
-//     const float* right = buffer.getReadPointer(1);
-
-//     // if (samplesPerBlock < fftSize)
-//     //     return;
-
-//     const float* leftSegment = left + (samplesPerBlock - fftSize);
-//     const float* rightSegment = right + (samplesPerBlock - fftSize);
-
-//     for (int b = 0; b < numBands; ++b)
-//     {
-//         // Use precomputed bandpass filters
-//         auto& leftFilter = leftBandpassFilters[b];
-//         auto& rightFilter = rightBandpassFilters[b];
-
-//         // Reset filter states for each new block if needed:
-//         leftFilter.reset();
-//         rightFilter.reset();
-
-//         float delaySamples = gccPhatDelayPerBand(leftSegment, rightSegment,
-//                                                  leftFilter, rightFilter);
-
-//         float delaySeconds = delaySamples / sampleRate;
-//         panIndices[b] = juce::jlimit(-1.0f, 1.0f, delaySeconds / maxITD);
-
-//         // DBG("ITD bin " << b
-//         //     << ": delaySamples = " << delaySamples
-//         //     << ", delaySeconds = " << delaySeconds);
-//     }
-// }
-
 //=============================================================================
 void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
 {
@@ -606,24 +384,15 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
     case time_pan:
         // Use ITD pan indices
         computeITDs(fullCQTspec, numBands, panIndices);
-        // computeGCCPHAT_ITD(buffer, numBands, panIndices); OLD ONE
-        // for (int i = 0; i < std::min<int>(itds.size(), numCQTbins); i += 10)
-        // {
-        //     // DBG("ITDbin[" << i << "] = " << panIndices[i]);
-        // }
         break;
     
     case both:
         computeILDs(magnitudes, numBands, ilds);
         computeITDs(fullCQTspec, numBands, itds);
-        // computeGCCPHAT_ITD(buffer, numBands, itds); OLD
-
         panIndices.resize(numBands);
 
         for (int b = 0; b < numBands; b++)
         {
-            // DBG("ILD[" << b << "] = " << ilds[b] 
-            //     << ", ITD[" << b << "] = " << itds[b]);
             panIndices[b] = (ildWeight * ilds[b] + itdWeight * itds[b]) 
                           / (ildWeight + itdWeight);
         }
