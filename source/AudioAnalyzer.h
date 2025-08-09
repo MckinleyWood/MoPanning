@@ -62,7 +62,7 @@ private:
     //=========================================================================
     /* Analysis functions */
 
-    void prepareBandpassFilters();
+    // void prepareBandpassFilters();
 
     void computeFFT(const juce::AudioBuffer<float>& buffer,
                     std::array<fft_buffer_t, 2>& outSpectra);
@@ -71,11 +71,14 @@ private:
     void computeCQT(const juce::AudioBuffer<float>& buffer,
                     std::array<fft_buffer_t, 2> ffts,
                     std::array<std::vector<float>, 2>& cqtMags);
-    float gccPhatDelayPerBand(const float* x, const float* y, 
-                              juce::dsp::IIR::Filter<float>& bandpassLeft, 
-                              juce::dsp::IIR::Filter<float>& bandpassRight);
-    void computeGCCPHAT_ITD(const juce::AudioBuffer<float>& buffer, 
-                            int numBands, std::vector<float>& panIndices);
+    void computeITDs(std::vector<std::vector<std::vector<std::complex<float>>>> CQTspec,
+                    int numBands,
+                    std::vector<float>& panIndices);
+    // float gccPhatDelayPerBand(const float* x, const float* y, 
+    //                           juce::dsp::IIR::Filter<float>& bandpassLeft, 
+    //                           juce::dsp::IIR::Filter<float>& bandpassRight);
+    // void computeGCCPHAT_ITD(const juce::AudioBuffer<float>& buffer, 
+    //                         int numBands, std::vector<float>& panIndices);
 
     void analyzeBlock(const juce::AudioBuffer<float>& buffer);
 
@@ -107,14 +110,17 @@ private:
 
     // float Qtarget = 1.0f / (std::pow(2.0f, 1.0f / numCQTbins) - 1.0f);
     // float Q = jlimit(1.0f, 12.0f, Qtarget);  // Clamp Q
-    float Q = 1.0f;
+    // float Q = 1.0f;
 
     // Each filter is a complex-valued kernel vector (frequency domain)
     std::vector<std::vector<std::complex<float>>> cqtKernels;
 
     // Bandpass filters for each CQT center frequency
-    std::vector<juce::dsp::IIR::Filter<float>> leftBandpassFilters;
-    std::vector<juce::dsp::IIR::Filter<float>> rightBandpassFilters;
+    // std::vector<juce::dsp::IIR::Filter<float>> leftBandpassFilters;
+    // std::vector<juce::dsp::IIR::Filter<float>> rightBandpassFilters;
+
+    // std::array<std::vector<std::vector<std::complex<float>>>, 2> fullCQTspec;
+    std::vector<std::vector<std::vector<std::complex<float>>>> fullCQTspec;
     
     // float maxITD = 0.09f / 343.0f; // ~0.00026 sec (0.09m from center of head 
                                    // to each ear, 343 m/s speed of sound)
