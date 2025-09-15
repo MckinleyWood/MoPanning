@@ -46,8 +46,9 @@ public:
     void setTransform(Transform newTransform);
     void setPanMethod(PanMethod newPanMethod);
     void setFFTOrder(float newFFTOrder);
-    void setMinFrequency(float newMinFrequency);
     void setNumCQTBins(float newNumCQTBins);
+    void setMinFrequency(float newMinFrequency);
+    void setMaxAmplitude(float newMaxAmplitude);
 
     bool getPrepared() const { return isPrepared.load(); }
     void setPrepared(bool prepared) { isPrepared.store(prepared); }
@@ -84,8 +85,9 @@ private:
     enum PanMethod panMethod;
     
     int fftOrder; // FFT order = log2(fftSize) - not used at the moment
-    float minCQTfreq;
     int numCQTbins;
+    float minCQTfreq;
+    float maxAmplitude;
 
     //=========================================================================
 

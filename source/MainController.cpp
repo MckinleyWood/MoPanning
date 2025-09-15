@@ -5,12 +5,13 @@ MainController::MainController()
     : settingsTree(ParamIDs::root)
 {
     // Initialize settings tree with default values
-    settingsTree.setProperty(ParamIDs::inputType, 0, nullptr);
+    settingsTree.setProperty(ParamIDs::inputType, 1, nullptr);
     settingsTree.setProperty(ParamIDs::transform, 1, nullptr);
     settingsTree.setProperty(ParamIDs::panMethod, 0, nullptr);
     settingsTree.setProperty(ParamIDs::fftOrder, 11, nullptr);
-    settingsTree.setProperty(ParamIDs::minFrequency, 20.f, nullptr);
     settingsTree.setProperty(ParamIDs::numCQTbins, 128, nullptr);
+    settingsTree.setProperty(ParamIDs::minFrequency, 20.f, nullptr);
+    settingsTree.setProperty(ParamIDs::maxAmplitude, 1.f, nullptr);
     settingsTree.setProperty(ParamIDs::dimension, 1, nullptr);
     settingsTree.setProperty(ParamIDs::colourScheme, 1, nullptr);
     settingsTree.setProperty(ParamIDs::recedeSpeed, 5.f, nullptr);
@@ -81,10 +82,11 @@ void MainController::prepareAnalyzer()
     analyzer.setSampleRate(getSampleRate()); 
     analyzer.setSamplesPerBlock(getSamplesPerBlock()); 
     analyzer.setTransform(static_cast<Transform>(getTransform())); 
-    analyzer.setPanMethod(static_cast<PanMethod>(getPanMethod())); 
+    analyzer.setPanMethod(static_cast<PanMethod>(getPanMethod()));
     analyzer.setFFTOrder(getFFTOrder()); 
-    analyzer.setMinFrequency(getMinFrequency()); 
     analyzer.setNumCQTBins(getNumCQTBins()); 
+    analyzer.setMinFrequency(getMinFrequency());
+    analyzer.setMaxAmplitude(getMaxAmplitude()); 
     analyzer.prepare();
 }
 
@@ -156,14 +158,19 @@ int MainController::getFFTOrder() const
     return settingsTree[ParamIDs::fftOrder];
 }
 
+int MainController::getNumCQTBins() const
+{
+    return settingsTree[ParamIDs::numCQTbins];
+}
+
 float MainController::getMinFrequency() const
 {
     return settingsTree[ParamIDs::minFrequency];
 }
 
-int MainController::getNumCQTBins() const
+float MainController::getMaxAmplitude() const
 {
-    return settingsTree[ParamIDs::numCQTbins];
+    return settingsTree[ParamIDs::maxAmplitude];
 }
 
 int MainController::getDimension() const
@@ -247,15 +254,21 @@ void MainController::setFFTOrder(int newFftOrder)
     settingsTree.setProperty(ParamIDs::fftOrder, newFftOrder, nullptr); 
 }
 
+void MainController::setNumCQTBins(int newNumCQTBins) 
+{ 
+    settingsTree.setProperty(ParamIDs::numCQTbins, newNumCQTBins, nullptr); 
+}
+
 void MainController::setMinFrequency(float newMinFrequency) 
 { 
     settingsTree.setProperty(ParamIDs::minFrequency, 
                              newMinFrequency, nullptr); 
 }
 
-void MainController::setNumCQTBins(int newNumCQTBins) 
+void MainController::setMaxAmplitude(float newMaxAmplitude) 
 { 
-    settingsTree.setProperty(ParamIDs::numCQTbins, newNumCQTBins, nullptr); 
+    settingsTree.setProperty(ParamIDs::maxAmplitude, 
+                             newMaxAmplitude, nullptr); 
 }
 
 void MainController::setDimension(int newDimension) 
@@ -325,6 +338,9 @@ void MainController::valueTreePropertyChanged(juce::ValueTree&,
 
     else if (id == ParamIDs::fftOrder)
         analyzer.setFFTOrder(getFFTOrder());
+        
+    else if (id == ParamIDs::numCQTbins)
+        analyzer.setNumCQTBins(getNumCQTBins());
 
     else if (id == ParamIDs::minFrequency)
     {
@@ -332,8 +348,8 @@ void MainController::valueTreePropertyChanged(juce::ValueTree&,
         visualizer->setMinFrequency(getMinFrequency());
     }
 
-    else if (id == ParamIDs::numCQTbins)
-        analyzer.setNumCQTBins(getNumCQTBins());
+    else if (id == ParamIDs::maxAmplitude)
+        analyzer.setMaxAmplitude(getMaxAmplitude());
 
     else if (id == ParamIDs::dimension)
         visualizer->setDimension(static_cast<Dimension>(getDimension()));

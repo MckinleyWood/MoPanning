@@ -24,8 +24,9 @@ namespace ParamIDs
     static const juce::Identifier transform { "transform" };
     static const juce::Identifier panMethod { "panMethod" };
     static const juce::Identifier fftOrder { "fftOrder" };
-    static const juce::Identifier minFrequency { "minFrequency" };
     static const juce::Identifier numCQTbins { "numCQTbins" };
+    static const juce::Identifier minFrequency { "minFrequency" };
+    static const juce::Identifier maxAmplitude { "maxAmplitude" };
 
     static const juce::Identifier dimension { "dimension" };
     static const juce::Identifier colourScheme { "colourScheme" };
@@ -70,8 +71,9 @@ public:
     int    getTransform() const;
     int    getPanMethod() const;
     int    getFFTOrder() const;
-    float  getMinFrequency() const;
     int    getNumCQTBins() const;
+    float  getMinFrequency() const;
+    float  getMaxAmplitude() const;
     int    getDimension() const;
     int    getColourScheme() const;
     float  getRecedeSpeed() const;
@@ -88,8 +90,9 @@ public:
     void setTransform(int newTransform);
     void setPanMethod(int newPanMethod);
     void setFFTOrder(int newFftOrder);
-    void setMinFrequency(float newMinFrequency);
     void setNumCQTBins(int newNumCQTbins);
+    void setMinFrequency(float newMinFrequency);
+    void setMaxAmplitude(float newMaxAmplitude);
     void setDimension(int newDimension);
     void setColourScheme(int newColourScheme);
     void setRecedeSpeed(float newRecedeSpeed);

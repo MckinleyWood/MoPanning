@@ -110,8 +110,9 @@ private:
     juce::ComboBox transformBox;
     juce::ComboBox panMethodBox;
     juce::ComboBox fftOrderBox;
-    juce::ComboBox minFrequencyBox;
     juce::ComboBox numCQTbinsBox;
+    juce::ComboBox minFrequencyBox;
+    NonScrollingSlider maxAmplitudeSlider;
     juce::ComboBox dimensionBox;
     juce::ComboBox colourSchemeBox;
     NonScrollingSlider recedeSpeedSlider;
@@ -128,8 +129,9 @@ private:
     juce::Label transformLabel;
     juce::Label panMethodLabel;
     juce::Label fftOrderLabel;
-    juce::Label minFrequencyLabel;
     juce::Label numCQTbinsLabel;
+    juce::Label maxAmplitudeLabel;
+    juce::Label minFrequencyLabel;
     juce::Label colourSchemeLabel;
     juce::Label dimensionLabel;
     juce::Label recedeSpeedLabel;

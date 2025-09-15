@@ -96,13 +96,6 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     fftOrderBox.setSelectedId(controller.getFFTOrder());
     fftOrderBox.addListener(this);
 
-    minFrequencyBox.addItem("5Hz", 5);
-    minFrequencyBox.addItem("20Hz", 20);
-    minFrequencyBox.addItem("50Hz", 50);
-    minFrequencyBox.addItem("100Hz", 100);
-    minFrequencyBox.setSelectedId((int)controller.getMinFrequency());
-    minFrequencyBox.addListener(this);
-
     numCQTbinsBox.addItem("64", 64);
     numCQTbinsBox.addItem("128", 128);
     numCQTbinsBox.addItem("256", 256);
@@ -110,6 +103,13 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     numCQTbinsBox.addItem("1024", 1024);
     numCQTbinsBox.setSelectedId(controller.getNumCQTBins());
     numCQTbinsBox.addListener(this);
+
+    minFrequencyBox.addItem("5Hz", 5);
+    minFrequencyBox.addItem("20Hz", 20);
+    minFrequencyBox.addItem("50Hz", 50);
+    minFrequencyBox.addItem("100Hz", 100);
+    minFrequencyBox.setSelectedId((int)controller.getMinFrequency());
+    minFrequencyBox.addListener(this);
 
     dimensionBox.addItem("2D", 1);
     dimensionBox.addItem("3D", 2);
@@ -122,6 +122,10 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     colourSchemeBox.addListener(this);
 
     // Set up sliders
+    maxAmplitudeSlider.setRange(0.0000001, 1.0);
+    maxAmplitudeSlider.setValue(controller.getMaxAmplitude());
+    maxAmplitudeSlider.addListener(this);
+
     recedeSpeedSlider.setRange(0.1, 20.0);
     recedeSpeedSlider.setValue(controller.getRecedeSpeed());
     recedeSpeedSlider.addListener(this);
@@ -157,8 +161,9 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     transformLabel.setText("Frequency Transform", juce::dontSendNotification);
     panMethodLabel.setText("Pan Method", juce::dontSendNotification);
     fftOrderLabel.setText("FFT Order", juce::dontSendNotification);
-    minFrequencyLabel.setText("Min Frequency", juce::dontSendNotification);
     numCQTbinsLabel.setText("CQT Bin Count", juce::dontSendNotification);
+    minFrequencyLabel.setText("Min Frequency", juce::dontSendNotification);
+    maxAmplitudeLabel.setText("Max Amplitude", juce::dontSendNotification);
     dimensionLabel.setText("Dimension", juce::dontSendNotification);
     colourSchemeLabel.setText("Colour Scheme", juce::dontSendNotification);
     recedeSpeedLabel.setText("Recede Speed", juce::dontSendNotification);
@@ -259,16 +264,16 @@ void sc::SettingsContentComponent::comboBoxChanged(juce::ComboBox* b)
         controller.setFFTOrder(b->getSelectedId());
         controller.prepareAnalyzer();
     }
-    else if (b == &minFrequencyBox)
-    {
-        controller.setMinFrequency((float)b->getSelectedId());
-        controller.prepareAnalyzer();
-    }
     else if (b == &numCQTbinsBox)
     {
         controller.getAnalyzer().stopWorker();
         controller.getAnalyzer().setPrepared(false);
         controller.setNumCQTBins(b->getSelectedId());
+        controller.prepareAnalyzer();
+    }
+    else if (b == &minFrequencyBox)
+    {
+        controller.setMinFrequency((float)b->getSelectedId());
         controller.prepareAnalyzer();
     }
     else if (b == &dimensionBox)
@@ -279,7 +284,10 @@ void sc::SettingsContentComponent::comboBoxChanged(juce::ComboBox* b)
 
 void sc::SettingsContentComponent::sliderValueChanged(juce::Slider* s)
 {
-    if (s == &recedeSpeedSlider) 
+    if (s == &maxAmplitudeSlider)
+        controller.setMaxAmplitude((float)s->getValue());
+        
+    else if (s == &recedeSpeedSlider)
         controller.setRecedeSpeed((float)s->getValue());
 
     else if (s == &dotSizeSlider)    
@@ -315,10 +323,11 @@ std::vector<juce::Component*> sc::SettingsContentComponent::getSettings()
         &transformBox,
         &panMethodBox,
         // &fftOrderBox,
-        &minFrequencyBox,
         &numCQTbinsBox,
+        &minFrequencyBox,
         &dimensionBox,
         &colourSchemeBox,
+        &maxAmplitudeSlider,
         &recedeSpeedSlider,
         &dotSizeSlider,
         &ampScaleSlider,
@@ -338,10 +347,11 @@ std::vector<juce::Label*> sc::SettingsContentComponent::getLabels()
         &transformLabel,
         &panMethodLabel,
         // &fftOrderLabel,
-        &minFrequencyLabel,
         &numCQTbinsLabel,
+        &minFrequencyLabel,
         &dimensionLabel,
         &colourSchemeLabel,
+        &maxAmplitudeLabel,
         &recedeSpeedLabel,
         &dotSizeLabel,
         &ampScaleLabel,

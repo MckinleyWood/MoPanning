@@ -23,7 +23,7 @@ void AudioAnalyzer::prepare()
     fftSize = samplesPerBlock;
     numFFTBins = fftSize / 2 + 1;
 
-    fftScaleFactor = 4.0f / fftSize;
+    fftScaleFactor = 4.0f / fftSize / maxAmplitude;
     cqtScaleFactor = fftScaleFactor / 28.0f; // Empirical normalization factor
 
     // Clear any previously allocated buffers or objects
@@ -168,10 +168,14 @@ void AudioAnalyzer::setPanMethod(PanMethod newPanMethod)
     panMethod = newPanMethod;
 }
 
-
 void AudioAnalyzer::setFFTOrder(float newFFTOrder)
 {
     fftOrder = newFFTOrder;
+}
+
+void AudioAnalyzer::setNumCQTBins(float newNumCQTBins)
+{
+    numCQTbins = newNumCQTBins;
 }
 
 void AudioAnalyzer::setMinFrequency(float newMinFrequency)
@@ -179,9 +183,11 @@ void AudioAnalyzer::setMinFrequency(float newMinFrequency)
     minCQTfreq = newMinFrequency;
 }
 
-void AudioAnalyzer::setNumCQTBins(float newNumCQTBins)
+void AudioAnalyzer::setMaxAmplitude(float newMaxAmplitude)
 {
-    numCQTbins = newNumCQTBins;
+    maxAmplitude = newMaxAmplitude;
+    fftScaleFactor = 4.0f / fftSize / maxAmplitude;
+    cqtScaleFactor = fftScaleFactor / 28.0f;
 }
 
 //=============================================================================
