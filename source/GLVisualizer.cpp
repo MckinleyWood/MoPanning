@@ -247,14 +247,20 @@ void GLVisualizer::render()
         float maxFreq = sampleRate * 0.5f;
         float minBandFreq = 0;
 
-        for (frequency_band band : results)
-        {
-            if (band.frequency > minFrequency)
-            {
-                minBandFreq = band.frequency;
-                break; // Assuming frequencies in sorted order
-            }
-        }
+        // Use the lowest frequency band above minFrequency
+        // for (frequency_band band : results)
+        // {
+        //     if (band.frequency > minFrequency)
+        //     {
+        //         minBandFreq = band.frequency;
+        //         break; // Assuming frequencies in sorted order
+        //     }
+        // }
+
+        // Use the user-specified minimum frequency
+        minBandFreq = minFrequency;
+
+        DBG("Using minBandFreq = " << minBandFreq << " Hz");
 
         float logMin = std::log(minBandFreq);
         float logMax = std::log(maxFreq);
@@ -284,6 +290,7 @@ void GLVisualizer::render()
             if (a > maxAmp)
                 maxAmp = a;
 
+            // if (band.frequency > 500.f && band.frequency < 600.f)
             // DBG("Added new particle for frequency " << band.frequency << ": "
             //     << "x = " << x << ", y = " << y << ", a = " << a);
         }

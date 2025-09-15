@@ -33,7 +33,7 @@ public:
     //=========================================================================
     /*  This is function is called to initialize the application. It 
         creates the command manager, main controller, and main window,
-        and initializes the initialises the menu bar (mac) or builds the
+        and initialises the menu bar (mac) or builds the
         window menu (win/linux).
     */
     void initialise(const juce::String& commandLine) override

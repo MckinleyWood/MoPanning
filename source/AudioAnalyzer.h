@@ -95,6 +95,8 @@ private:
     std::unique_ptr<juce::dsp::FFT> fft; // JUCE FFT engine
     fft_buffer_t fftBuffer;
     int numFFTBins; // Number of useful bins from FFT
+    float fftScaleFactor; // Scale factor to normalize FFT output
+    float cqtScaleFactor; // Scale factor to normalize CQT output
     
     // CQT stuff
     std::vector<float> centerFrequencies;

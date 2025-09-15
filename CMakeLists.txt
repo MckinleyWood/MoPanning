@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.22)
 project(MOPANNING VERSION 0.0.1)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 add_subdirectory(JUCE)
 
 juce_add_gui_app(MoPanning

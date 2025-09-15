@@ -95,6 +95,7 @@ void MainController::registerVisualizer(GLVisualizer* v)
     // Push default settings
     visualizer->setDimension(static_cast<Dimension>(getDimension()));
     visualizer->setColourScheme(static_cast<ColourScheme>(getColourScheme()));
+    visualizer->setMinFrequency(getMinFrequency());
     visualizer->setRecedeSpeed(getRecedeSpeed());
     visualizer->setDotSize(getDotSize());
     visualizer->setAmpScale(getAmpScale());
@@ -326,7 +327,10 @@ void MainController::valueTreePropertyChanged(juce::ValueTree&,
         analyzer.setFFTOrder(getFFTOrder());
 
     else if (id == ParamIDs::minFrequency)
+    {
         analyzer.setMinFrequency(getMinFrequency());
+        visualizer->setMinFrequency(getMinFrequency());
+    }
 
     else if (id == ParamIDs::numCQTbins)
         analyzer.setNumCQTBins(getNumCQTBins());

@@ -23,6 +23,9 @@ void AudioAnalyzer::prepare()
     fftSize = samplesPerBlock;
     numFFTBins = fftSize / 2 + 1;
 
+    fftScaleFactor = 4.0f / fftSize;
+    cqtScaleFactor = fftScaleFactor / 28.0f; // Empirical normalization factor
+
     // Clear any previously allocated buffers or objects
     window.clear();
     fftBuffer.clear();
@@ -408,17 +411,26 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
     newResults.reserve(numBands);
     float binWidth;
 
+    float maxAmp = 0.0f;
+
     switch (transform)
     {
     case FFT:
-        binWidth = (float)sampleRate / numBands;
+        binWidth = (sampleRate / 2.f) / numBands;
         for (int b = 0; b < numBands; ++b)
         {
             float freq = b * binWidth;
-            float ampL = std::abs(magnitudes[0][b]);
-            float ampR = std::abs(magnitudes[1][b]);
-            float amp  = (ampL + ampR) * 0.5f; // Average amplitude
-            amp = juce::jlimit(0.0f, 1.0f, amp / 150);
+            float magL = std::abs(magnitudes[0][b]);
+            float magR = std::abs(magnitudes[1][b]);
+            float mag = (magL + magR) * 0.5f; // Average magnitude
+            float amp = mag * fftScaleFactor; // Linear amplitude
+
+            // if (freq > 500.f && freq < 600.f)
+            //     DBG(   "freq: " << freq 
+            //         << " Hz, mag: " << mag 
+            //         << ", amp: " << amp);
+
+            amp = juce::jlimit(0.0f, 1.0f, amp);
             newResults.push_back({ freq, amp, panIndices[b] });
         }
         break;
@@ -427,10 +439,17 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
         for (int b = 0; b < numBands; ++b)
         {
             float freq = centerFrequencies[b];
-            float ampL = std::abs(magnitudes[0][b]);
-            float ampR = std::abs(magnitudes[1][b]);
-            float amp  = (ampL + ampR) * 0.5f; // Average amplitude
-            amp = juce::jlimit(0.0f, 1.0f, amp / 6000);
+            float magL = std::abs(magnitudes[0][b]);
+            float magR = std::abs(magnitudes[1][b]);
+            float mag  = (magL + magR) * 0.5f; // Average magnitude
+            float amp = mag * cqtScaleFactor; // Linear amplitude
+
+            // if (freq > 500.f && freq < 800.f)
+            //     DBG(   "freq: " << freq 
+            //         << " Hz, mag: " << mag 
+            //         << ", amp: " << amp);
+            
+            amp = juce::jlimit(0.0f, 1.0f, amp);
             newResults.push_back({ freq, amp, panIndices[b] });
         }
         break;
