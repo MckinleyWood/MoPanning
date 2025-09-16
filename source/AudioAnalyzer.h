@@ -61,6 +61,8 @@ public:
     
 private:
     //=========================================================================
+    void setupCQT();
+    
     /* Analysis functions */
 
     void computeFFT(const juce::AudioBuffer<float>& buffer,
@@ -88,6 +90,7 @@ private:
     int numCQTbins;
     float minCQTfreq;
     float maxAmplitude;
+    float threshold = -60; // dB relative to maxAmplitude
 
     //=========================================================================
 
@@ -99,18 +102,15 @@ private:
     int numFFTBins; // Number of useful bins from FFT
     float fftScaleFactor; // Scale factor to normalize FFT output
     float cqtScaleFactor; // Scale factor to normalize CQT output
-    
-    // CQT stuff
-    std::vector<float> centerFrequencies;
+    std::vector<float> centerFrequencies; // Center freqs of CQT or FFT bins
 
     // Each filter is a complex-valued kernel vector (frequency domain)
     std::vector<std::vector<std::complex<float>>> cqtKernels;
 
-    // std::array<std::vector<std::vector<std::complex<float>>>, 2> fullCQTspec;
     std::vector<std::vector<std::vector<std::complex<float>>>> fullCQTspec;
     
-    // float maxITD = 0.09f / 343.0f; // ~0.00026 sec (0.09m from center of head 
-                                   // to each ear, 343 m/s speed of sound)
+    // float maxITD = 0.09f / 343.0f; // ~0.00026 sec 
+    // (0.09m from center of head to each ear, 343 m/s speed of sound)
     float maxITD = 0.00066f; // max itd according to some sources
 
     std::vector<frequency_band> results; // Must be sorted by frequency!!!

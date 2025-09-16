@@ -134,7 +134,7 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     dotSizeSlider.setValue(controller.getDotSize());
     dotSizeSlider.addListener(this);
 
-    ampScaleSlider.setRange(1.0, 10.0);
+    ampScaleSlider.setRange(0.1, 10.0);
     ampScaleSlider.setValue(controller.getAmpScale());
     ampScaleSlider.addListener(this);
 
@@ -142,7 +142,7 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     nearZSlider.setValue(controller.getNearZ());
     nearZSlider.addListener(this);
 
-    fadeEndZSlider.setRange(1.0, 20.0);
+    fadeEndZSlider.setRange(0.1, 20.0);
     fadeEndZSlider.setValue(controller.getFadeEndZ());
     fadeEndZSlider.addListener(this);
 

@@ -15,8 +15,8 @@ MainController::MainController()
     settingsTree.setProperty(ParamIDs::dimension, 1, nullptr);
     settingsTree.setProperty(ParamIDs::colourScheme, 1, nullptr);
     settingsTree.setProperty(ParamIDs::recedeSpeed, 5.f, nullptr);
-    settingsTree.setProperty(ParamIDs::dotSize, 0.5f,nullptr);
-    settingsTree.setProperty(ParamIDs::ampScale, 5.f, nullptr);
+    settingsTree.setProperty(ParamIDs::dotSize, 0.15f,nullptr);
+    settingsTree.setProperty(ParamIDs::ampScale, 1.f, nullptr);
     settingsTree.setProperty(ParamIDs::nearZ, 0.1f, nullptr);
     settingsTree.setProperty(ParamIDs::fadeEndZ, 5.f, nullptr);
     settingsTree.setProperty(ParamIDs::farZ, 100.f, nullptr);

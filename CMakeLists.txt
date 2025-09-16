@@ -68,7 +68,7 @@ target_compile_options(MoPanning
     -Wuninitialized
     -Wunused-parameter
     # -Wconversion
-    -Wsign-compare
+    # -Wsign-compare
     -Wint-conversion
     -Wconditional-uninitialized
     -Wconstant-conversion

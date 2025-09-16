@@ -23,7 +23,7 @@ void AudioAnalyzer::prepare()
     fftSize = samplesPerBlock;
     numFFTBins = fftSize / 2 + 1;
 
-    fftScaleFactor = 4.0f / fftSize / maxAmplitude;
+    fftScaleFactor = 4.0f / fftSize;
     cqtScaleFactor = fftScaleFactor / 28.0f; // Empirical normalization factor
 
     // Clear any previously allocated buffers or objects
@@ -46,77 +46,18 @@ void AudioAnalyzer::prepare()
     // Initialize FFT engine
     fft = std::make_unique<juce::dsp::FFT>((int)std::log2(fftSize));
 
-    // Set frequency from min to Nyquist
-    const float nyquist = static_cast<float>(sampleRate * 0.5);
-    const float logMin = std::log2(minCQTfreq);
-    const float logMax = std::log2(nyquist);
-
-    // Prepare CQT kernels
-    cqtKernels.resize(numCQTbins);
-    centerFrequencies.resize(numCQTbins);
-    fullCQTspec.resize(2);
-    for (int ch = 0; ch < 2; ++ch)
+    if (transform == FFT)
     {
-        fullCQTspec[ch].resize(numCQTbins); // Resize vector inside array
-
-        for (int bin = 0; bin < numCQTbins; ++bin)
+        float binWidth = (sampleRate / 2.f) / numFFTBins;
+        for (int b = 0; b < numFFTBins; ++b)
         {
-            fullCQTspec[ch][bin].resize(fftSize);
+            centerFrequencies[b] = b * binWidth;
         }
     }
-    // Precompute CQT kernels
-    for (int bin = 0; bin < numCQTbins; ++bin)
-    {
-        // Compute center frequency for this bin
-        float frac = bin * 1.0f / (numCQTbins + 1);
-        float freq = std::pow(2.0f, logMin + frac * (logMax - logMin));
-        centerFrequencies[bin] = freq;
-
-        // Generate complex sinusoid for this frequency (for inner products)
-        int kernelLength = fftSize;
-        std::vector<std::complex<float>> kernelTime(kernelLength, 0.0f);
-        
-        for (int n = 0; n < kernelLength; ++n)
-        {
-            // Edited for centering
-            float t = (n - fftSize * 0.5f) / float(sampleRate); 
-            float w = 0.5f * (1.0f - std::cos(2.0f * pi * n 
-                                            / (kernelLength - 1)));
-            // Complex sinusioid * window
-            kernelTime[n] = std::polar(w, -2.0f * pi * freq * t); 
-        }
-
-        // Normalize the kernel energy
-        float norm = 0.0f;
-        for (auto& v : kernelTime)
-            norm += std::norm(v);
-        norm = std::sqrt(norm);
-        for (auto& v : kernelTime)
-            v /= norm;
-
-        // Allocate JUCE-compatible buffers
-        juce::HeapBlock<juce::dsp::Complex<float>> fftInput(kernelLength);
-        juce::HeapBlock<juce::dsp::Complex<float>> fftOutput(kernelLength);
-
-        // Copy kernelTime to JUCE-compatible input
-        for (int i = 0; i < kernelLength; ++i)
-            fftInput[i] = kernelTime[i];
-
-        // Zero-pad and FFT-- convert to frequency domain
-        juce::dsp::FFT kernelFFT((int)std::log2(kernelLength));
-        kernelFFT.perform(fftInput, fftOutput, false);
-
-        // Copy result back into std::vector<std::complex<float>>
-        std::vector<std::complex<float>> kernelFreq(kernelLength);
-        for (int i = 0; i < kernelLength; ++i)
-            kernelFreq[i] = fftOutput[i];
-
-        cqtKernels[bin] = std::move(kernelFreq);
-    }
-
-    // Estimate memory use for CQT kernels
-    // auto bytes = numCQTbins * fftSize * sizeof(std::complex<float>);
-    // DBG("Estimated CQT kernel memory use: " << (bytes / 1024.0f) << " KB"); 
+    else if (transform == CQT)
+        setupCQT();
+    else
+        jassertfalse; // Unknown transform type
 
     // Initialize AnalyzerWorker
     int numSlots = 4;
@@ -191,6 +132,85 @@ void AudioAnalyzer::setMaxAmplitude(float newMaxAmplitude)
 }
 
 //=============================================================================
+void AudioAnalyzer::setupCQT()
+{
+    // Concise name for pi variable
+    float pi = MathConstants<float>::pi;
+
+    // Set frequency from min to Nyquist
+    const float nyquist = static_cast<float>(sampleRate * 0.5);
+    const float logMin = std::log2(minCQTfreq);
+    const float logMax = std::log2(nyquist);
+
+    // Prepare CQT kernels
+    cqtKernels.resize(numCQTbins);
+    centerFrequencies.resize(numCQTbins);
+    fullCQTspec.resize(2);
+    for (int ch = 0; ch < 2; ++ch)
+    {
+        fullCQTspec[ch].resize(numCQTbins); // Resize vector inside array
+
+        for (int bin = 0; bin < numCQTbins; ++bin)
+        {
+            fullCQTspec[ch][bin].resize(fftSize);
+        }
+    }
+    // Precompute CQT kernels
+    for (int bin = 0; bin < numCQTbins; ++bin)
+    {
+        // Compute center frequency for this bin
+        float frac = bin * 1.0f / (numCQTbins + 1);
+        float freq = std::pow(2.0f, logMin + frac * (logMax - logMin));
+        centerFrequencies[bin] = freq;
+
+        // Generate complex sinusoid for this frequency (for inner products)
+        int kernelLength = fftSize;
+        std::vector<std::complex<float>> kernelTime(kernelLength, 0.0f);
+        
+        for (int n = 0; n < kernelLength; ++n)
+        {
+            // Edited for centering
+            float t = (n - fftSize * 0.5f) / float(sampleRate); 
+            float w = 0.5f * (1.0f - std::cos(2.0f * pi * n 
+                                            / (kernelLength - 1)));
+            // Complex sinusioid * window
+            kernelTime[n] = std::polar(w, -2.0f * pi * freq * t); 
+        }
+
+        // Normalize the kernel energy
+        float norm = 0.0f;
+        for (auto& v : kernelTime)
+            norm += std::norm(v);
+        norm = std::sqrt(norm);
+        for (auto& v : kernelTime)
+            v /= norm;
+
+        // Allocate JUCE-compatible buffers
+        juce::HeapBlock<juce::dsp::Complex<float>> fftInput(kernelLength);
+        juce::HeapBlock<juce::dsp::Complex<float>> fftOutput(kernelLength);
+
+        // Copy kernelTime to JUCE-compatible input
+        for (int i = 0; i < kernelLength; ++i)
+            fftInput[i] = kernelTime[i];
+
+        // Zero-pad and FFT-- convert to frequency domain
+        juce::dsp::FFT kernelFFT((int)std::log2(kernelLength));
+        kernelFFT.perform(fftInput, fftOutput, false);
+
+        // Copy result back into std::vector<std::complex<float>>
+        std::vector<std::complex<float>> kernelFreq(kernelLength);
+        for (int i = 0; i < kernelLength; ++i)
+            kernelFreq[i] = fftOutput[i];
+
+        cqtKernels[bin] = std::move(kernelFreq);
+    }
+
+    // Estimate memory use for CQT kernels
+    // auto bytes = numCQTbins * fftSize * sizeof(std::complex<float>);
+    // DBG("Estimated CQT kernel memory use: " << (bytes / 1024.0f) << " KB");
+}
+
+
 /*  Computes the FFT of each channel of the input buffer and stores the
     results in outSpectra.
 */
@@ -288,13 +308,13 @@ void AudioAnalyzer::computeITDs(
     std::vector<std::complex<float>> crossCorr(fftSize);
 
 
-    for (size_t bin = 0; bin < numBands; ++bin)
+    for (int bin = 0; bin < numBands; ++bin)
     {
         const auto& leftBin = CQTspec[0][bin];
         const auto& rightBin = CQTspec[1][bin];
 
         // --- GCC-PHAT ---
-        for (size_t k = 0; k < fftSize; ++k)
+        for (int k = 0; k < fftSize; ++k)
         {
             auto R = leftBin[k] * std::conj(rightBin[k]);
             float mag = std::abs(R);
@@ -305,9 +325,9 @@ void AudioAnalyzer::computeITDs(
         fft->perform(crossSpectrum.data(), crossCorr.data(), true);
 
         // Find peak with interpolation
-        size_t maxIndex = 0;
+        int maxIndex = 0;
         float maxVal = -1.0f;
-        for (size_t i = 0; i < fftSize; ++i)
+        for (int i = 0; i < fftSize; ++i)
         {
             float val = std::abs(crossCorr[i]);
             if (val > maxVal)
@@ -352,16 +372,16 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
     int numBands = 0;
     float ildWeight = 0.75f; // Can change these weights later
     float itdWeight = 0.25f;
+    float epsilon = 1e-12f;
     
     // Compute FFT for the block
     std::array<fft_buffer_t, 2> ffts;
     computeFFT(buffer, ffts);
 
     // Compute the selected frequency transform for the signal
-    switch (transform)
+    if (transform == FFT)
     {
-    case FFT:
-        // Copy magnitudes to spectra
+        // Copy magnitudes from FFT results
         for (int ch = 0; ch < 2; ++ch)
         {
             magnitudes[ch].resize(numFFTBins);
@@ -369,33 +389,32 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
                 magnitudes[ch][b] = std::abs(ffts[ch][b]);
         }
         numBands = numFFTBins;
-        break;
-    
-    case CQT:
+    }
+    else if (transform == CQT)
+    {
         // Compute CQT magnitudes
         computeCQT(buffer, ffts, magnitudes);
         numBands = numCQTbins;
-        break;
-
-    default:
-        jassertfalse;
+    }
+    else
+    {
+        jassertfalse; // Unknown transform type
         return;
     }
 
     // Compute panning indices based on the selected pan method
-    switch (panMethod)
+    if (panMethod == level_pan)
     {
-    case level_pan:
         // Use ILD pan indices
         computeILDs(magnitudes, numBands, panIndices);
-        break;
-    
-    case time_pan:
+    }
+    else if (panMethod == time_pan)
+    {
         // Use ITD pan indices
         computeITDs(fullCQTspec, numBands, panIndices);
-        break;
-    
-    case both:
+    }
+    else if (panMethod == both)
+    {
         computeILDs(magnitudes, numBands, ilds);
         computeITDs(fullCQTspec, numBands, itds);
         panIndices.resize(numBands);
@@ -405,63 +424,32 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
             panIndices[b] = (ildWeight * ilds[b] + itdWeight * itds[b]) 
                           / (ildWeight + itdWeight);
         }
-        break;
-
-    default:
-        jassertfalse;
+    }
+    else
+    {
+        jassertfalse; // Unknown pan method
         return;
     }
-
-    // Build frequency_band list
+    
+    // Compute (estimated) perceived amplitudes and build results vector
     std::vector<frequency_band> newResults;
     newResults.reserve(numBands);
-    float binWidth;
 
-    float maxAmp = 0.0f;
-
-    switch (transform)
+    for (int b = 0; b < numBands; ++b)
     {
-    case FFT:
-        binWidth = (sampleRate / 2.f) / numBands;
-        for (int b = 0; b < numBands; ++b)
-        {
-            float freq = b * binWidth;
-            float magL = std::abs(magnitudes[0][b]);
-            float magR = std::abs(magnitudes[1][b]);
-            float mag = (magL + magR) * 0.5f; // Average magnitude
-            float amp = mag * fftScaleFactor; // Linear amplitude
+        float magL = std::abs(magnitudes[0][b]);
+        float magR = std::abs(magnitudes[1][b]);
+        float mag = (magL + magR) * 0.5f; // Average magnitude
+        float linear = mag * fftScaleFactor; // Linear amplitude
+        if (transform == CQT)
+            linear /= 28.f; // Additional scaling for CQT
+        float dBrel = 20 * std::log10(linear / maxAmplitude + epsilon);
+        if (dBrel < threshold)
+            continue; // Below threshold
+        float amp = (dBrel - threshold) / -threshold; // Scale to [0, 1]
+        amp = juce::jlimit(0.0f, 1.0f, amp); // Clamp
 
-            // if (freq > 500.f && freq < 600.f)
-            //     DBG(   "freq: " << freq 
-            //         << " Hz, mag: " << mag 
-            //         << ", amp: " << amp);
-
-            amp = juce::jlimit(0.0f, 1.0f, amp);
-            newResults.push_back({ freq, amp, panIndices[b] });
-        }
-        break;
-
-    case CQT:
-        for (int b = 0; b < numBands; ++b)
-        {
-            float freq = centerFrequencies[b];
-            float magL = std::abs(magnitudes[0][b]);
-            float magR = std::abs(magnitudes[1][b]);
-            float mag  = (magL + magR) * 0.5f; // Average magnitude
-            float amp = mag * cqtScaleFactor; // Linear amplitude
-
-            // if (freq > 500.f && freq < 800.f)
-            //     DBG(   "freq: " << freq 
-            //         << " Hz, mag: " << mag 
-            //         << ", amp: " << amp);
-            
-            amp = juce::jlimit(0.0f, 1.0f, amp);
-            newResults.push_back({ freq, amp, panIndices[b] });
-        }
-        break;
-    
-    default:
-        break;
+        newResults.push_back({ centerFrequencies[b], amp, panIndices[b] });
     }
 
     // Hand results to GUI

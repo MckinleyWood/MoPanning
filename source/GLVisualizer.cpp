@@ -124,7 +124,7 @@ void GLVisualizer::initialise()
             gl_Position = uProjection * uView * worldPos;
 
             // Size in pixels
-            gl_PointSize = 100.0 * uDotSize * amp;
+            gl_PointSize = ( 50.0 + 50.0 * amp) * uDotSize ;
         }
     )";
 
@@ -268,8 +268,8 @@ void GLVisualizer::render()
         float aspect = getWidth() * 1.0f / getHeight();
 
         // For determining the amplitude range
-        float minAmp = std::numeric_limits<float>::max();
-        float maxAmp = 0.f;
+        // float minAmp = std::numeric_limits<float>::max();
+        // float maxAmp = 0.f;
 
         for (frequency_band band : results)
         {
@@ -284,11 +284,11 @@ void GLVisualizer::render()
             Particle newParticle = { x, y, t, a};
             particles.push_back(newParticle);
 
-            if (a < minAmp)
-                minAmp = a;
+            // if (a < minAmp)
+            //     minAmp = a;
 
-            if (a > maxAmp)
-                maxAmp = a;
+            // if (a > maxAmp)
+            //     maxAmp = a;
 
             // if (band.frequency > 500.f && band.frequency < 600.f)
             // DBG("Added new particle for frequency " << band.frequency << ": "
