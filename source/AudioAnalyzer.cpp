@@ -62,6 +62,8 @@ void AudioAnalyzer::prepare()
     // Compute frequency-dependent ITD/ILD weights
     ITDweights.resize(numCQTbins);
     ILDweights.resize(numCQTbins);
+    maxITD.resize(numCQTbins);
+
     for (int bin = 0; bin < numCQTbins; ++bin)
     {
         // Best-fit curve
@@ -386,8 +388,6 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
     std::vector<float> itds;
     std::vector<float> panIndices;
     int numBands = 0;
-    float ildWeight = 0.75f; // Can change these weights later
-    float itdWeight = 0.25f;
     float epsilon = 1e-12f;
     
     // Compute FFT for the block
