@@ -59,6 +59,22 @@ void AudioAnalyzer::prepare()
     else
         jassertfalse; // Unknown transform type
 
+    // Compute frequency-dependent ITD/ILD weights
+    ITDweights.resize(numCQTbins);
+    ILDweights.resize(numCQTbins);
+    for (int bin = 0; bin < numCQTbins; ++bin)
+    {
+        // Best-fit curve
+        float ITDweight = 1.0f / (1.0f + std::pow(centerFrequencies[bin] / f_trans, p));
+        float ILDweight = 1.0f - ITDweight;
+
+        ITDweights[bin] = ITDweight;
+        ILDweights[bin] = ILDweight;
+
+        // Smooth exponential decay from ITD_low to ITD_high
+        maxITD[bin] = maxITDhigh + (maxITDlow - maxITDhigh) * std::exp(-centerFrequencies[bin] / 2000.0f);
+    }   
+
     // Initialize AnalyzerWorker
     int numSlots = 4;
     worker = std::make_unique<AnalyzerWorker>(
@@ -358,7 +374,7 @@ void AudioAnalyzer::computeITDs(
 
         itdPerBin[bin] = peakIndexInterp / sampleRate;
 
-        panIndices[bin] = juce::jlimit(-1.0f, 1.0f, itdPerBin[bin] / maxITD);
+        panIndices[bin] = juce::jlimit(-1.0f, 1.0f, itdPerBin[bin] / maxITD[bin]);
     }
 }
 
@@ -421,8 +437,7 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
 
         for (int b = 0; b < numBands; b++)
         {
-            panIndices[b] = (ildWeight * ilds[b] + itdWeight * itds[b]) 
-                          / (ildWeight + itdWeight);
+            panIndices[b] = (ILDweights[b] * ilds[b] + ITDweights[b] * itds[b]);
         }
     }
     else

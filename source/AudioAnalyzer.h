@@ -109,9 +109,14 @@ private:
 
     std::vector<std::vector<std::vector<std::complex<float>>>> fullCQTspec;
     
-    // float maxITD = 0.09f / 343.0f; // ~0.00026 sec 
-    // (0.09m from center of head to each ear, 343 m/s speed of sound)
-    float maxITD = 0.00066f; // max itd according to some sources
+    // Frequency-dependent ITD/ILD parameters
+    std::vector<float> maxITD; // max ITD per frequency band
+    float maxITDlow = 0.00066f; // max ITD at lowest freq
+    float maxITDhigh = 0.0008f; // max ITD at highest freq
+    float f_trans = 2000.0f; // ITD/ILD transition frequency
+    float p  = 2.5f;    // slope
+    std::vector<float> ITDweights;
+    std::vector<float> ILDweights;
 
     std::vector<frequency_band> results; // Must be sorted by frequency!!!
     mutable std::mutex resultsMutex;
