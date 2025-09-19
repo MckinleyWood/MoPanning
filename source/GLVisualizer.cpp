@@ -23,7 +23,7 @@ GLVisualizer::~GLVisualizer()
 void GLVisualizer::prepareToPlay(int newSamplesPerBlock, double newSampleRate)
 {
     sampleRate = newSampleRate;
-    // Currently no audio-dependent initialization needed
+    juce::ignoreUnused(newSamplesPerBlock);
 }
 //=============================================================================
 void GLVisualizer::buildTexture()
@@ -274,8 +274,8 @@ void GLVisualizer::render()
         float aspect = getWidth() * 1.0f / getHeight();
 
         // For determining the amplitude range
-        float minAmp = std::numeric_limits<float>::max();
-        float maxAmp = 0.f;
+        // float minAmp = std::numeric_limits<float>::max();
+        // float maxAmp = 0.f;
 
         for (frequency_band band : results)
         {
@@ -290,23 +290,18 @@ void GLVisualizer::render()
             Particle newParticle = { x, y, t, a};
             particles.push_back(newParticle);
 
-            if (a < minAmp)
-                minAmp = a;
+            // if (a < minAmp)
+            //     minAmp = a;
 
-            if (a > maxAmp)
-                maxAmp = a;
+            // if (a > maxAmp)
+            //     maxAmp = a;
 
             // if (band.frequency > 500.f && band.frequency < 600.f)
             // DBG("Added new particle for frequency " << band.frequency << ": "
             //     << "x = " << x << ", y = " << y << ", a = " << a);
         }
 
-        DBG("Amplitude range: [" << minAmp << ", " << maxAmp << "]");
-        DBG("minFrequency = " << minFrequency << " Hz");
-        DBG("recedeSpeed = " << recedeSpeed << " m/s");
-        DBG("dotSize = " << dotSize);
-        DBG("ampScale = " << ampScale);
-        DBG("fadeEndZ = " << fadeEndZ << " m");
+        // DBG("Amplitude range: [" << minAmp << ", " << maxAmp << "]");
     }
 
     // Delete old particles

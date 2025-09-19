@@ -49,6 +49,7 @@ public:
     void setNumCQTBins(float newNumCQTBins);
     void setMinFrequency(float newMinFrequency);
     void setMaxAmplitude(float newMaxAmplitude);
+    void setThreshold(float newThreshold);
 
     bool getPrepared() const { return isPrepared.load(); }
     void setPrepared(bool prepared) { isPrepared.store(prepared); }
@@ -88,9 +89,9 @@ private:
     
     int fftOrder; // FFT order = log2(fftSize) - not used at the moment
     int numCQTbins;
-    float minCQTfreq;
-    float maxAmplitude;
-    float threshold = -60; // dB relative to maxAmplitude
+    float minCQTfreq; // Minimum CQT frequency in Hz
+    float maxAmplitude; // Maximum expected (linear) amplitude of input signal
+    float threshold; // dB relative to maxAmplitude
 
     //=========================================================================
 
@@ -147,7 +148,6 @@ public:
 
         // Launch background thread
         shouldExit = false;
-        // thread = std::thread([this] { run(); });
     }
 
     ~AnalyzerWorker()
@@ -222,7 +222,7 @@ private:
             }
             else
             {
-                // If no data ready, wait briefly or until notified
+                // If there is no data ready, wait briefly or until notified
                 std::unique_lock<std::mutex> lock(mutex);
                 cv.wait_for(lock, std::chrono::milliseconds(2));
             }

@@ -92,13 +92,25 @@ MainController::MainController()
         // peakAmplitude
         {
             "peakAmplitude", "Peak Amplitude",
-            "Maximum expected amplitude of input signal.",
+            "The maximum expected amplitude of the input signal.",
             ParameterDescriptor::Type::Float, 1.f,
             juce::NormalisableRange<float>(0.000001f, 1.f), {}, "",
             [this](float value) 
             {
                 if (analyzer)
                     analyzer->setMaxAmplitude(value);
+            }
+        },
+        // threshold
+        {
+            "threshold", "Amplitude Threshold",
+            "The amplitude level (dB relative to peak) below which frequency bands are ignored.",
+            ParameterDescriptor::Type::Float, -60.f,
+            juce::NormalisableRange<float>(-120.f, -20.f), {}, "dB",
+            [this](float value) 
+            {
+                if (analyzer)
+                    analyzer->setThreshold(value);
             }
         },
         // dimension

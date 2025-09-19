@@ -155,6 +155,11 @@ void AudioAnalyzer::setMaxAmplitude(float newMaxAmplitude)
     cqtScaleFactor = fftScaleFactor / 28.0f;
 }
 
+void AudioAnalyzer::setThreshold(float newThreshold)
+{
+    threshold = newThreshold;
+}
+
 //=============================================================================
 void AudioAnalyzer::setupCQT()
 {
@@ -469,12 +474,15 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
         float magL = std::abs(magnitudes[0][b]);
         float magR = std::abs(magnitudes[1][b]);
         float mag = (magL + magR) * 0.5f; // Average magnitude
+
         float linear = mag * fftScaleFactor; // Linear amplitude
         if (transform == CQT)
             linear /= 28.f; // Additional scaling for CQT
+
         float dBrel = 20 * std::log10(linear / maxAmplitude + epsilon);
         if (dBrel < threshold)
             continue; // Below threshold
+
         float amp = (dBrel - threshold) / -threshold; // Scale to [0, 1]
         amp = juce::jlimit(0.0f, 1.0f, amp); // Clamp
 
