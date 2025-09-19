@@ -34,6 +34,7 @@ public:
 
     // Must be called before analyzeBlock()
     void prepareToPlay(int samplesPerBlock, double sampleRate);
+    void prepareToPlay(); // Uses current sampleRate and samplesPerBlock
 
     // Called by audio thread
     void enqueueBlock(const juce::AudioBuffer<float>* buffer);
@@ -45,8 +46,8 @@ public:
 
     void setTransform(Transform newTransform);
     void setPanMethod(PanMethod newPanMethod);
-    void setFFTOrder(float newFFTOrder);
-    void setNumCQTBins(float newNumCQTBins);
+    void setFFTOrder(int newFFTOrder);
+    void setNumCQTBins(int newNumCQTBins);
     void setMinFrequency(float newMinFrequency);
     void setMaxAmplitude(float newMaxAmplitude);
     void setThreshold(float newThreshold);
@@ -127,6 +128,7 @@ private:
 
     // Atomic flag to indicate if the analyzer is prepared
     std::atomic<bool> isPrepared { false };
+    mutable std::mutex prepareMutex;
 };
 
 

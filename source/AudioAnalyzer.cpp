@@ -12,17 +12,18 @@ AudioAnalyzer::~AudioAnalyzer()
 /*  Prepares the audio analyzer. */
 void AudioAnalyzer::prepareToPlay(int newSamplesPerBlock, double newSampleRate)
 {
-    isPrepared.store(false);
-
-    samplesPerBlock = newSamplesPerBlock;
-    sampleRate = newSampleRate;
+    if (isPrepared.load())
+        return; // Already prepared
 
     // Stop any existing worker thread
     stopWorker();
 
+    samplesPerBlock = newSamplesPerBlock;
+    sampleRate = newSampleRate;
+
     // Recalculate fftSize - Ensure we are giving it a power of two
-    jassert(samplesPerBlock > 0 
-         && (samplesPerBlock & (samplesPerBlock - 1)) == 0);
+    jassert(samplesPerBlock > 0);
+    jassert((samplesPerBlock & (samplesPerBlock - 1)) == 0);
     fftSize = samplesPerBlock;
     numFFTBins = fftSize / 2 + 1;
 
@@ -38,7 +39,6 @@ void AudioAnalyzer::prepareToPlay(int newSamplesPerBlock, double newSampleRate)
     // Allocate hann window and FFT buffer
     window.resize(fftSize);
     fftBuffer.resize(fftSize);
-    
 
     // Concise name for pi variable
     float pi = MathConstants<float>::pi;
@@ -92,10 +92,10 @@ void AudioAnalyzer::prepareToPlay(int newSamplesPerBlock, double newSampleRate)
     isPrepared.store(true);
 }
 
-void AudioAnalyzer::checkPrepared()
+void AudioAnalyzer::prepareToPlay()
 {
-    if (!isPrepared.load())
-        prepareToPlay(samplesPerBlock, sampleRate);
+    // Use current sampleRate and samplesPerBlock if none specified
+    prepareToPlay(samplesPerBlock, sampleRate);
 }
 
 void AudioAnalyzer::enqueueBlock(const juce::AudioBuffer<float>* buffer)
@@ -121,6 +121,9 @@ std::vector<frequency_band> AudioAnalyzer::getLatestResults() const
 
 void AudioAnalyzer::setTransform(Transform newTransform)
 {
+    if (newTransform == transform) return; // No change
+    if (worker) stopWorker(); // Stop worker while we change the parameter
+
     transform = newTransform;
     isPrepared.store(false);
 }
@@ -130,20 +133,29 @@ void AudioAnalyzer::setPanMethod(PanMethod newPanMethod)
     panMethod = newPanMethod;
 }
 
-void AudioAnalyzer::setFFTOrder(float newFFTOrder)
+void AudioAnalyzer::setFFTOrder(int newFFTOrder)
 {
+    if (newFFTOrder == fftOrder) return; // No change
+    if (worker) stopWorker(); // Stop worker while we change the parameter
+
     fftOrder = newFFTOrder;
     isPrepared.store(false);
 }
 
-void AudioAnalyzer::setNumCQTBins(float newNumCQTBins)
+void AudioAnalyzer::setNumCQTBins(int newNumCQTBins)
 {
+    if (newNumCQTBins == numCQTbins) return; // No change
+    if (worker) stopWorker(); // Stop worker while we change the parameter
+
     numCQTbins = newNumCQTBins;
     isPrepared.store(false);
 }
 
 void AudioAnalyzer::setMinFrequency(float newMinFrequency)
 {
+    if (newMinFrequency - minCQTfreq < 1e-6) return; // No change
+    if (worker) stopWorker(); // Stop worker while we change the parameter
+
     minCQTfreq = newMinFrequency;
     isPrepared.store(false);
 }
@@ -298,6 +310,8 @@ void AudioAnalyzer::computeCQT(const juce::AudioBuffer<float>& buffer,
                                std::array<fft_buffer_t, 2> ffts,
                                std::array<std::vector<float>, 2>& cqtMags)
 {
+    juce::ignoreUnused(buffer); // Not used here. I'll take it out sometime.
+
     for (int ch = 0; ch < 2; ++ch)
     {
         cqtMags[ch].resize(numCQTbins, 0.0f);
@@ -349,7 +363,8 @@ void AudioAnalyzer::computeITDs(
         {
             auto R = leftBin[k] * std::conj(rightBin[k]);
             float mag = std::abs(R);
-            crossSpectrum[k] = (mag > 1e-8f) ? (R / mag) : std::complex<float>(0.0f, 0.0f);
+            crossSpectrum[k] = (mag > 1e-8f) ? (R / mag) 
+                                             : std::complex<float>(0.0f, 0.0f);
         }
 
         // Inverse FFT to get cross-correlation
@@ -389,7 +404,8 @@ void AudioAnalyzer::computeITDs(
 
         itdPerBin[bin] = peakIndexInterp / sampleRate;
 
-        panIndices[bin] = juce::jlimit(-1.0f, 1.0f, itdPerBin[bin] / maxITD[bin]);
+        panIndices[bin] = juce::jlimit(-1.0f, 1.0f, 
+                                       itdPerBin[bin] / maxITD[bin]);
     }
 }
 
@@ -401,6 +417,10 @@ void AudioAnalyzer::computeITDs(
 */
 void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
 {
+    if (!isPrepared.load())
+        return; // Not prepared yet
+
+    // Temporary buffers
     std::array<std::vector<float>, 2> magnitudes;
     std::vector<float> ilds;
     std::vector<float> itds;
@@ -491,7 +511,7 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
 
     // Hand results to GUI
     {
-        std::lock_guard<std::mutex> lock(resultsMutex);
+        std::lock_guard<std::mutex> resultsLock(resultsMutex);
         results = std::move(newResults);
         // DBG("Analyzed block. Results size = " << results.size());
     }

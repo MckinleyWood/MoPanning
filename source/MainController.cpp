@@ -243,6 +243,7 @@ void MainController::audioDeviceAboutToStart(juce::AudioIODevice* device)
     
     // engine->setInputType(static_cast<InputType>(getInputType()));
     engine->prepareToPlay(samplesPerBlock, sampleRate);
+    analyzer->setPrepared(false);
     analyzer->prepareToPlay(samplesPerBlock, sampleRate);
     visualizer->prepareToPlay(samplesPerBlock, sampleRate);
 }
@@ -334,5 +335,5 @@ void MainController::valueTreePropertyChanged(juce::ValueTree& tree,
         it->onChanged(newValue);
     }
 
-    analyzer->checkPrepared();
+    analyzer->prepareToPlay();
 }
