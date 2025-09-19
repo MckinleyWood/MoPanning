@@ -61,6 +61,8 @@ public:
 
         mainWindow = std::make_unique<MainWindow>(getApplicationName(),
                                                   std::move(mainComponent));
+
+        controller->startAudio();
     }
 
     /*  This is called to shut down the application. */

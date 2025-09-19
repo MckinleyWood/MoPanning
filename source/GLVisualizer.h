@@ -39,6 +39,8 @@ public:
     explicit GLVisualizer(MainController&);
     ~GLVisualizer() override;
 
+    void prepareToPlay(int newSamplesPerBlock, double newSampleRate);
+
     //=========================================================================
     void buildTexture();
 
@@ -54,10 +56,7 @@ public:
     void setRecedeSpeed(float newRecedeSpeed);
     void setDotSize(float newDotSize);
     void setAmpScale(float newAmpScale);
-    void setNearZ(float newNearZ);
     void setFadeEndZ(float newFadeEndZ);
-    void setFarZ(float newFarZ);
-    void setFOV(float newFOV);
 
 private:
     //=========================================================================
@@ -86,20 +85,21 @@ private:
     GLuint colourMapTex = 0;
 
     double startTime; // App-launch time in seconds
+    double sampleRate;
 
     Dimension dimension;
     ColourScheme colourScheme;
 
     bool newTextureRequsted = false; // Flag to rebuild texture
 
-    float minFrequency;
+    float minFrequency; // Minimum frequency to display (Hz)
     float recedeSpeed; // Speed that objects recede
     float dotSize; // Radius of the dots
     float ampScale; // Amplitude scale factor
-    float nearZ;
-    float fadeEndZ;
-    float farZ; // Distance to the end of clip space (m)
-    float fov;
+    float fadeEndZ; // Distance at which points are fully faded
+    float nearZ = 0.1f; // Distance to the start of clip space (m)
+    float farZ = 100.f; // Distance to the end of clip space (m)
+    float fov = 45.f; // Vertical field of view (degrees)
     int maxParticles = 200000;
     
     //=========================================================================

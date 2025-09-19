@@ -10,36 +10,24 @@ communication between parts of the program must run through here.
 #include "AudioAnalyzer.h"
 #include "AudioEngine.h"
 #include "GLVisualizer.h"
+#include "MiniAudioProcessor.h"
 
 //=============================================================================
-namespace ParamIDs
+using ParamLayout = juce::AudioProcessorValueTreeState::ParameterLayout;
+
+struct ParameterDescriptor
 {
-    static const juce::Identifier root { "Settings" };
-
-    static const juce::Identifier sampleRate { "sampleRate" };
-    static const juce::Identifier samplesPerBlock { "samplesPerBlock" };
-
-    static const juce::Identifier inputType { "inputType" };
-
-    static const juce::Identifier transform { "transform" };
-    static const juce::Identifier panMethod { "panMethod" };
-    static const juce::Identifier fftOrder { "fftOrder" };
-    static const juce::Identifier numCQTbins { "numCQTbins" };
-    static const juce::Identifier minFrequency { "minFrequency" };
-    static const juce::Identifier maxAmplitude { "maxAmplitude" };
-
-    static const juce::Identifier dimension { "dimension" };
-    static const juce::Identifier colourScheme { "colourScheme" };
-    static const juce::Identifier recedeSpeed { "recedeSpeed" };
-    static const juce::Identifier dotSize { "dotSize" };
-    static const juce::Identifier ampScale { "ampScale" };
-    static const juce::Identifier nearZ { "nearZ" };
-    static const juce::Identifier fadeEndZ { "fadeEndZ" };
-    static const juce::Identifier farZ { "farZ" };
-    static const juce::Identifier fov { "fov" };
-    
-    // static const juce::Identifier  { "" };
-}
+    juce::String id;
+    juce::String displayName;
+    juce::String description;
+    enum Type { Float, Choice } type;
+    float defaultValue;
+    juce::NormalisableRange<float> range; // For float parameters
+    juce::StringArray choices; // For choice parameters
+    juce::String unit;
+    std::function<void(float)> onChanged;
+    // enum UIType { Slider, ComboBox } uiType; // To choose UI style maybe
+};
 
 //=============================================================================
 class MainController : private juce::AudioIODeviceCallback,
@@ -54,68 +42,39 @@ public:
         const float *const *inputChannelData, int numInputChannels,
         float *const *outputChannelData, int numOutputChannels, int numSamples,
         const juce::AudioIODeviceCallbackContext& context) override;
-    void audioDeviceAboutToStart (juce::AudioIODevice* device) override;
-    void audioDeviceStopped () override;
+    void audioDeviceAboutToStart(juce::AudioIODevice* device) override;
+    void audioDeviceStopped() override;
+
+    void startAudio();
+
+    static ParamLayout makeParameterLayout(
+        const std::vector<ParameterDescriptor>& descriptors);
 
     void prepareAnalyzer();
     void registerVisualizer(GLVisualizer* v);
     bool loadFile(const juce::File& f);
     void togglePlayback();
 
+    std::vector<ParameterDescriptor> getParameterDescriptors() const;
+    juce::AudioProcessorValueTreeState& getAPVTS() noexcept;
+
     std::vector<frequency_band> getLatestResults() const;
     juce::AudioDeviceManager& getDeviceManager();
-
-    double getSampleRate() const;
-    int    getSamplesPerBlock() const;
-    int    getInputType() const;
-    int    getTransform() const;
-    int    getPanMethod() const;
-    int    getFFTOrder() const;
-    int    getNumCQTBins() const;
-    float  getMinFrequency() const;
-    float  getMaxAmplitude() const;
-    int    getDimension() const;
-    int    getColourScheme() const;
-    float  getRecedeSpeed() const;
-    float  getDotSize() const;
-    float  getAmpScale() const;
-    float  getNearZ() const;
-    float  getFadeEndZ() const;
-    float  getFarZ() const;
-    float  getFOV() const;
-
-    void setSampleRate(double newSampleRate);
-    void setSamplesPerBlock(int newSamplesPerBlock);
-    void setInputType(int newInputType);
-    void setTransform(int newTransform);
-    void setPanMethod(int newPanMethod);
-    void setFFTOrder(int newFftOrder);
-    void setNumCQTBins(int newNumCQTbins);
-    void setMinFrequency(float newMinFrequency);
-    void setMaxAmplitude(float newMaxAmplitude);
-    void setDimension(int newDimension);
-    void setColourScheme(int newColourScheme);
-    void setRecedeSpeed(float newRecedeSpeed);
-    void setDotSize(float newDotSize);
-    void setAmpScale(float newAmpScale);
-    void setNearZ(float newNearZ);
-    void setFadeEndZ(float newFadeEndZ);
-    void setFarZ(float newFarZ);
-    void setFOV(float newFov);
 
     void valueTreePropertyChanged(juce::ValueTree&, 
                                   const juce::Identifier& id) override;
 
-    AudioAnalyzer& getAnalyzer() { return analyzer; }
-
-
 private:
     //=========================================================================
-    AudioAnalyzer analyzer;
-    AudioEngine engine;
+    std::unique_ptr<AudioAnalyzer> analyzer;
+    std::unique_ptr<MiniAudioProcessor> processor;
+    std::unique_ptr<AudioEngine> engine;
     GLVisualizer* visualizer = nullptr;
+    
 
-    juce::ValueTree settingsTree;
+    juce::AudioProcessorValueTreeState* apvts;
+
+    std::vector<ParameterDescriptor> parameterDescriptors;
 
     //=========================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainController)

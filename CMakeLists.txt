@@ -28,6 +28,8 @@ target_sources(MoPanning
         source/MainComponent.h
         source/MainController.cpp
         source/MainController.h
+        source/MiniAudioProcessor.cpp
+        source/MiniAudioProcessor.h
         source/SettingsComponent.cpp
         source/SettingsComponent.h
 )

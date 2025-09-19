@@ -10,9 +10,12 @@ AudioAnalyzer::~AudioAnalyzer()
 
 //=============================================================================
 /*  Prepares the audio analyzer. */
-void AudioAnalyzer::prepare()
+void AudioAnalyzer::prepareToPlay(int newSamplesPerBlock, double newSampleRate)
 {
     isPrepared.store(false);
+
+    samplesPerBlock = newSamplesPerBlock;
+    sampleRate = newSampleRate;
 
     // Stop any existing worker thread
     stopWorker();
@@ -35,6 +38,7 @@ void AudioAnalyzer::prepare()
     // Allocate hann window and FFT buffer
     window.resize(fftSize);
     fftBuffer.resize(fftSize);
+    
 
     // Concise name for pi variable
     float pi = MathConstants<float>::pi;
@@ -49,6 +53,7 @@ void AudioAnalyzer::prepare()
     if (transform == FFT)
     {
         float binWidth = (sampleRate / 2.f) / numFFTBins;
+        centerFrequencies.resize(numFFTBins);
         for (int b = 0; b < numFFTBins; ++b)
         {
             centerFrequencies[b] = b * binWidth;
@@ -60,22 +65,23 @@ void AudioAnalyzer::prepare()
         jassertfalse; // Unknown transform type
 
     // Compute frequency-dependent ITD/ILD weights
-    ITDweights.resize(numCQTbins);
-    ILDweights.resize(numCQTbins);
+    itdWeights.resize(numCQTbins);
+    ildWeights.resize(numCQTbins);
     maxITD.resize(numCQTbins);
-
     for (int bin = 0; bin < numCQTbins; ++bin)
     {
         // Best-fit curve
-        float ITDweight = 1.0f / (1.0f + std::pow(centerFrequencies[bin] / f_trans, p));
+        float ITDweight = 1.0f / (1.0f + std::pow(centerFrequencies[bin] 
+                                                / f_trans, p));
         float ILDweight = 1.0f - ITDweight;
 
-        ITDweights[bin] = ITDweight;
-        ILDweights[bin] = ILDweight;
+        itdWeights[bin] = ITDweight;
+        ildWeights[bin] = ILDweight;
 
         // Smooth exponential decay from ITD_low to ITD_high
-        maxITD[bin] = maxITDhigh + (maxITDlow - maxITDhigh) * std::exp(-centerFrequencies[bin] / 2000.0f);
-    }   
+        maxITD[bin] = maxITDhigh + (maxITDlow - maxITDhigh) 
+                                 * std::exp(-centerFrequencies[bin] / 2000.0f);
+    } 
 
     // Initialize AnalyzerWorker
     int numSlots = 4;
@@ -84,6 +90,12 @@ void AudioAnalyzer::prepare()
     worker->start();
 
     isPrepared.store(true);
+}
+
+void AudioAnalyzer::checkPrepared()
+{
+    if (!isPrepared.load())
+        prepareToPlay(samplesPerBlock, sampleRate);
 }
 
 void AudioAnalyzer::enqueueBlock(const juce::AudioBuffer<float>* buffer)
@@ -107,19 +119,10 @@ std::vector<frequency_band> AudioAnalyzer::getLatestResults() const
     return results;
 }
 
-void AudioAnalyzer::setSamplesPerBlock(int newSamplesPerBlock)
-{
-    this->samplesPerBlock = newSamplesPerBlock;
-}
-
-void AudioAnalyzer::setSampleRate(double newSampleRate)
-{
-    this->sampleRate = newSampleRate;
-}
-
 void AudioAnalyzer::setTransform(Transform newTransform)
 {
     transform = newTransform;
+    isPrepared.store(false);
 }
 
 void AudioAnalyzer::setPanMethod(PanMethod newPanMethod)
@@ -130,16 +133,19 @@ void AudioAnalyzer::setPanMethod(PanMethod newPanMethod)
 void AudioAnalyzer::setFFTOrder(float newFFTOrder)
 {
     fftOrder = newFFTOrder;
+    isPrepared.store(false);
 }
 
 void AudioAnalyzer::setNumCQTBins(float newNumCQTBins)
 {
     numCQTbins = newNumCQTBins;
+    isPrepared.store(false);
 }
 
 void AudioAnalyzer::setMinFrequency(float newMinFrequency)
 {
     minCQTfreq = newMinFrequency;
+    isPrepared.store(false);
 }
 
 void AudioAnalyzer::setMaxAmplitude(float newMaxAmplitude)
@@ -173,6 +179,7 @@ void AudioAnalyzer::setupCQT()
             fullCQTspec[ch][bin].resize(fftSize);
         }
     }
+
     // Precompute CQT kernels
     for (int bin = 0; bin < numCQTbins; ++bin)
     {
@@ -227,7 +234,6 @@ void AudioAnalyzer::setupCQT()
     // auto bytes = numCQTbins * fftSize * sizeof(std::complex<float>);
     // DBG("Estimated CQT kernel memory use: " << (bytes / 1024.0f) << " KB");
 }
-
 
 /*  Computes the FFT of each channel of the input buffer and stores the
     results in outSpectra.
@@ -312,7 +318,9 @@ void AudioAnalyzer::computeCQT(const juce::AudioBuffer<float>& buffer,
     }
 }
 
-/* ITD stuff! will write desc soon*/
+/*  Complutes the  interaural time difference per band. Currently only 
+    works for CQT transform type. 
+*/
 void AudioAnalyzer::computeITDs(
     std::vector<std::vector<std::vector<std::complex<float>>>> CQTspec,
     int numBands,
@@ -381,6 +389,11 @@ void AudioAnalyzer::computeITDs(
 }
 
 //=============================================================================
+/*  This function is called on the worker thread whenever a new block is
+    to be analyzed. It computes the selected frequency transform and 
+    panning method, and stores the results in the 'results' member 
+    variable for the GUI thread to access.
+*/
 void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
 {
     std::array<std::vector<float>, 2> magnitudes;
@@ -437,7 +450,8 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
 
         for (int b = 0; b < numBands; b++)
         {
-            panIndices[b] = (ILDweights[b] * ilds[b] + ITDweights[b] * itds[b]);
+            panIndices[b] = (ildWeights[b] * ilds[b] 
+                           + itdWeights[b] * itds[b]);
         }
     }
     else
@@ -471,5 +485,6 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
     {
         std::lock_guard<std::mutex> lock(resultsMutex);
         results = std::move(newResults);
+        // DBG("Analyzed block. Results size = " << results.size());
     }
 }

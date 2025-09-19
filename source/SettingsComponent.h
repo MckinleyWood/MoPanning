@@ -1,6 +1,8 @@
 #pragma once
 #include <JuceHeader.h>
 
+using apvts = juce::AudioProcessorValueTreeState;
+
 class MainController;
 
 //=============================================================================
@@ -74,9 +76,9 @@ private:
 
 //=============================================================================
 class SettingsComponent::SettingsContentComponent 
-    : public juce::Component,
+    : public juce::Component/* ,
       private juce::ComboBox::Listener,
-      private juce::Slider::Listener
+      private juce::Slider::Listener */
 {
 public:
     //=========================================================================
@@ -86,13 +88,11 @@ public:
     void resized() override;
     void paint(juce::Graphics& g) override;
 
-    void comboBoxChanged(juce::ComboBox* b) override;
-    void sliderValueChanged(juce::Slider* s) override;
-
     // Helpers
     std::vector<juce::Component*> getSettings();
     std::vector<juce::Label*> getLabels();
     int getDeviceSelectorHeight() const;
+    std::vector<juce::Component*> getUIObjects() { return uiObjects; }
 
 private:
     //=========================================================================
@@ -104,43 +104,15 @@ private:
     // Device selector
     std::unique_ptr<CustomAudioDeviceSelectorComponent> deviceSelector;
 
-    // Settings subcomponents
-    juce::ComboBox samplesPerBlockBox;
-    juce::ComboBox inputTypeBox;
-    juce::ComboBox transformBox;
-    juce::ComboBox panMethodBox;
-    juce::ComboBox fftOrderBox;
-    juce::ComboBox numCQTbinsBox;
-    juce::ComboBox minFrequencyBox;
-    NonScrollingSlider maxAmplitudeSlider;
-    juce::ComboBox dimensionBox;
-    juce::ComboBox colourSchemeBox;
-    NonScrollingSlider recedeSpeedSlider;
-    NonScrollingSlider dotSizeSlider;
-    NonScrollingSlider ampScaleSlider;
-    NonScrollingSlider nearZSlider;
-    NonScrollingSlider fadeEndZSlider;
-    NonScrollingSlider farZSlider;
-    NonScrollingSlider fovSlider;
+    // Attachment pointers
+    std::vector<std::unique_ptr<apvts::ComboBoxAttachment>> 
+        comboAttachments;
+    std::vector<std::unique_ptr<apvts::SliderAttachment>> 
+        sliderAttachments;
 
-    // Labels
-    juce::Label samplesPerBlockLabel;
-    juce::Label inputTypeLabel;
-    juce::Label transformLabel;
-    juce::Label panMethodLabel;
-    juce::Label fftOrderLabel;
-    juce::Label numCQTbinsLabel;
-    juce::Label maxAmplitudeLabel;
-    juce::Label minFrequencyLabel;
-    juce::Label colourSchemeLabel;
-    juce::Label dimensionLabel;
-    juce::Label recedeSpeedLabel;
-    juce::Label dotSizeLabel;
-    juce::Label ampScaleLabel;
-    juce::Label nearZLabel;
-    juce::Label fadeEndZLabel;
-    juce::Label farZLabel;
-    juce::Label fovLabel;
+    // UI object pointers
+    std::vector<juce::Component*> uiObjects;
+    std::vector<juce::Label*> labels;
 
     bool initialized = false;
 };

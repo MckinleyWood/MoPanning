@@ -20,7 +20,7 @@ void SettingsComponent::resized()
     const int titleHeight = 60;
     const int deviceSelectorHeight = content->getDeviceSelectorHeight();
     const int rowHeight = 50;
-    const int numSettings = (int)content->getSettings().size();
+    const int numSettings = (int)content->getUIObjects().size();
     const int contentHeight = titleHeight + deviceSelectorHeight
                             + rowHeight * numSettings + 20;
     int contentWidth = getWidth();
@@ -49,6 +49,7 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     title.setFont(titleFont);
     title.setJustificationType(juce::Justification::centred);
     title.setColour(juce::Label::textColourId, juce::Colours::white);
+    addAndMakeVisible(title);
 
     // Set up device selector
     deviceSelector = std::make_unique<CustomAudioDeviceSelectorComponent>(
@@ -64,129 +65,46 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
         }
     };
 
-    // Set up combo boxes
-    samplesPerBlockBox.addItem("64", 64);
-    samplesPerBlockBox.addItem("128", 128);
-    samplesPerBlockBox.addItem("256", 256);
-    samplesPerBlockBox.addItem("512", 512);
-    samplesPerBlockBox.addItem("1024", 1024);
-    samplesPerBlockBox.setSelectedId(controller.getSamplesPerBlock());
-    samplesPerBlockBox.addListener(this);
-
-    inputTypeBox.addItem("File", 1);
-    inputTypeBox.addItem("Streaming", 2);
-    inputTypeBox.setSelectedId(controller.getInputType() + 1);
-    inputTypeBox.addListener(this);
-
-    transformBox.addItem("FFT", 1);
-    transformBox.addItem("CQT", 2);
-    transformBox.setSelectedId(controller.getTransform() + 1);
-    transformBox.addListener(this);
-
-    panMethodBox.addItem("Level", 1);
-    panMethodBox.addItem("Time", 2);
-    panMethodBox.addItem("Both", 3);
-    panMethodBox.setSelectedId(controller.getPanMethod() + 1);
-    panMethodBox.addListener(this);
-
-    fftOrderBox.addItem("8", 8);
-    fftOrderBox.addItem("9", 9);
-    fftOrderBox.addItem("10", 10);
-    fftOrderBox.addItem("11", 11);
-    fftOrderBox.setSelectedId(controller.getFFTOrder());
-    fftOrderBox.addListener(this);
-
-    numCQTbinsBox.addItem("64", 64);
-    numCQTbinsBox.addItem("128", 128);
-    numCQTbinsBox.addItem("256", 256);
-    numCQTbinsBox.addItem("512", 512);
-    numCQTbinsBox.addItem("1024", 1024);
-    numCQTbinsBox.setSelectedId(controller.getNumCQTBins());
-    numCQTbinsBox.addListener(this);
-
-    minFrequencyBox.addItem("5Hz", 5);
-    minFrequencyBox.addItem("20Hz", 20);
-    minFrequencyBox.addItem("50Hz", 50);
-    minFrequencyBox.addItem("100Hz", 100);
-    minFrequencyBox.setSelectedId((int)controller.getMinFrequency());
-    minFrequencyBox.addListener(this);
-
-    dimensionBox.addItem("2D", 1);
-    dimensionBox.addItem("3D", 2);
-    dimensionBox.setSelectedId(controller.getDimension() + 1);
-    dimensionBox.addListener(this);
-
-    colourSchemeBox.addItem("Greyscale", 1);
-    colourSchemeBox.addItem("Rainbow", 2);
-    colourSchemeBox.setSelectedId(controller.getColourScheme() + 1);
-    colourSchemeBox.addListener(this);
-
-    // Set up sliders
-    maxAmplitudeSlider.setRange(0.0000001, 1.0);
-    maxAmplitudeSlider.setValue(controller.getMaxAmplitude());
-    maxAmplitudeSlider.addListener(this);
-
-    recedeSpeedSlider.setRange(0.1, 20.0);
-    recedeSpeedSlider.setValue(controller.getRecedeSpeed());
-    recedeSpeedSlider.addListener(this);
-
-    dotSizeSlider.setRange(0.001, 2.0);
-    dotSizeSlider.setValue(controller.getDotSize());
-    dotSizeSlider.addListener(this);
-
-    ampScaleSlider.setRange(0.1, 10.0);
-    ampScaleSlider.setValue(controller.getAmpScale());
-    ampScaleSlider.addListener(this);
-
-    nearZSlider.setRange(0.01, 1.0);
-    nearZSlider.setValue(controller.getNearZ());
-    nearZSlider.addListener(this);
-
-    fadeEndZSlider.setRange(0.1, 20.0);
-    fadeEndZSlider.setValue(controller.getFadeEndZ());
-    fadeEndZSlider.addListener(this);
-
-    farZSlider.setRange(1.0, 1000.0);
-    farZSlider.setValue(controller.getFarZ());
-    farZSlider.addListener(this);
-
-    fovSlider.setRange(10.0, 120.0);
-    fovSlider.setValue(controller.getFOV());
-    fovSlider.addListener(this);
-
-    // Set up labels
-    samplesPerBlockLabel.setText("Samples per Block", 
-                                 juce::dontSendNotification);
-    inputTypeLabel.setText("Input Type", juce::dontSendNotification);
-    transformLabel.setText("Frequency Transform", juce::dontSendNotification);
-    panMethodLabel.setText("Pan Method", juce::dontSendNotification);
-    fftOrderLabel.setText("FFT Order", juce::dontSendNotification);
-    numCQTbinsLabel.setText("CQT Bin Count", juce::dontSendNotification);
-    minFrequencyLabel.setText("Min Frequency", juce::dontSendNotification);
-    maxAmplitudeLabel.setText("Max Amplitude", juce::dontSendNotification);
-    dimensionLabel.setText("Dimension", juce::dontSendNotification);
-    colourSchemeLabel.setText("Colour Scheme", juce::dontSendNotification);
-    recedeSpeedLabel.setText("Recede Speed", juce::dontSendNotification);
-    dotSizeLabel.setText("Dot Size", juce::dontSendNotification);
-    ampScaleLabel.setText("Amplitude Scale", juce::dontSendNotification);
-    nearZLabel.setText("Near Z", juce::dontSendNotification);
-    fadeEndZLabel.setText("Fade End Z", juce::dontSendNotification);
-    farZLabel.setText("Far Z", juce::dontSendNotification);
-    fovLabel.setText("FOV", juce::dontSendNotification);
-
-    // Make all components visible
-    addAndMakeVisible(title);
     addAndMakeVisible(deviceSelector.get());
-    for (const auto& setting : getSettings())
-    {
-        addAndMakeVisible(setting);
-    }
 
-    for (auto* label : getLabels())
+    // Set up parameter controls
+    auto parameters = controller.getParameterDescriptors();
+    auto& apvts = controller.getAPVTS();
+    for (const auto& p : parameters)
     {
+        if (p.type == ParameterDescriptor::Float)
+        {
+            auto* slider = new NonScrollingSlider(p.displayName);
+            slider->setRange(p.range.start, p.range.end);
+            slider->setValue(p.defaultValue);
+            slider->setTextValueSuffix(p.unit);
+            addAndMakeVisible(slider);
+            uiObjects.push_back(slider);
+
+            auto attachment = std::make_unique<apvts::SliderAttachment>(
+                apvts, p.id, *slider);
+            sliderAttachments.push_back(std::move(attachment));
+            
+        }
+        else if (p.type == ParameterDescriptor::Choice)
+        {
+            auto* combo = new juce::ComboBox(p.displayName);
+            combo->addItemList(p.choices, 1); // JUCE items start at index 1
+            combo->setSelectedItemIndex(static_cast<int>(p.defaultValue));
+            addAndMakeVisible(combo);
+            uiObjects.push_back(combo);
+
+            auto attachment = std::make_unique<apvts::ComboBoxAttachment>(
+                apvts, p.id, *combo);
+            comboAttachments.push_back(std::move(attachment));
+        }
+
+        auto* label = new juce::Label();
+        label->setText(p.displayName, juce::dontSendNotification);
         label->setJustificationType(juce::Justification::left);
         label->setFont(normalFont);
         addAndMakeVisible(label);
+        labels.push_back(label);
     }
 
     initialized = true;
@@ -200,7 +118,7 @@ void sc::SettingsContentComponent::resized()
 
     const int rowHeight = 50;
     const int labelHeight = 14;
-    const int numSettings = (int)getSettings().size();
+    int numSettings = (int)uiObjects.size();
 
     // Layout the title at the top
     auto titleZone = bounds.removeFromTop(60);
@@ -212,8 +130,8 @@ void sc::SettingsContentComponent::resized()
     deviceSelector->setBounds(deviceSelectorZone);
 
     // Layout each setting
-    auto settings = getSettings();
-    auto labels = getLabels();
+    // auto settings = getSettings();
+    // auto labels = getLabels();
 
     for (int i = 0; i < numSettings; ++i)
     {
@@ -222,7 +140,8 @@ void sc::SettingsContentComponent::resized()
         auto labelZone = row.removeFromTop(labelHeight);
         labels[i]->setBounds(labelZone);
 
-        settings[i]->setBounds(row.reduced(0, 4));
+        // settings[i]->setBounds(row.reduced(0, 4));
+        uiObjects[i]->setBounds(row.reduced(0, 4));
     }
 }
 
@@ -234,130 +153,15 @@ void sc::SettingsContentComponent::paint(juce::Graphics& g)
     // Paint boxes around all components (for testing)
     // g.setColour(juce::Colours::yellow);
     // g.drawRect(title.getBounds());
-    // for (const auto& comp : getSettings())
+    // g.drawRect(deviceSelector->getBounds());
+    // for (const auto& comp : uiObjects)
     // {
     //     g.drawRect(comp->getBounds());
     // }
 }
 
 //=============================================================================
-void sc::SettingsContentComponent::comboBoxChanged(juce::ComboBox* b)
-{
-    if (!initialized) return; // skip early triggers
-
-    else if (b == &samplesPerBlockBox)
-    {
-        controller.setSamplesPerBlock(b->getSelectedId());
-        controller.prepareAnalyzer();
-    }
-    else if (b == &inputTypeBox)
-        controller.setInputType(b->getSelectedId() - 1);
-
-    else if (b == &transformBox)
-        controller.setTransform(b->getSelectedId() - 1);
-
-    else if (b == &panMethodBox)
-        controller.setPanMethod(b->getSelectedId() - 1);
-
-    else if (b == &fftOrderBox)       
-    {
-        controller.setFFTOrder(b->getSelectedId());
-        controller.prepareAnalyzer();
-    }
-    else if (b == &numCQTbinsBox)
-    {
-        controller.getAnalyzer().stopWorker();
-        controller.getAnalyzer().setPrepared(false);
-        controller.setNumCQTBins(b->getSelectedId());
-        controller.prepareAnalyzer();
-    }
-    else if (b == &minFrequencyBox)
-    {
-        controller.setMinFrequency((float)b->getSelectedId());
-        controller.prepareAnalyzer();
-    }
-    else if (b == &dimensionBox)
-        controller.setDimension(b->getSelectedId() - 1);
-    else if (b == &colourSchemeBox)
-        controller.setColourScheme(b->getSelectedId() - 1);
-}
-
-void sc::SettingsContentComponent::sliderValueChanged(juce::Slider* s)
-{
-    if (s == &maxAmplitudeSlider)
-        controller.setMaxAmplitude((float)s->getValue());
-        
-    else if (s == &recedeSpeedSlider)
-        controller.setRecedeSpeed((float)s->getValue());
-
-    else if (s == &dotSizeSlider)    
-        controller.setDotSize((float)s->getValue());
-
-    else if (s == &ampScaleSlider)
-        controller.setAmpScale((float)s->getValue());
-
-    else if (s == &nearZSlider)      
-        controller.setNearZ((float)s->getValue());
-
-    else if (s == &fadeEndZSlider)      
-        controller.setFadeEndZ((float)s->getValue());
-
-    else if (s == &farZSlider)       
-        controller.setFarZ((float)s->getValue());
-
-    else if (s == &fovSlider)        
-        controller.setFOV((float)s->getValue());
-}
-
 int SettingsComponent::SettingsContentComponent::getDeviceSelectorHeight() const
 {
     return deviceSelector ? deviceSelector->getHeight() - 30 : 0;
-}
-
-std::vector<juce::Component*> sc::SettingsContentComponent::getSettings()
-{
-    return {
-        // &sampleRateBox,
-        // &samplesPerBlockBox,
-        &inputTypeBox,
-        &transformBox,
-        &panMethodBox,
-        // &fftOrderBox,
-        &numCQTbinsBox,
-        &minFrequencyBox,
-        &dimensionBox,
-        &colourSchemeBox,
-        &maxAmplitudeSlider,
-        &recedeSpeedSlider,
-        &dotSizeSlider,
-        &ampScaleSlider,
-        // &nearZSlider,
-        &fadeEndZSlider
-        // &farZSlider,
-        // &fovSlider
-    };
-}
-
-std::vector<juce::Label*> sc::SettingsContentComponent::getLabels()
-{
-    return {
-        // &sampleRateLabel,
-        // &samplesPerBlockLabel,
-        &inputTypeLabel,
-        &transformLabel,
-        &panMethodLabel,
-        // &fftOrderLabel,
-        &numCQTbinsLabel,
-        &minFrequencyLabel,
-        &dimensionLabel,
-        &colourSchemeLabel,
-        &maxAmplitudeLabel,
-        &recedeSpeedLabel,
-        &dotSizeLabel,
-        &ampScaleLabel,
-        // &nearZLabel,
-        &fadeEndZLabel
-        // &farZLabel,
-        // &fovLabel
-    };
 }

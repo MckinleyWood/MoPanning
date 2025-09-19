@@ -33,7 +33,7 @@ public:
     ~AudioAnalyzer();
 
     // Must be called before analyzeBlock()
-    void prepare();
+    void prepareToPlay(int samplesPerBlock, double sampleRate);
 
     // Called by audio thread
     void enqueueBlock(const juce::AudioBuffer<float>* buffer);
@@ -41,8 +41,8 @@ public:
     // Called by GUI thread to get latest results
     std::vector<frequency_band> getLatestResults() const;
 
-    void setSampleRate(double newSampleRate);
-    void setSamplesPerBlock(int newSamplesPerBlock);
+    void checkPrepared();
+
     void setTransform(Transform newTransform);
     void setPanMethod(PanMethod newPanMethod);
     void setFFTOrder(float newFFTOrder);
@@ -115,8 +115,8 @@ private:
     float maxITDhigh = 0.0008f; // max ITD at highest freq
     float f_trans = 2000.0f; // ITD/ILD transition frequency
     float p  = 2.5f;    // slope
-    std::vector<float> ITDweights;
-    std::vector<float> ILDweights;
+    std::vector<float> itdWeights;
+    std::vector<float> ildWeights;
 
     std::vector<frequency_band> results; // Must be sorted by frequency!!!
     mutable std::mutex resultsMutex;
@@ -198,6 +198,8 @@ public:
         // Notify worker thread that new data is available
         std::lock_guard<std::mutex> lock(mutex);
         cv.notify_one();
+
+        // DBG("Enqueued block on audio thread.");
     }
 
 private:

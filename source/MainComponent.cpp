@@ -4,19 +4,20 @@
 MainComponent::MainComponent(MainController& mc,                 
                              juce::ApplicationCommandManager& cm)
     : controller(mc),
-      commandManager(cm),
-      visualizer(controller),
-      settings(controller)
+      commandManager(cm)
 {
     commandManager.registerAllCommandsForTarget(this);
     commandManager.setFirstCommandTarget(this);
 
-    controller.registerVisualizer(&visualizer);
+    visualizer = std::make_unique<GLVisualizer>(controller);
+    settings = std::make_unique<SettingsComponent>(controller);
 
-    addAndMakeVisible(visualizer);
-    addAndMakeVisible(settings);
+    addAndMakeVisible(visualizer.get());
+    addAndMakeVisible(settings.get());
 
-    settings.setVisible(false); // Since we start in Focus mode
+    controller.registerVisualizer(visualizer.get());
+
+    settings->setVisible(false); // Since we start in Focus mode
     setSize(1200, 750);
 }
 
@@ -30,16 +31,16 @@ void MainComponent::resized()
 
     if (viewMode == ViewMode::Focus)
     {
-        visualizer.setBounds(bounds);
-        settings.setVisible(false);
+        visualizer->setBounds(bounds);
+        settings->setVisible(false);
     }
     else // ViewMode == Split
     {
         const int sidebarW = 300;
         auto right = bounds.removeFromRight(sidebarW);
-        settings.setBounds(right);
-        visualizer.setBounds(bounds);
-        settings.setVisible(true);
+        settings->setBounds(right);
+        visualizer->setBounds(bounds);
+        settings->setVisible(true);
     }
 }
 

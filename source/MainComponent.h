@@ -54,8 +54,8 @@ private:
     //=========================================================================
     MainController& controller;
     juce::ApplicationCommandManager& commandManager;
-    GLVisualizer visualizer;
-    SettingsComponent settings;
+    std::unique_ptr<GLVisualizer> visualizer;
+    std::unique_ptr<SettingsComponent> settings;
     ViewMode viewMode { ViewMode::Focus };
 
     //=========================================================================
