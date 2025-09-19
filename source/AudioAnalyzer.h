@@ -42,8 +42,6 @@ public:
     // Called by GUI thread to get latest results
     std::vector<frequency_band> getLatestResults() const;
 
-    void checkPrepared();
-
     void setTransform(Transform newTransform);
     void setPanMethod(PanMethod newPanMethod);
     void setFFTOrder(int newFFTOrder);
@@ -55,7 +53,6 @@ public:
     bool getPrepared() const { return isPrepared.load(); }
     void setPrepared(bool prepared) { isPrepared.store(prepared); }
 
-
     //=========================================================================
     class AnalyzerWorker;
 
@@ -63,6 +60,10 @@ public:
     
 private:
     //=========================================================================
+    /* Setup functions */
+
+    void setupAWeights(const std::vector<float>& freqs,
+                       std::vector<float>& weights);
     void setupCQT();
     
     /* Analysis functions */
@@ -105,6 +106,7 @@ private:
     float fftScaleFactor; // Scale factor to normalize FFT output
     float cqtScaleFactor; // Scale factor to normalize CQT output
     std::vector<float> centerFrequencies; // Center freqs of CQT or FFT bins
+    std::vector<float> aWeights; // A-weighting factors for each freq bin
 
     // Each filter is a complex-valued kernel vector (frequency domain)
     std::vector<std::vector<std::complex<float>>> cqtKernels;

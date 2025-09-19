@@ -35,6 +35,7 @@ void AudioAnalyzer::prepareToPlay(int newSamplesPerBlock, double newSampleRate)
     fftBuffer.clear();
     cqtKernels.clear();
     centerFrequencies.clear();
+    aWeights.clear();
 
     // Allocate hann window and FFT buffer
     window.resize(fftSize);
@@ -63,6 +64,9 @@ void AudioAnalyzer::prepareToPlay(int newSamplesPerBlock, double newSampleRate)
         setupCQT();
     else
         jassertfalse; // Unknown transform type
+
+    // Set up A-weighting factors
+    setupAWeights(centerFrequencies, aWeights);
 
     // Compute frequency-dependent ITD/ILD weights
     itdWeights.resize(numCQTbins);
@@ -173,6 +177,39 @@ void AudioAnalyzer::setThreshold(float newThreshold)
 }
 
 //=============================================================================
+/*  Generates A-weighting factors for the given frequencies in 'freqs' and
+    stores them in 'weights'. f1, f2, f3, f4 are the constants defined in the
+    A-weighting standard (IEC 61672:2003). The full formula is given in
+    https://en.wikipedia.org/wiki/A-weighting#A .
+*/
+void AudioAnalyzer::setupAWeights(const std::vector<float>& freqs,
+                                  std::vector<float>& weights)
+{
+    weights.resize(freqs.size());
+
+    const float f1 = 20.598997;  // Hz
+    const float f2 = 107.65265;  // Hz
+    const float f3 = 737.86223;  // Hz
+    const float f4 = 12194.217;  // Hz
+
+    for (int b = 0; b < freqs.size(); ++b)
+    {
+        float f = freqs[b];
+        float fSquared = f * f;
+        float numerator = pow(f4, 2) * pow(fSquared, 2);
+        float denominator = (fSquared + pow(f1, 2)) 
+                          * sqrt((fSquared + pow(f2, 2)) 
+                               * (fSquared + pow(f3, 2))) 
+                          * (fSquared + pow(f4, 2));
+
+        float aWeightDB = 20.0 * log10(numerator / denominator) + 2.0; 
+        float linearGain = pow(10.0, aWeightDB / 20.0); 
+
+        // DBG("A-weight at " << f << " Hz: " << linearGain);
+        weights[b] = linearGain;
+    }
+}
+
 void AudioAnalyzer::setupCQT()
 {
     // Concise name for pi variable
@@ -495,7 +532,9 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
         float magR = std::abs(magnitudes[1][b]);
         float mag = (magL + magR) * 0.5f; // Average magnitude
 
-        float linear = mag * fftScaleFactor; // Linear amplitude
+        DBG("freq = " << centerFrequencies[b]
+            << " Hz, aWeight = " << aWeights[b]);
+        float linear = mag * fftScaleFactor * aWeights[b]; // Linear amplitude
         if (transform == CQT)
             linear /= 28.f; // Additional scaling for CQT
 

@@ -186,9 +186,6 @@ void GLVisualizer::initialise()
 
     // Unbind VAO to avoid accidental state leakage
     ext.glBindVertexArray(0);
-
-    // Force repaint to make sure the mvp is correct - try this if stuff breaks
-    // resized();
 }
 
 void GLVisualizer::shutdown()
