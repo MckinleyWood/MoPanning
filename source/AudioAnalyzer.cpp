@@ -378,7 +378,7 @@ void AudioAnalyzer::computeCQT(const juce::AudioBuffer<float>& buffer,
     works for CQT transform type. 
 */
 void AudioAnalyzer::computeITDs(
-    std::vector<std::vector<std::vector<std::complex<float>>>> CQTspec,
+    std::vector<std::vector<std::vector<std::complex<float>>>> spec,
     int numBands,
     std::vector<float>& panIndices)
 {
@@ -389,60 +389,102 @@ void AudioAnalyzer::computeITDs(
     std::vector<std::complex<float>> crossSpectrum(fftSize);
     std::vector<std::complex<float>> crossCorr(fftSize);
 
-
     for (int bin = 0; bin < numBands; ++bin)
     {
-        const auto& leftBin = CQTspec[0][bin];
-        const auto& rightBin = CQTspec[1][bin];
+        const auto& leftBin = spec[0][bin];
+        const auto& rightBin = spec[1][bin];
 
         // --- GCC-PHAT ---
         for (int k = 0; k < fftSize; ++k)
         {
             auto R = leftBin[k] * std::conj(rightBin[k]);
             float mag = std::abs(R);
-            crossSpectrum[k] = (mag > 1e-8f) ? (R / mag) 
-                                             : std::complex<float>(0.0f, 0.0f);
+            crossSpectrum[k] = (mag > 1e-8f) ? (R / mag) : std::complex<float>(0.0f, 0.0f);
         }
 
         // Inverse FFT to get cross-correlation
         fft->perform(crossSpectrum.data(), crossCorr.data(), true);
+
+        // Maximum ITD in samples
+        int maxLagSamples = int(sampleRate * maxITD[bin]);
 
         // Find peak with interpolation
         int maxIndex = 0;
         float maxVal = -1.0f;
         for (int i = 0; i < fftSize; ++i)
         {
+            int lag = (i <= fftSize / 2) ? i : (i - fftSize);
+            if (std::abs(lag) > maxLagSamples) continue;
+
             float val = std::abs(crossCorr[i]);
             if (val > maxVal)
             {
                 maxVal = val;
-                maxIndex = i;
+                maxIndex = lag;
             }
         }
 
-        // parabolic interpolation around peak
-        int leftIndex  = (int)((maxIndex + fftSize - 1) % fftSize);
-        int rightIndex = (int)((maxIndex + 1) % fftSize);
+        // --- Coherence check ---
+        // Normalize correlation peak by total energy
+        float leftEnergy = 0.0f, rightEnergy = 0.0f;
+        for (int k = 0; k < fftSize; ++k)
+        {
+            leftEnergy  += std::norm(leftBin[k]);
+            rightEnergy += std::norm(rightBin[k]);
+        }
+        float denom = std::sqrt(leftEnergy * rightEnergy) + 1e-12f;
+        float coherence = maxVal / denom;
 
-        float y0 = std::abs(crossCorr[leftIndex]);
-        float y1 = std::abs(crossCorr[maxIndex]);
-        float y2 = std::abs(crossCorr[rightIndex]);
+        bool valid = (coherence > 1e-4f); // tune threshold
 
-        float denom = (y0 - 2.0f*y1 + y2);
-        float peakOffset = (std::fabs(denom) > 1e-8f)
-            ? 0.5f * (y0 - y2) / denom
-            : 0.0f;
+        if (valid)
+        {
+            // Parabolic interpolation around peak
+            int leftIndex  = (int)((maxIndex + fftSize - 1) % fftSize);
+            int rightIndex = (int)((maxIndex + 1) % fftSize);
 
-        float peakIndexInterp = ((float)maxIndex + peakOffset);
+            float y0 = std::abs(crossCorr[leftIndex]);
+            float y1 = std::abs(crossCorr[maxIndex]);
+            float y2 = std::abs(crossCorr[rightIndex]);
 
-        // convert index to time delay (centered around 0)
-        if (peakIndexInterp > (float)fftSize / 2.0f)
-            peakIndexInterp -= (float)fftSize;
+            float denom = (y0 - 2.0f*y1 + y2);
+            float peakOffset = (std::fabs(denom) > 1e-8f)
+                ? 0.5f * (y0 - y2) / denom
+                : 0.0f;
 
-        itdPerBin[bin] = peakIndexInterp / sampleRate;
+            float peakIndexInterp = ((float)maxIndex + peakOffset);
 
-        panIndices[bin] = juce::jlimit(-1.0f, 1.0f, 
-                                       itdPerBin[bin] / maxITD[bin]);
+            itdPerBin[bin] = peakIndexInterp / sampleRate;
+
+            panIndices[bin] = juce::jlimit(-1.0f, 1.0f, itdPerBin[bin] / maxITD[bin]);
+        }
+        else
+        {
+            if (panMethod == time_pan) // For time_pan method, set to NaN if invalid
+                panIndices[bin] = std::numeric_limits<float>::quiet_NaN();
+            
+            else // For 'both' method, just set to zero
+                panIndices[bin] = 0.0f;
+        }
+
+        // // Reject if lag is outside the physically plausible range
+        // bool lagValid = (std::fabs(itdPerBin[bin]) <= maxITD[bin]);
+
+        // // Reject if the peak coherence/energy is too low
+        // bool energyValid = (maxVal >= 1e-6f);
+
+        // if (lagValid && energyValid)
+        // {
+        //     panIndices[bin] = juce::jlimit(-1.0f, 1.0f, itdPerBin[bin] / maxITD[bin]);
+        // }
+        // else
+        // {
+        //     if (panMethod == time_pan) // For time_pan method, set to NaN if invalid
+        //         panIndices[bin] = std::numeric_limits<float>::quiet_NaN();
+
+        //     else // For 'both' method, just set to zero
+        //         panIndices[bin] = 0.0f;
+        // }
     }
 }
 
@@ -514,6 +556,12 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
         {
             panIndices[b] = (ildWeights[b] * ilds[b] 
                            + itdWeights[b] * itds[b]);
+
+            const float extremeThreshold = 0.85f;
+            if (std::abs(itds[b]) > extremeThreshold)
+                panIndices[b] = itds[b];
+            else if (std::abs(ilds[b]) > extremeThreshold)
+                panIndices[b] = ilds[b];
         }
     }
     else

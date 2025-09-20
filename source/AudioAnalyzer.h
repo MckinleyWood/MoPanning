@@ -75,7 +75,7 @@ private:
     void computeCQT(const juce::AudioBuffer<float>& buffer,
                     std::array<fft_buffer_t, 2> ffts,
                     std::array<std::vector<float>, 2>& cqtMags);
-    void computeITDs(std::vector<std::vector<std::vector<std::complex<float>>>> CQTspec,
+    void computeITDs(std::vector<std::vector<std::vector<std::complex<float>>>> spec,
                     int numBands,
                     std::vector<float>& panIndices);
     void analyzeBlock(const juce::AudioBuffer<float>& buffer);
