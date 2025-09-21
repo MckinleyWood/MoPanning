@@ -113,6 +113,21 @@ MainController::MainController()
                     analyzer->setThreshold(value);
             }
         },
+        // a-weighting
+        {
+            "aWeighting", "A-Weighting",
+            "Apply A-weighting to frequency bands.",
+            ParameterDescriptor::Type::Choice, 0, {},
+            {"Off", "On"}, "",
+            [this](float value) 
+            {
+                if (analyzer)
+                {
+                    bool AWeighting = (static_cast<int>(value) == 1);
+                    analyzer->setAWeighting(AWeighting);
+                }
+            }
+        },
         // dimension
         {
             "dimension", "Dimension", "Visualization dimension.",

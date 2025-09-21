@@ -66,7 +66,12 @@ void AudioAnalyzer::prepareToPlay(int newSamplesPerBlock, double newSampleRate)
         jassertfalse; // Unknown transform type
 
     // Set up A-weighting factors
-    setupAWeights(centerFrequencies, aWeights);
+    if (AWeighting == true)
+        setupAWeights(centerFrequencies, aWeights);
+    else
+    {
+        aWeights.resize(centerFrequencies.size(), 1.0f);
+    }
 
     // Compute frequency-dependent ITD/ILD weights
     itdWeights.resize(numCQTbins);
@@ -175,6 +180,12 @@ void AudioAnalyzer::setMaxAmplitude(float newMaxAmplitude)
 void AudioAnalyzer::setThreshold(float newThreshold)
 {
     threshold = newThreshold;
+}
+
+void AudioAnalyzer::setAWeighting(float newAWeighting)
+{
+    AWeighting = newAWeighting;
+    isPrepared.store(false);
 }
 
 //=============================================================================
@@ -380,6 +391,7 @@ void AudioAnalyzer::computeCQT(const juce::AudioBuffer<float>& buffer,
 */
 void AudioAnalyzer::computeITDs(
     std::vector<std::vector<std::vector<std::complex<float>>>> spec,
+    const std::array<std::vector<float>, 2>& cqtMags,
     int numBands,
     std::vector<float>& panIndices)
 {
@@ -394,9 +406,11 @@ void AudioAnalyzer::computeITDs(
     {
         const auto& leftBin = spec[0][bin];
         const auto& rightBin = spec[1][bin];
+        float freq = centerFrequencies[bin];
 
         // --- GCC-PHAT ---
-        float alpha = 1.0f;
+        float alpha = alphaForFreq(freq);
+
         for (int k = 0; k < fftSize; ++k)
         {
             auto R = (leftBin[k] * std::conj(rightBin[k]));
@@ -422,6 +436,7 @@ void AudioAnalyzer::computeITDs(
         // Find peak with interpolation
         int maxIndex = 0;
         float maxVal = -1.0f;
+        int bestLag = 0;
         for (int i = 0; i < fftSize; ++i)
         {
             int lag = (i <= fftSize / 2) ? i : (i - fftSize);
@@ -431,7 +446,8 @@ void AudioAnalyzer::computeITDs(
             if (val > maxVal)
             {
                 maxVal = val;
-                maxIndex = lag;
+                maxIndex = i;
+                bestLag = lag;
             }
         }
 
@@ -446,7 +462,10 @@ void AudioAnalyzer::computeITDs(
         float denom = std::sqrt(leftEnergy * rightEnergy) + 1e-12f;
         float coherence = maxVal / denom;
 
-        bool valid = (coherence > 1e-6f); // tune threshold
+        // float coherenceThreshold = coherenceThresholdForFreq(freq);
+        // bool valid = (coherence > coherenceThreshold);
+        bool valid = (coherence > 0);
+
 
         if (valid)
         {
@@ -463,9 +482,14 @@ void AudioAnalyzer::computeITDs(
                 ? 0.5f * (y0 - y2) / denom
                 : 0.0f;
 
-            float peakIndexInterp = ((float)maxIndex + peakOffset);
+            float peakIndexInterp = ((float)bestLag + peakOffset);
 
+            // Frequency- and block-size-dependent ITD expansion for bass
+            // float expansion = itdExpansionForFreq(freq, cqtMags, fftSize); // returns >=1.0 for low freqs
+
+            // itdPerBin[bin] = peakIndexInterp * expansion / sampleRate;
             itdPerBin[bin] = peakIndexInterp / sampleRate;
+            // itdPerBin[bin] = (float)bestLag / sampleRate;
 
             panIndices[bin] = juce::jlimit(-1.0f, 1.0f, itdPerBin[bin] / maxITD[bin]);
         }
@@ -536,12 +560,12 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
     else if (panMethod == time_pan)
     {
         // Use ITD pan indices
-        computeITDs(fullCQTspec, numBands, panIndices);
+        computeITDs(fullCQTspec, magnitudes, numBands, panIndices);
     }
     else if (panMethod == both)
     {
         computeILDs(magnitudes, numBands, ilds);
-        computeITDs(fullCQTspec, numBands, itds);
+        computeITDs(fullCQTspec, magnitudes, numBands, itds);
         panIndices.resize(numBands);
 
         for (int b = 0; b < numBands; b++)
