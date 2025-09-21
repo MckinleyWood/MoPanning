@@ -157,10 +157,11 @@ void AudioAnalyzer::setNumCQTBins(int newNumCQTBins)
 
 void AudioAnalyzer::setMinFrequency(float newMinFrequency)
 {
-    if (newMinFrequency - minCQTfreq < 1e-6) return; // No change
+    if (std::fabs(newMinFrequency - minCQTfreq) < 1e-6) return; // No change
     if (worker) stopWorker(); // Stop worker while we change the parameter
 
     minCQTfreq = newMinFrequency;
+    DBG("New min CQT frequency: " << minCQTfreq << " Hz");
     isPrepared.store(false);
 }
 
@@ -190,7 +191,7 @@ void AudioAnalyzer::setupAWeights(const std::vector<float>& freqs,
     const float f1 = 20.598997;  // Hz
     const float f2 = 107.65265;  // Hz
     const float f3 = 737.86223;  // Hz
-    const float f4 = 12194.217;  // Hz
+    const float f4 = 12194.217;  // Hz 
 
     for (int b = 0; b < freqs.size(); ++b)
     {
@@ -395,11 +396,21 @@ void AudioAnalyzer::computeITDs(
         const auto& rightBin = spec[1][bin];
 
         // --- GCC-PHAT ---
+        float alpha = 1.0f;
         for (int k = 0; k < fftSize; ++k)
         {
-            auto R = leftBin[k] * std::conj(rightBin[k]);
+            auto R = (leftBin[k] * std::conj(rightBin[k]));
             float mag = std::abs(R);
-            crossSpectrum[k] = (mag > 1e-8f) ? (R / mag) : std::complex<float>(0.0f, 0.0f);
+
+            if (mag > 1e-8f)
+            {
+                // Hybrid weighting: denominator is |R|^alpha
+                crossSpectrum[k] = R / std::pow(mag, alpha);
+            }
+            else
+            {
+                crossSpectrum[k] = std::complex<float>(0.0f, 0.0f);
+            }
         }
 
         // Inverse FFT to get cross-correlation
@@ -435,7 +446,7 @@ void AudioAnalyzer::computeITDs(
         float denom = std::sqrt(leftEnergy * rightEnergy) + 1e-12f;
         float coherence = maxVal / denom;
 
-        bool valid = (coherence > 1e-4f); // tune threshold
+        bool valid = (coherence > 1e-6f); // tune threshold
 
         if (valid)
         {
@@ -466,25 +477,6 @@ void AudioAnalyzer::computeITDs(
             else // For 'both' method, just set to zero
                 panIndices[bin] = 0.0f;
         }
-
-        // // Reject if lag is outside the physically plausible range
-        // bool lagValid = (std::fabs(itdPerBin[bin]) <= maxITD[bin]);
-
-        // // Reject if the peak coherence/energy is too low
-        // bool energyValid = (maxVal >= 1e-6f);
-
-        // if (lagValid && energyValid)
-        // {
-        //     panIndices[bin] = juce::jlimit(-1.0f, 1.0f, itdPerBin[bin] / maxITD[bin]);
-        // }
-        // else
-        // {
-        //     if (panMethod == time_pan) // For time_pan method, set to NaN if invalid
-        //         panIndices[bin] = std::numeric_limits<float>::quiet_NaN();
-
-        //     else // For 'both' method, just set to zero
-        //         panIndices[bin] = 0.0f;
-        // }
     }
 }
 
@@ -580,8 +572,8 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
         float magR = std::abs(magnitudes[1][b]);
         float mag = (magL + magR) * 0.5f; // Average magnitude
 
-        DBG("freq = " << centerFrequencies[b]
-            << " Hz, aWeight = " << aWeights[b]);
+        // DBG("freq = " << centerFrequencies[b]
+        //     << " Hz, aWeight = " << aWeights[b]);
         float linear = mag * fftScaleFactor * aWeights[b]; // Linear amplitude
         if (transform == CQT)
             linear /= 28.f; // Additional scaling for CQT
