@@ -24,6 +24,7 @@ typedef std::array<std::vector<float>, 2> magnitude_spectrums_t;
 
 enum Transform { FFT, CQT };
 enum PanMethod { level_pan, time_pan, both };
+enum FrequencyWeighting { none, A_weighting };
 
 class AudioAnalyzer
 {
@@ -49,7 +50,7 @@ public:
     void setMinFrequency(float newMinFrequency);
     void setMaxAmplitude(float newMaxAmplitude);
     void setThreshold(float newThreshold);
-    void setAWeighting(float newAWeighting);
+    void setFreqWeighting(FrequencyWeighting newFreqWeighting);
 
     bool getPrepared() const { return isPrepared.load(); }
     void setPrepared(bool prepared) { isPrepared.store(prepared); }
@@ -88,8 +89,9 @@ private:
     int samplesPerBlock;
     double sampleRate;
 
-    enum Transform transform;
-    enum PanMethod panMethod;
+    enum Transform transform = CQT;
+    enum PanMethod panMethod = level_pan;
+    enum FrequencyWeighting freqWeighting = A_weighting;
     
     int fftOrder; // FFT order = log2(fftSize) - not used at the moment
     int numCQTbins;
@@ -108,8 +110,7 @@ private:
     float fftScaleFactor; // Scale factor to normalize FFT output
     float cqtScaleFactor; // Scale factor to normalize CQT output
     std::vector<float> centerFrequencies; // Center freqs of CQT or FFT bins
-    std::vector<float> aWeights; // A-weighting factors for each freq bin
-    bool AWeighting; // Whether to apply A-weighting
+    std::vector<float> frequencyWeights; // Weighting factors for each freq bin
 
     // Each filter is a complex-valued kernel vector (frequency domain)
     std::vector<std::vector<std::complex<float>>> cqtKernels;
@@ -124,6 +125,7 @@ private:
     float p  = 2.5f;    // slope
     std::vector<float> itdWeights;
     std::vector<float> ildWeights;
+
     float alphaForFreq(float f)
     {
         // log-scale (Hz)
