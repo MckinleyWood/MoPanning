@@ -29,7 +29,8 @@ MainController::MainController()
             {"FFT", "CQT"}, "",
             [this](float value) 
             {
-                analyzer->setTransform(static_cast<Transform>(value));
+                if (analyzer)
+                    analyzer->setTransform(static_cast<Transform>(value));
             }
         },
         // panMethod
@@ -113,19 +114,18 @@ MainController::MainController()
                     analyzer->setThreshold(value);
             }
         },
-        // a-weighting
+        // freqWeighting
         {
-            "aWeighting", "A-Weighting",
-            "Apply A-weighting to frequency bands.",
-            ParameterDescriptor::Type::Choice, 0, {},
-            {"Off", "On"}, "",
+            "freqWeighting", "Frequency Weighting",
+            "Choose a frequency weighting curve to apply to the input signal.",
+            ParameterDescriptor::Type::Choice, 1, {},
+            {"None", "A-Weighting"}, "",
             [this](float value) 
             {
+
                 if (analyzer)
-                {
-                    bool AWeighting = (static_cast<int>(value) == 1);
-                    analyzer->setAWeighting(AWeighting);
-                }
+                    analyzer->setFreqWeighting(static_cast<FrequencyWeighting> 
+                                                    (value));
             }
         },
         // dimension

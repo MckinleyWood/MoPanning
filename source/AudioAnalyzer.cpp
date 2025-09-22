@@ -35,7 +35,7 @@ void AudioAnalyzer::prepareToPlay(int newSamplesPerBlock, double newSampleRate)
     fftBuffer.clear();
     cqtKernels.clear();
     centerFrequencies.clear();
-    aWeights.clear();
+    frequencyWeights.clear();
 
     // Allocate hann window and FFT buffer
     window.resize(fftSize);
@@ -65,13 +65,11 @@ void AudioAnalyzer::prepareToPlay(int newSamplesPerBlock, double newSampleRate)
     else
         jassertfalse; // Unknown transform type
 
-    // Set up A-weighting factors
-    if (AWeighting == true)
-        setupAWeights(centerFrequencies, aWeights);
+    // Set up frequency-weighting factors
+    if (freqWeighting == A_weighting)
+        setupAWeights(centerFrequencies, frequencyWeights);
     else
-    {
-        aWeights.resize(centerFrequencies.size(), 1.0f);
-    }
+        frequencyWeights.resize(centerFrequencies.size(), 1.0f);
 
     // Compute frequency-dependent ITD/ILD weights
     itdWeights.resize(numCQTbins);
@@ -182,9 +180,12 @@ void AudioAnalyzer::setThreshold(float newThreshold)
     threshold = newThreshold;
 }
 
-void AudioAnalyzer::setAWeighting(float newAWeighting)
+void AudioAnalyzer::setFreqWeighting(FrequencyWeighting newFreqWeighting)
 {
-    AWeighting = newAWeighting;
+    if (newFreqWeighting == freqWeighting) return; // No change
+    if (worker) stopWorker(); // Stop worker while we change the parameter
+
+    freqWeighting = newFreqWeighting;
     isPrepared.store(false);
 }
 
@@ -192,7 +193,7 @@ void AudioAnalyzer::setAWeighting(float newAWeighting)
 /*  Generates A-weighting factors for the given frequencies in 'freqs' and
     stores them in 'weights'. f1, f2, f3, f4 are the constants defined in the
     A-weighting standard (IEC 61672:2003). The full formula is given in
-    https://en.wikipedia.org/wiki/A-weighting#A .
+    https://en.wikipedia.org/wiki/A-weighting#A.
 */
 void AudioAnalyzer::setupAWeights(const std::vector<float>& freqs,
                                   std::vector<float>& weights)
@@ -597,8 +598,12 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
         float mag = (magL + magR) * 0.5f; // Average magnitude
 
         // DBG("freq = " << centerFrequencies[b]
-        //     << " Hz, aWeight = " << aWeights[b]);
-        float linear = mag * fftScaleFactor * aWeights[b]; // Linear amplitude
+        //     << " Hz, aWeight = " << frequencyWeights[b]);
+        float linear = mag * fftScaleFactor; // Linear amplitude
+
+        if (freqWeighting != none)
+            linear *= frequencyWeights[b]; // Apply frequency weighting
+        
         if (transform == CQT)
             linear /= 28.f; // Additional scaling for CQT
 
