@@ -485,11 +485,11 @@ void AudioAnalyzer::computeITDs(
             float peakIndexInterp = ((float)bestLag + peakOffset);
 
             // Frequency- and block-size-dependent ITD expansion for bass
-            // float expansion = itdExpansionForFreq(freq, cqtMags, fftSize); // returns >=1.0 for low freqs
+            float expansion = itdExpansionForFreq(freq, cqtMags, fftSize); // returns >=1.0 for low freqs
 
-            // itdPerBin[bin] = peakIndexInterp * expansion / sampleRate;
-            itdPerBin[bin] = peakIndexInterp / sampleRate;
-            // itdPerBin[bin] = (float)bestLag / sampleRate;
+            itdPerBin[bin] = peakIndexInterp * expansion / sampleRate;
+            // itdPerBin[bin] = peakIndexInterp / sampleRate;
+            // itdPerBin[bin] = (float)bestLag * expansion / sampleRate;
 
             panIndices[bin] = juce::jlimit(-1.0f, 1.0f, itdPerBin[bin] / maxITD[bin]);
         }

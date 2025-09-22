@@ -153,53 +153,74 @@ private:
     //     return lowThresh * std::pow((highThresh / lowThresh), t); // geometric interpolation
     // }
 
-    // /* Compute expansion factor for a given frequency bin, taking 
-    // into account low-frequency dominance and FFT size */
-    // float itdExpansionForFreq(float freq, 
-    //                           const std::array<std::vector<float>, 2>& cqtMags, 
-    //                           int bin)
-    // {
-    //     // Parameters
-    //     const float maxExpansion = 1.5f;      // Max ITD boost for low-frequency dominant signals
-    //     const float lowFreqCutoff = 200.0f;   // Hz considered "low"
-    //     const float referenceFFT = 1024.0f;   // FFT size that looks "perfect"
-    //     const float minFFTBoost = 1.0f;       // No boost at referenceFFT
-    //     const float eps = 1e-12f;
+    /* Compute expansion factor for a given frequency bin, taking 
+    into account low-frequency dominance and FFT size */
+    float itdExpansionForFreq(float freq, 
+                              const std::array<std::vector<float>, 2>& cqtMags, 
+                              int bin)
+    {
+        // Parameters
+        const float maxExpansion = 1.65f;      // Max ITD boost for low-frequency dominant signals
+        const float lowFreqCutoff = 200.0f;   // Hz considered "low"
+        const float referenceFFT = 1024.0f;   // FFT size that looks "perfect"
+        const float minFFTBoost = 1.0f;       // No boost at referenceFFT
+        const float eps = 1e-12f;
 
-    //     // Compute low-frequency energy ratio
-    //     float leftLF = 0.0f, rightLF = 0.0f;
-    //     float totalLeft = 0.0f, totalRight = 0.0f;
+        if (fftSize < referenceFFT)
+        {
+            // Compute low-frequency energy ratio
+            float leftLF = 0.0f, rightLF = 0.0f;
+            float totalLeft = 0.0f, totalRight = 0.0f;
 
-    //     for (int b = 0; b < numCQTbins; ++b)
-    //     {
-    //         float f = centerFrequencies[b];
-    //         float magL = cqtMags[0][b];
-    //         float magR = cqtMags[1][b];
+            for (int b = 0; b < numCQTbins; ++b)
+            {
+                float f = centerFrequencies[b];
+                float magL = cqtMags[0][b];
+                float magR = cqtMags[1][b];
 
-    //         totalLeft  += magL;
-    //         totalRight += magR;
+                totalLeft  += magL;
+                totalRight += magR;
 
-    //         if (f <= lowFreqCutoff)
-    //         {
-    //             leftLF  += magL;
-    //             rightLF += magR;
-    //         }
-    //     }
+                if (f <= lowFreqCutoff)
+                {
+                    leftLF  += magL;
+                    rightLF += magR;
+                }
+            }
 
-    //     float lfRatio = ((leftLF + rightLF) / (totalLeft + totalRight + eps));
+            float lfRatio = ((leftLF + rightLF) / (totalLeft + totalRight + eps));
 
-    //     // Base low-frequency expansion
-    //     float baseFactor = 1.0f;
-    //     float lfExpansion = (freq <= lowFreqCutoff) 
-    //                         ? baseFactor + (maxExpansion - baseFactor) * lfRatio
-    //                         : 1.0f;
+            // Base low-frequency expansion
+            float baseFactor = 1.0f;
+            float lfExpansion = 1.0f;
+            if (lfRatio > 0.85f)
+            {
+                lfExpansion = baseFactor + (maxExpansion - baseFactor) * lfRatio;
 
-    //     // FFT-size-dependent boost: smaller FFT → slightly larger expansion
-    //     float fftBoost = 1.0f + (referenceFFT - fftSize) / referenceFFT * 0.2f; 
-    //     fftBoost = juce::jlimit(1.0f, 1.2f, fftBoost); // clamp boost to reasonable range
+                // FFT-size-dependent boost: smaller FFT → slightly larger expansion
+                // Normalize in [0,1]: 0 at ref FFT, 1 at tiny FFT
+                float norm = (referenceFFT - (float)fftSize) / referenceFFT; 
 
-    //     return lfExpansion * fftBoost;
-    // }
+                // Apply a nonlinear curve: power < 1 gives more steepness
+                float steepness = 4.0f;
+                float curved = std::pow(norm, steepness);
+
+                // Map to a boost range
+                float maxBoost = 5.0f; // how much to boost at tiny FFT
+                float fftBoost = 1.0f + curved * (maxBoost - 1.0f);
+
+                return lfExpansion * fftBoost;
+            }
+            else
+            {
+                return 1.0f; // No expansion needed for mid-high-freq dominant signals
+            }
+        }
+        else
+        {
+            return 1.0f; // No expansion needed for large FFTs
+        }
+    }
 
     std::vector<frequency_band> results; // Must be sorted by frequency!!!
     mutable std::mutex resultsMutex;
