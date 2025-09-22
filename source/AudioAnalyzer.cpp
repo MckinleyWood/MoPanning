@@ -164,7 +164,6 @@ void AudioAnalyzer::setMinFrequency(float newMinFrequency)
     if (worker) stopWorker(); // Stop worker while we change the parameter
 
     minCQTfreq = newMinFrequency;
-    DBG("New min CQT frequency: " << minCQTfreq << " Hz");
     isPrepared.store(false);
 }
 

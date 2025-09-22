@@ -12,6 +12,7 @@ GLVisualizer::GLVisualizer(MainController& c) : controller(c)
     openGLContext.setContinuousRepainting(true);
 
     startTime = juce::Time::getMillisecondCounterHiRes() * 0.001;
+    lastFrameTime = startTime;
 }
 
 GLVisualizer::~GLVisualizer()
@@ -92,8 +93,6 @@ void GLVisualizer::initialise()
         uniform mat4 uProjection;
         uniform mat4 uView;
         uniform sampler1D uColourMap;
-        uniform float uCurrentTime;
-        uniform float uSpeed;
         uniform float uFadeEndZ;
         uniform float uDotSize;
         uniform float uAmpScale;
@@ -102,19 +101,11 @@ void GLVisualizer::initialise()
         
         void main()
         {
-            // Log-scale the amplitude - could try this out
-            // float denom = log(1.0 + uAmpScale)
-            // float amp = log(1.0 + uAmpScale * instanceData.w) / denom;
-
             // Root-scale the amplitude
-            float amp = pow(instanceData.w, 1.0 / uAmpScale); 
-
-            // Compute age-based z
-            float age = uCurrentTime - instanceData.z;
-            float z = -age * uSpeed;
+            float amp = pow(instanceData.w, 1.0 / uAmpScale);
 
             // Depth factor for fading effect
-            float depth = -z / uFadeEndZ;
+            float depth = -instanceData.z / uFadeEndZ;
             float alpha = amp * (1.0 - depth);
             
             // Look up color from the texture
@@ -124,13 +115,13 @@ void GLVisualizer::initialise()
             vColour = vec4(rgb, alpha);
 
             // Build world position
-            vec4 worldPos = vec4(instanceData.xy, z, 1.0);
+            vec4 worldPos = vec4(instanceData.xyz, 1.0);
 
             // Compute clip-space coordinate
             gl_Position = uProjection * uView * worldPos;
 
             // Size in pixels
-            gl_PointSize = ( 50.0 + 50.0 * amp) * uDotSize ;
+            gl_PointSize = (50.0 + 50.0 * amp) * uDotSize ;
         }
     )";
 
@@ -183,7 +174,6 @@ void GLVisualizer::initialise()
                               sizeof(InstanceData), nullptr);
     glVertexAttribDivisor(0, 1); // This attribute advances once per instance
     
-
     // Unbind VAO to avoid accidental state leakage
     ext.glBindVertexArray(0);
 }
@@ -242,30 +232,31 @@ void GLVisualizer::render()
     float t = (float)(juce::Time::getMillisecondCounterHiRes() * 0.001 
                     - startTime);
 
+    float dt = t - lastFrameTime;
+    float dz = dt * recedeSpeed;
+    lastFrameTime = t;
+
     auto results = controller.getLatestResults();
     // DBG("New results received. Size = " << results.size());
 
+    // Delete old particles
+    while (!particles.empty())
+    {
+        const float age = t - particles.front().spawnTime;
+        if (age * recedeSpeed < fadeEndZ)
+            break; // If the oldest one is still alive, then we are done
+        particles.pop_front(); // Otherwise, discard it and test the next
+    }
+
+    // Update z positions of existing particles
+    for (auto& p : particles)
+        p.z -= dz;
+
+    // Add new particles from the latest analysis results
     if (!results.empty())
     {
         float maxFreq = sampleRate * 0.5f;
-        float minBandFreq = 0;
-
-        // Use the lowest frequency band above minFrequency
-        // for (frequency_band band : results)
-        // {
-        //     if (band.frequency > minFrequency)
-        //     {
-        //         minBandFreq = band.frequency;
-        //         break; // Assuming frequencies in sorted order
-        //     }
-        // }
-
-        // Use the user-specified minimum frequency
-        minBandFreq = minFrequency;
-
-        // DBG("Using minBandFreq = " << minBandFreq << " Hz");
-
-        float logMin = std::log(minBandFreq);
+        float logMin = std::log(minFrequency);
         float logMax = std::log(maxFreq);
 
         float aspect = getWidth() * 1.0f / getHeight();
@@ -276,15 +267,16 @@ void GLVisualizer::render()
 
         for (frequency_band band : results)
         {
-            if (band.frequency < minBandFreq || band.frequency > maxFreq) 
+            if (band.frequency < minFrequency || band.frequency > maxFreq) 
                 continue;
             
             float x = band.pan_index * aspect;
             float y = (std::log(band.frequency) - logMin) / (logMax - logMin);
             y = juce::jmap(y, -1.0f, 1.0f);
+            float z = 0.f;
             float a = band.amplitude;
 
-            Particle newParticle = { x, y, t, a};
+            Particle newParticle = { x, y, z, a, t };
             particles.push_back(newParticle);
 
             // if (a < minAmp)
@@ -301,20 +293,11 @@ void GLVisualizer::render()
         // DBG("Amplitude range: [" << minAmp << ", " << maxAmp << "]");
     }
 
-    // Delete old particles
-    while (!particles.empty())
-    {
-        const float age = t - particles.front().spawnTime;
-        if (age * recedeSpeed < fadeEndZ)
-            break; // If the oldest one is still alive, then we are done
-        particles.pop_front(); // Otherwise, discard it and test the next
-    }
-
     // Build instance data array
     std::vector<InstanceData> instances;
     instances.reserve(particles.size());
     for (auto& p : particles)
-        instances.push_back({ p.spawnX, p.spawnY, p.spawnTime, p.spawnAlpha });
+        instances.push_back({ p.spawnX, p.spawnY, p.z, p.spawnAlpha });
 
     // Upload instance data to GPU
     ext.glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
@@ -327,8 +310,6 @@ void GLVisualizer::render()
     shader->setUniformMat4("uProjection", projection.mat, 1, GL_FALSE);
     shader->setUniformMat4("uView", view.mat, 1, GL_FALSE);
     shader->setUniform("uColourMap", 0);
-    shader->setUniform("uCurrentTime", t);
-    shader->setUniform("uSpeed", recedeSpeed);
     shader->setUniform("uFadeEndZ", fadeEndZ);
     shader->setUniform("uDotSize", dotSize);
     shader->setUniform("uAmpScale", ampScale);

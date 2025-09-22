@@ -64,8 +64,9 @@ private:
     {
         float spawnX;
         float spawnY;
-        float spawnTime = 0.0f; // Time since app start when particle spawned
+        float z; // Current z position
         float spawnAlpha;
+        float spawnTime = 0.0f; // Time since app start when particle spawned
     };
     std::deque<Particle> particles; // Queue of particles
     
@@ -73,7 +74,7 @@ private:
     VertexBufferObject vbo; // Vertex buffer object
     GLuint vao = 0; // Vertex-array object
     GLuint instanceVBO = 0; // buffer ID for per-instance data
-    struct InstanceData { float x, y, spawnTime, spawnAlpha; };
+    struct InstanceData { float x, y, z, spawnAlpha; };
 
     juce::Vector3D<float> cameraPosition { 0.0f, 0.0f, -2.0f };
 
@@ -83,14 +84,18 @@ private:
     MainController& controller;
 
     GLuint colourMapTex = 0;
+    bool newTextureRequsted = false; // Flag to rebuild texture
 
-    double startTime; // App-launch time in seconds
     double sampleRate;
+    double startTime; // App-launch time in seconds
+    float lastFrameTime; // Time of last frame in seconds
+    
+
+    //=========================================================================
+    /* Parameters */
 
     Dimension dimension;
     ColourScheme colourScheme;
-
-    bool newTextureRequsted = false; // Flag to rebuild texture
 
     float minFrequency; // Minimum frequency to display (Hz)
     float recedeSpeed; // Speed that objects recede
