@@ -47,7 +47,7 @@ public:
                                                         *commandManager);
 
         mainWindow = std::make_unique<MainWindow>(getApplicationName(),
-            std::move(mainComponent));
+            std::move(mainComponent), *commandManager);
 
         controller->startAudio();
     }
@@ -93,7 +93,8 @@ public:
     {
     public:
         explicit MainWindow(juce::String name,          
-                            std::unique_ptr<MainComponent> mc)
+                            std::unique_ptr<MainComponent> mc,
+                            juce::ApplicationCommandManager& cm)
             : DocumentWindow(
                 name, 
                 juce::Desktop::getInstance().getDefaultLookAndFeel()
@@ -110,8 +111,7 @@ public:
            #if JUCE_MAC
             juce::PopupMenu appleExtras;
             
-            appleExtras.addCommandItem(&*commandManager,
-                                       MainComponent::cmdToggleSettings);
+            appleExtras.addCommandItem(&cm, MainComponent::cmdToggleSettings);
 
             juce::MenuBarModel::setMacMainMenu(mcPtr, &appleExtras);
            #else
