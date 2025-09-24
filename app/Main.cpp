@@ -48,22 +48,6 @@ public:
 
         mainWindow = std::make_unique<MainWindow>(getApplicationName(),
             std::move(mainComponent));
-        
-       #if JUCE_MAC
-        juce::PopupMenu appleExtras;
-        
-        // This is where we add command items to the the apple menu.
-        appleExtras.addCommandItem(&*commandManager,
-                                   MainComponent::cmdToggleSettings);
-
-        juce::MenuBarModel::setMacMainMenu(mainComponent.get(), &appleExtras);
-       #else
-        auto bar = std::make_unique<juce::MenuBarComponent>(
-            mainComponent.get());
-        mainWindow->setMenuBarComponent(bar.release());
-       #endif
-
-        
 
         controller->startAudio();
     }
@@ -109,7 +93,7 @@ public:
     {
     public:
         explicit MainWindow(juce::String name,          
-                            std::unique_ptr<MainComponent>  mc)
+                            std::unique_ptr<MainComponent> mc)
             : DocumentWindow(
                 name, 
                 juce::Desktop::getInstance().getDefaultLookAndFeel()
@@ -118,16 +102,25 @@ public:
         {
             setUsingNativeTitleBar(true);
 
-            // Main window owns the main component
+            MainComponent* mcPtr = mc.get();
+
             setContentOwned(mc.release(), true);
 
-           #if JUCE_IOS || JUCE_ANDROID
-            setFullScreen(true);
+            // Set up the menu bar
+           #if JUCE_MAC
+            juce::PopupMenu appleExtras;
+            
+            appleExtras.addCommandItem(&*commandManager,
+                                       MainComponent::cmdToggleSettings);
+
+            juce::MenuBarModel::setMacMainMenu(mcPtr, &appleExtras);
            #else
-            setResizable(true, true);
-            centreWithSize(getWidth(), getHeight());
+            auto bar = std::make_unique<juce::MenuBarComponent>(mcPtr);
+            setMenuBarComponent(bar.release());
            #endif
 
+            setResizable(true, true);
+            centreWithSize(getWidth(), getHeight());
             setVisible(true);
         }
 
