@@ -6,6 +6,7 @@
 */
 
 #include <JuceHeader.h>
+#include "MainController.h"
 #include "MainComponent.h"
 
 //=============================================================================
@@ -13,7 +14,7 @@ class GuiAppApplication final : public juce::JUCEApplication
 {
 public:
     //=========================================================================
-    GuiAppApplication() {}
+    GuiAppApplication() = default;
 
     const juce::String getApplicationName() override 
     { 
@@ -44,6 +45,9 @@ public:
         controller = std::make_unique<MainController>();
         mainComponent = std::make_unique<MainComponent>(*controller, 
                                                         *commandManager);
+
+        mainWindow = std::make_unique<MainWindow>(getApplicationName(),
+            std::move(mainComponent));
         
        #if JUCE_MAC
         juce::PopupMenu appleExtras;
@@ -59,8 +63,7 @@ public:
         mainWindow->setMenuBarComponent(bar.release());
        #endif
 
-        mainWindow = std::make_unique<MainWindow>(getApplicationName(),
-                                                  std::move(mainComponent));
+        
 
         controller->startAudio();
     }
