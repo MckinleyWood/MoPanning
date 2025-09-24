@@ -63,8 +63,10 @@ target_link_libraries(MoPanning
 
 target_compile_options(MoPanning
   PUBLIC
+  # Flags for GCC / Clang:
+  $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:
     -Wall
-    -Wshadow-all
+    -Wshadow
     # -Wshorten-64-to-32
     -Wstrict-aliasing
     -Wuninitialized
@@ -93,9 +95,13 @@ target_compile_options(MoPanning
     -Woverloaded-virtual
     -Wreorder
     -Winconsistent-missing-destructor-override
+  >
 
-    # language‐specific guards:
-    $<$<OR:$<COMPILE_LANGUAGE:CXX>,$<COMPILE_LANGUAGE:OBJCXX>>:-Wzero-as-null-pointer-constant>
-    $<$<OR:$<COMPILE_LANGUAGE:OBJ C>,$<COMPILE_LANGUAGE:OBJCXX>>:-Wunguarded-availability>
-    $<$<OR:$<COMPILE_LANGUAGE:OBJ C>,$<COMPILE_LANGUAGE:OBJCXX>>:-Wunguarded-availability-new>
+  # Flags for MSVC
+    $<$<CXX_COMPILER_ID:MSVC>:
+        /W4
+        /permissive-
+        /Zc:__cplusplus
+        /utf-8
+  >
 )

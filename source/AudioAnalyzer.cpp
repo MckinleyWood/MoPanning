@@ -574,10 +574,10 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
                            + itdWeights[b] * itds[b]);
 
             const float extremeThreshold = 0.85f;
-            if (std::abs(itds[b]) > extremeThreshold)
-                panIndices[b] = itds[b];
-            else if (std::abs(ilds[b]) > extremeThreshold)
+            if (std::abs(ilds[b]) > extremeThreshold)
                 panIndices[b] = ilds[b];
+            else if (std::abs(itds[b]) > extremeThreshold)
+                panIndices[b] = itds[b];
         }
     }
     else
