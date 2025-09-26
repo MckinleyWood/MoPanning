@@ -213,6 +213,35 @@ void AudioAnalyzer::setupAWeights(const std::vector<float>& freqs,
     }
 }
 
+float alphaForFreq(float f)
+{
+    // log-scale (Hz)
+    float logf = std::log10(f + 1.0f);   // +1 to avoid log(0)
+    float logLow = std::log10(100.0f);   // anchor: 100 Hz
+    float logHigh = std::log10(4000.0f); // anchor: 4 kHz
+
+    // Normalize [0..1] across range
+    float t = juce::jlimit(0.0f, 1.0f, (logf - logLow) / (logHigh - logLow));
+
+    // Interpolate smoothly between 0.8 and 1.0
+    return 0.8f + t * (1.0f - 0.4f);
+}
+
+float coherenceThresholdForFreq(float f)
+{
+    float logf = std::log10(f + 1.0f);
+    float logLow = std::log10(100.0f);
+    float logHigh = std::log10(4000.0f);
+
+    float t = juce::jlimit(0.0f, 1.0f, (logf - logLow) / (logHigh - logLow));
+
+    // Threshold from ~1e-7 at lows → ~1e-6 at highs
+    float lowThresh = 1e-7f;
+    float highThresh = 1e-6f;
+
+    return lowThresh * std::pow((highThresh / lowThresh), t); // geometric interpolation
+}
+
 void AudioAnalyzer::setupCQT()
 {
     // Concise name for pi variable
@@ -457,7 +486,6 @@ void AudioAnalyzer::computeITDs(
         // bool valid = (coherence > coherenceThreshold);
         bool valid = (coherence > 0);
 
-
         if (valid)
         {
             // Parabolic interpolation around peak
@@ -475,12 +503,7 @@ void AudioAnalyzer::computeITDs(
 
             float peakIndexInterp = ((float)bestLag + peakOffset);
 
-            // Frequency- and block-size-dependent ITD expansion for bass
-            float expansion = itdExpansionForFreq(freq, cqtMags, fftSize); // returns >=1.0 for low freqs
-
-            itdPerBin[bin] = peakIndexInterp * expansion / (float)sampleRate;
-            // itdPerBin[bin] = peakIndexInterp / sampleRate;
-            // itdPerBin[bin] = (float)bestLag * expansion / sampleRate;
+            itdPerBin[bin] = peakIndexInterp / sampleRate;
 
             panIndices[bin] = juce::jlimit(-1.0f, 1.0f, itdPerBin[bin] / maxITD[bin]);
         }
