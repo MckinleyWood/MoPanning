@@ -50,8 +50,8 @@ public:
     static ParamLayout makeParameterLayout(
         const std::vector<ParameterDescriptor>& descriptors);
 
-    void prepareAnalyzer();
     void registerVisualizer(GLVisualizer* v);
+    void setDefaultParameters();
     bool loadFile(const juce::File& f);
     void togglePlayback();
 

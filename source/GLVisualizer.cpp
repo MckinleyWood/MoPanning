@@ -11,7 +11,7 @@ GLVisualizer::GLVisualizer(MainController& c) : controller(c)
     openGLContext.setOpenGLVersionRequired(glVersion);
     openGLContext.setContinuousRepainting(true);
 
-    startTime = juce::Time::getMillisecondCounterHiRes() * 0.001;
+    startTime = (float)juce::Time::getMillisecondCounterHiRes() * 0.001f;
     lastFrameTime = startTime;
 }
 
@@ -47,7 +47,7 @@ void GLVisualizer::buildTexture()
     {
     case greyscale:
         for (int i = 0; i < numColours; ++i)
-            colours[i] = juce::Colour(i, i, i);
+            colours[i] = juce::Colour((juce::uint8)i, (juce::uint8)i, (juce::uint8)i);
         break;
     
     case rainbow:
@@ -240,7 +240,7 @@ void GLVisualizer::render()
     // DBG("New results received. Size = " << results.size());
 
     // Delete old particles
-    while (!particles.empty())
+    while (! particles.empty())
     {
         const float age = t - particles.front().spawnTime;
         if (age * recedeSpeed < fadeEndZ)
@@ -255,7 +255,7 @@ void GLVisualizer::render()
     // Add new particles from the latest analysis results
     if (!results.empty())
     {
-        float maxFreq = sampleRate * 0.5f;
+        float maxFreq = (float)sampleRate * 0.5f;
         float logMin = std::log(minFrequency);
         float logMax = std::log(maxFreq);
 
@@ -401,4 +401,12 @@ void GLVisualizer::setAmpScale(float newAmpScale)
 void GLVisualizer::setFadeEndZ(float newFadeEndZ)
 {
     fadeEndZ = newFadeEndZ;
+}
+
+/*  This is here just to keep juce::Component happy, it wants a paint()
+    method because the component is marked as opaque.
+*/
+void GLVisualizer::paint(juce::Graphics& g)
+{
+    juce::ignoreUnused(g);
 }

@@ -53,7 +53,7 @@ void AudioAnalyzer::prepareToPlay(int newSamplesPerBlock, double newSampleRate)
 
     if (transform == FFT)
     {
-        float binWidth = (sampleRate / 2.f) / numFFTBins;
+        float binWidth = ((float)sampleRate / 2.f) / numFFTBins;
         centerFrequencies.resize(numFFTBins);
         for (int b = 0; b < numFFTBins; ++b)
         {
@@ -140,15 +140,6 @@ void AudioAnalyzer::setPanMethod(PanMethod newPanMethod)
     panMethod = newPanMethod;
 }
 
-void AudioAnalyzer::setFFTOrder(int newFFTOrder)
-{
-    if (newFFTOrder == fftOrder) return; // No change
-    if (worker) stopWorker(); // Stop worker while we change the parameter
-
-    fftOrder = newFFTOrder;
-    isPrepared.store(false);
-}
-
 void AudioAnalyzer::setNumCQTBins(int newNumCQTBins)
 {
     if (newNumCQTBins == numCQTbins) return; // No change
@@ -189,33 +180,33 @@ void AudioAnalyzer::setFreqWeighting(FrequencyWeighting newFreqWeighting)
 }
 
 //=============================================================================
-/*  Generates A-weighting factors for the given frequencies in 'freqs' and
-    stores them in 'weights'. f1, f2, f3, f4 are the constants defined in the
-    A-weighting standard (IEC 61672:2003). The full formula is given in
-    https://en.wikipedia.org/wiki/A-weighting#A.
+/*  Generates A-weighting factors for the given frequencies in 'freqs' 
+    and stores them in 'weights'. f1, f2, f3, f4 are the constants 
+    defined in the A-weighting standard (IEC 61672:2003). The full 
+    formula is given in https://en.wikipedia.org/wiki/A-weighting#A.
 */
 void AudioAnalyzer::setupAWeights(const std::vector<float>& freqs,
                                   std::vector<float>& weights)
 {
     weights.resize(freqs.size());
 
-    const float f1 = 20.598997;  // Hz
-    const float f2 = 107.65265;  // Hz
-    const float f3 = 737.86223;  // Hz
-    const float f4 = 12194.217;  // Hz 
+    float f1 = 20.598997f;  // Hz
+    float f2 = 107.65265f;  // Hz
+    float f3 = 737.86223f;  // Hz
+    float f4 = 12194.217f;  // Hz
 
     for (int b = 0; b < freqs.size(); ++b)
     {
         float f = freqs[b];
         float fSquared = f * f;
-        float numerator = pow(f4, 2) * pow(fSquared, 2);
-        float denominator = (fSquared + pow(f1, 2)) 
-                          * sqrt((fSquared + pow(f2, 2)) 
-                               * (fSquared + pow(f3, 2))) 
-                          * (fSquared + pow(f4, 2));
+        float numerator = pow(f4, 2.0f) * pow(fSquared, 2.0f);
+        float denominator = (fSquared + pow(f1, 2.0f)) 
+                          * sqrt((fSquared + pow(f2, 2.0f)) 
+                               * (fSquared + pow(f3, 2.0f))) 
+                          * (fSquared + pow(f4, 2.0f));
 
-        float aWeightDB = 20.0 * log10(numerator / denominator) + 2.0; 
-        float linearGain = pow(10.0, aWeightDB / 20.0); 
+        float aWeightDB = 20.0f * log10(numerator / denominator) + 2.0f; 
+        float linearGain = pow(10.0f, aWeightDB / 20.0f); 
 
         // DBG("A-weight at " << f << " Hz: " << linearGain);
         weights[b] = linearGain;
@@ -477,7 +468,7 @@ void AudioAnalyzer::computeITDs(
             float y1 = std::abs(crossCorr[maxIndex]);
             float y2 = std::abs(crossCorr[rightIndex]);
 
-            float denom = (y0 - 2.0f*y1 + y2);
+            denom = (y0 - 2.0f * y1 + y2);
             float peakOffset = (std::fabs(denom) > 1e-8f)
                 ? 0.5f * (y0 - y2) / denom
                 : 0.0f;
@@ -487,7 +478,7 @@ void AudioAnalyzer::computeITDs(
             // Frequency- and block-size-dependent ITD expansion for bass
             float expansion = itdExpansionForFreq(freq, cqtMags, fftSize); // returns >=1.0 for low freqs
 
-            itdPerBin[bin] = peakIndexInterp * expansion / sampleRate;
+            itdPerBin[bin] = peakIndexInterp * expansion / (float)sampleRate;
             // itdPerBin[bin] = peakIndexInterp / sampleRate;
             // itdPerBin[bin] = (float)bestLag * expansion / sampleRate;
 
@@ -620,6 +611,7 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
     {
         std::lock_guard<std::mutex> resultsLock(resultsMutex);
         results = std::move(newResults);
-        // DBG("Analyzed block. Results size = " << results.size());
     }
+
+    DBG("Analyzed block. Results size = " << results.size());
 }

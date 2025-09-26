@@ -6,9 +6,6 @@ MainComponent::MainComponent(MainController& mc,
     : controller(mc),
       commandManager(cm)
 {
-    commandManager.registerAllCommandsForTarget(this);
-    commandManager.setFirstCommandTarget(this);
-
     visualizer = std::make_unique<GLVisualizer>(controller);
     settings = std::make_unique<SettingsComponent>(controller);
 
@@ -16,6 +13,7 @@ MainComponent::MainComponent(MainController& mc,
     addAndMakeVisible(settings.get());
 
     controller.registerVisualizer(visualizer.get());
+    controller.setDefaultParameters();
 
     settings->setVisible(false); // Since we start in Focus mode
     setSize(1200, 750);
@@ -34,7 +32,7 @@ void MainComponent::resized()
         visualizer->setBounds(bounds);
         settings->setVisible(false);
     }
-    else // ViewMode == Split
+    else // viewMode == Split
     {
         const int sidebarW = 300;
         auto right = bounds.removeFromRight(sidebarW);
@@ -67,8 +65,8 @@ void MainComponent::toggleView()
 void MainComponent::launchOpenDialog()
 {
     // Keep a “last directory” so the chooser re-opens in the same place
-    static juce::File lastDir (juce::File::getSpecialLocation (
-                               juce::File::userDocumentsDirectory));
+    static juce::File lastDir(juce::File::getSpecialLocation(
+                                juce::File::userDocumentsDirectory));
 
     // Only highlight audio files we support
     const juce::String filters = "*.wav;*.aiff;*.mp3;*.flac;*.m4a;*.ogg";
@@ -110,24 +108,42 @@ void MainComponent::getAllCommands(juce::Array<juce::CommandID>& commands)
 void MainComponent::getCommandInfo(juce::CommandID id,
                                    juce::ApplicationCommandInfo& info)
 {
+    juce::String shortName, description, category;
+    int key = 0;
+    juce::ModifierKeys modifiers;
+    
     if (id == cmdToggleSettings)
     {
-        info.setInfo("Settings...", "Show the settings sidebar", 
-                     "MoPanning",  0);
-        info.addDefaultKeypress(',', juce::ModifierKeys::commandModifier);
+        shortName = "Settings...";
+        description = "Show the settings sidebar";
+        category = "MoPanning";
+        key = ',';
+        modifiers = juce::ModifierKeys::commandModifier;
     }
-    if (id == cmdOpenFile)
+    else if (id == cmdOpenFile)
     {
-        info.setInfo("Open...", "Load an audio file", "File", 0);
-        info.addDefaultKeypress('O', juce::ModifierKeys::commandModifier);
+        shortName = "Open...";
+        description = "Load an audio file";
+        category = "File";
+        key = 'O';
+        modifiers = juce::ModifierKeys::commandModifier;
     }
-    if (id == cmdPlayPause)
+    else if (id == cmdPlayPause)
     {
-        info.setInfo("Play / Pause", 
-                     "Play or pause the currently loaded audio file", 
-                     "File", 0);
-        info.addDefaultKeypress(' ', juce::ModifierKeys::noModifiers);
+        shortName = "Play / Pause";
+        description = "Play or pause the currently loaded audio file";
+        category = "File";
+        key = ' ';
+        modifiers = juce::ModifierKeys::noModifiers;
     }
+    else
+    {
+        jassertfalse; // Unknown command ID!
+        return;
+    }
+
+    info.setInfo(shortName, description, category, 0);
+    info.addDefaultKeypress(key, modifiers);
 }
 
 /*  This is called whenever a command is executed, and is where we set 
@@ -135,6 +151,7 @@ void MainComponent::getCommandInfo(juce::CommandID id,
 */
 bool MainComponent::perform(const InvocationInfo& info)
 {
+    DBG("commandID = " << info.commandID);
     if (info.commandID == cmdToggleSettings)
     {
         toggleView();
@@ -181,19 +198,21 @@ juce::PopupMenu MainComponent::getMenuForIndex(int topLevelIndex,
     juce::PopupMenu m;
 
    #if JUCE_MAC
-    /* Add commands to the Mac menu bar here. Index 0 = File, 1 = Help.
-    For apple menu ("MoPanning"), you have to add it in Main.cpp. */
+    // Add commands to the Mac menu bar here. Index 0 = File, 1 = Help.
+    // For apple menu ("MoPanning"), you have to add it in Main.cpp.
     if (topLevelIndex == 0)
     {
         m.addCommandItem(&commandManager, cmdOpenFile);
         m.addCommandItem(&commandManager, cmdPlayPause);
     }
    #else
-    /* Add commands to Windows / Linux menu bars here. 
-    Indexes are 0 = MoPanning, 1 = File, 2 = Help. */
+    // Add commands to Windows / Linux menu bars here. 
+    // Indexes are 0 = MoPanning, 1 = File, 2 = Help.
     if (topLevelIndex == 0)
+    {
         m.addCommandItem(&commandManager, cmdToggleSettings);
-    if (topLevelIndex == 1)
+    }
+    else if (topLevelIndex == 1)
     {
         m.addCommandItem(&commandManager, cmdOpenFile);
         m.addCommandItem(&commandManager, cmdPlayPause);

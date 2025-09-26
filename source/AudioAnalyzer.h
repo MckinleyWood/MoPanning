@@ -45,7 +45,6 @@ public:
 
     void setTransform(Transform newTransform);
     void setPanMethod(PanMethod newPanMethod);
-    void setFFTOrder(int newFFTOrder);
     void setNumCQTBins(int newNumCQTBins);
     void setMinFrequency(float newMinFrequency);
     void setMaxAmplitude(float newMaxAmplitude);
@@ -93,7 +92,6 @@ private:
     enum PanMethod panMethod = level_pan;
     enum FrequencyWeighting freqWeighting = A_weighting;
     
-    int fftOrder; // FFT order = log2(fftSize) - not used at the moment
     int numCQTbins;
     float minCQTfreq; // Minimum CQT frequency in Hz
     float maxAmplitude; // Maximum expected (linear) amplitude of input signal
@@ -157,15 +155,15 @@ private:
 
     /* Compute expansion factor for a given frequency bin, taking 
     into account low-frequency dominance and FFT size */
-    float itdExpansionForFreq(float freq, 
+    float itdExpansionForFreq(float /* freq */, 
                               const std::array<std::vector<float>, 2>& cqtMags, 
-                              int bin)
+                              int /* bin */)
     {
         // Parameters
         const float maxExpansion = 1.65f;      // Max ITD boost for low-frequency dominant signals
         const float lowFreqCutoff = 200.0f;   // Hz considered "low"
         const float referenceFFT = 1024.0f;   // FFT size that looks "perfect"
-        const float minFFTBoost = 1.0f;       // No boost at referenceFFT
+        // const float minFFTBoost = 1.0f;       // No boost at referenceFFT
         const float eps = 1e-12f;
 
         if (fftSize < referenceFFT)

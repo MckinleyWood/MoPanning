@@ -39,6 +39,7 @@ public:
     */
     void initialise(const juce::String& commandLine) override
     {
+        // DBG("MoPanning Starting up!");
         juce::ignoreUnused (commandLine);
 
         commandManager = std::make_unique<juce::ApplicationCommandManager>();
@@ -47,7 +48,10 @@ public:
                                                         *commandManager);
 
         mainWindow = std::make_unique<MainWindow>(getApplicationName(),
-            std::move(mainComponent), *commandManager);
+                                                  std::move(mainComponent),
+                                                  *commandManager);
+
+        mainWindow->getContentComponent()->grabKeyboardFocus();
 
         controller->startAudio();
     }
@@ -89,35 +93,34 @@ public:
     /*  This class implements the desktop window that contains an 
         instance of our MainComponent class.
     */
-    class MainWindow final : public juce::DocumentWindow
+    class MainWindow final  : public juce::DocumentWindow
     {
     public:
         explicit MainWindow(juce::String name,          
                             std::unique_ptr<MainComponent> mc,
                             juce::ApplicationCommandManager& cm)
-            : DocumentWindow(
-                name, 
-                juce::Desktop::getInstance().getDefaultLookAndFeel()
-                    .findColour(backgroundColourId),
-                allButtons)
+            : DocumentWindow(name, juce::Colours::black, allButtons)
         {
-            setUsingNativeTitleBar(true);
-
             MainComponent* mcPtr = mc.get();
 
             setContentOwned(mc.release(), true);
 
             // Set up the menu bar
            #if JUCE_MAC
-            juce::PopupMenu appleExtras;
-            
-            appleExtras.addCommandItem(&cm, MainComponent::cmdToggleSettings);
-
-            juce::MenuBarModel::setMacMainMenu(mcPtr, &appleExtras);
+            setUsingNativeTitleBar(true);
+            juce::PopupMenu appMenu; // The application menu - "MoPanning"
+            appMenu.addCommandItem(&cm, MainComponent::cmdToggleSettings);
+            juce::MenuBarModel::setMacMainMenu(mcPtr, &appMenu);
            #else
+            setUsingNativeTitleBar(true);
             auto bar = std::make_unique<juce::MenuBarComponent>(mcPtr);
             setMenuBarComponent(bar.release());
            #endif
+
+            cm.registerAllCommandsForTarget(mcPtr);
+            cm.setFirstCommandTarget(mcPtr);
+            cm.getKeyMappings()->resetToDefaultMappings();
+            addKeyListener(cm.getKeyMappings());
 
             setResizable(true, true);
             centreWithSize(getWidth(), getHeight());

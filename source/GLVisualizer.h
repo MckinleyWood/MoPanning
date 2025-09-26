@@ -58,6 +58,8 @@ public:
     void setAmpScale(float newAmpScale);
     void setFadeEndZ(float newFadeEndZ);
 
+    void paint(juce::Graphics& g) override;
+
 private:
     //=========================================================================
     struct Particle
@@ -87,7 +89,7 @@ private:
     bool newTextureRequsted = false; // Flag to rebuild texture
 
     double sampleRate;
-    double startTime; // App-launch time in seconds
+    float startTime; // App-launch time in seconds
     float lastFrameTime; // Time of last frame in seconds
     
 

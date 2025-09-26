@@ -17,7 +17,7 @@ MainController::MainController()
             {"File", "Streaming"}, "",
             [this](float value) 
             {
-                if (engine)
+                if (engine != nullptr)
                     engine->setInputType(static_cast<InputType>(value));
             }
         },
@@ -29,7 +29,7 @@ MainController::MainController()
             {"FFT", "CQT"}, "",
             [this](float value) 
             {
-                if (analyzer)
+                if (analyzer != nullptr)
                     analyzer->setTransform(static_cast<Transform>(value));
             }
         },
@@ -41,7 +41,7 @@ MainController::MainController()
             {"Level Difference", "Time Difference", "Both"}, "",
             [this](float value) 
             {
-                if (analyzer)
+                if (analyzer != nullptr)
                     analyzer->setPanMethod(static_cast<PanMethod>(value));
             }
         },
@@ -63,7 +63,7 @@ MainController::MainController()
                     case 4: newNumBins = 1024; break;
                     default: newNumBins = 128; break;
                 }
-                if (analyzer)
+                if (analyzer != nullptr)
                     analyzer->setNumCQTBins(newNumBins);
             }
         },
@@ -75,16 +75,16 @@ MainController::MainController()
             {"5Hz", "20Hz", "50Hz", "100Hz"}, "",
             [this](float value) 
             {
-                int newMinFreq;
-                switch (static_cast<int>(value))
+                float newMinFreq;
+                switch ((int)value)
                 {
-                    case 0: newMinFreq = 5; break;
-                    case 1: newMinFreq = 20; break;
-                    case 2: newMinFreq = 50; break;
-                    case 3: newMinFreq = 100; break;
-                    default: newMinFreq = 20; break;
+                    case 0: newMinFreq = 5.0f; break;
+                    case 1: newMinFreq = 20.0f; break;
+                    case 2: newMinFreq = 50.0f; break;
+                    case 3: newMinFreq = 100.0f; break;
+                    default: newMinFreq = 20.0f; break;
                 }
-                if (!analyzer || !visualizer)
+                if (analyzer == nullptr || visualizer == nullptr)
                     return;
                 analyzer->setMinFrequency(newMinFreq);
                 visualizer->setMinFrequency(newMinFreq);
@@ -98,7 +98,7 @@ MainController::MainController()
             juce::NormalisableRange<float>(0.000001f, 1.f), {}, "",
             [this](float value) 
             {
-                if (analyzer)
+                if (analyzer != nullptr)
                     analyzer->setMaxAmplitude(value);
             }
         },
@@ -110,7 +110,7 @@ MainController::MainController()
             juce::NormalisableRange<float>(-120.f, -20.f), {}, "dB",
             [this](float value) 
             {
-                if (analyzer)
+                if (analyzer != nullptr)
                     analyzer->setThreshold(value);
             }
         },
@@ -123,7 +123,7 @@ MainController::MainController()
             [this](float value) 
             {
 
-                if (analyzer)
+                if (analyzer != nullptr)
                     analyzer->setFreqWeighting(static_cast<FrequencyWeighting> 
                                                     (value));
             }
@@ -135,7 +135,7 @@ MainController::MainController()
             {"2D", "3D"}, "",
             [this](float value) 
             {
-                if (visualizer)
+                if (visualizer != nullptr)
                     visualizer->setDimension(static_cast<Dimension>(value));
             }
         },
@@ -147,7 +147,7 @@ MainController::MainController()
             {"Greyscale", "Rainbow"}, "",
             [this](float value) 
             {
-                if (visualizer)
+                if (visualizer != nullptr)
                     visualizer->setColourScheme(
                         static_cast<ColourScheme>(value));
             }
@@ -160,7 +160,7 @@ MainController::MainController()
             juce::NormalisableRange<float>(0.1f, 20.f), {}, "m/s",
             [this](float value) 
             {
-                if (visualizer)
+                if (visualizer != nullptr)
                     visualizer->setRecedeSpeed(value);
             }
         },
@@ -172,7 +172,7 @@ MainController::MainController()
             juce::NormalisableRange<float>(0.01f, 1.f), {}, "",
             [this](float value) 
             {
-                if (visualizer)
+                if (visualizer != nullptr)
                     visualizer->setDotSize(value);
             }
         },
@@ -184,7 +184,7 @@ MainController::MainController()
             juce::NormalisableRange<float>(0.1f, 10.f), {}, "",
             [this](float value) 
             {
-                if (visualizer)
+                if (visualizer != nullptr)
                     visualizer->setAmpScale(value);
             }
         },
@@ -196,7 +196,7 @@ MainController::MainController()
             juce::NormalisableRange<float>(0.1f, 10.f), {}, "m",
             [this](float value) 
             {
-                if (visualizer)
+                if (visualizer != nullptr)
                     visualizer->setFadeEndZ(value);
             }
         }
@@ -220,13 +220,6 @@ MainController::~MainController()
 //=============================================================================
 void MainController::startAudio()
 {
-    // Initialize all parameters to their default values
-    for (auto& d : parameterDescriptors)
-    {
-        if (d.onChanged)
-            d.onChanged(d.defaultValue);
-    }
-
     // Set up the audio device manager and start audio callback
     auto& dm = engine->getDeviceManager();
     dm.addAudioCallback(this);
@@ -296,6 +289,15 @@ ParamLayout MainController::makeParameterLayout(
 void MainController::registerVisualizer(GLVisualizer* v)
 {
     visualizer = v;
+}
+
+void MainController::setDefaultParameters()
+{
+    for (auto& d : parameterDescriptors)
+    {
+        if (d.onChanged)
+            d.onChanged(d.defaultValue);
+    }
 }
 
 bool MainController::loadFile(const juce::File& f)
