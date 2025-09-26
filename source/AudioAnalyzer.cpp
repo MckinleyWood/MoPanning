@@ -613,5 +613,5 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
         results = std::move(newResults);
     }
 
-    DBG("Analyzed block. Results size = " << results.size());
+    // DBG("Analyzed block. Results size = " << results.size());
 }

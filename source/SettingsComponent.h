@@ -90,10 +90,8 @@ public:
     void paint(juce::Graphics& g) override;
 
     // Helpers
-    std::vector<juce::Component*> getSettings();
-    std::vector<juce::Label*> getLabels();
     int getDeviceSelectorHeight() const;
-    std::vector<juce::Component*> getUIObjects() { return uiObjects; }
+    const std::vector<std::unique_ptr<juce::Component>>& getUIObjects() const;
 
 private:
     //=========================================================================
@@ -106,14 +104,12 @@ private:
     std::unique_ptr<CustomAudioDeviceSelectorComponent> deviceSelector;
 
     // Attachment pointers
-    std::vector<std::unique_ptr<apvts::ComboBoxAttachment>> 
-        comboAttachments;
-    std::vector<std::unique_ptr<apvts::SliderAttachment>> 
-        sliderAttachments;
+    std::vector<std::unique_ptr<apvts::ComboBoxAttachment>> comboAttachments;
+    std::vector<std::unique_ptr<apvts::SliderAttachment>> sliderAttachments;
 
     // UI object pointers
-    std::vector<juce::Component*> uiObjects;
-    std::vector<juce::Label*> labels;
+    std::vector<std::unique_ptr<juce::Component>> uiObjects;
+    std::vector<std::unique_ptr<juce::Label>> labels;
 
     bool initialized = false;
 };

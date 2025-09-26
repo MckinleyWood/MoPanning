@@ -5,7 +5,7 @@
 SettingsComponent::SettingsComponent(MainController& c) : controller(c)
 {
     content = std::make_unique<SettingsContentComponent>(controller);
-    viewport.setViewedComponent(content.get(), true);
+    viewport.setViewedComponent(content.get(), false);
     addAndMakeVisible(viewport);
 }
 
@@ -28,7 +28,7 @@ void SettingsComponent::resized()
     // if (contentHeight > getHeight())
         contentWidth = getWidth() - 8; // Leave some space for scrollbar
 
-    if (content)
+    if (content != nullptr)
         content->setSize(contentWidth, contentHeight);
 }
 
@@ -74,43 +74,49 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     {
         if (p.type == ParameterDescriptor::Float)
         {
-            auto* slider = new NonScrollingSlider(p.displayName);
+            auto slider = std::make_unique<NonScrollingSlider>(p.displayName);
             slider->setRange(p.range.start, p.range.end);
             slider->setValue(p.defaultValue);
             slider->setTextValueSuffix(p.unit);
-            addAndMakeVisible(slider);
-            uiObjects.push_back(slider);
+            addAndMakeVisible(*slider);
 
             auto attachment = std::make_unique<apvts::SliderAttachment>(
                 apvts, p.id, *slider);
             sliderAttachments.push_back(std::move(attachment));
-            
+
+            uiObjects.push_back(std::move(slider));
         }
         else if (p.type == ParameterDescriptor::Choice)
         {
-            auto* combo = new juce::ComboBox(p.displayName);
+            auto combo = std::make_unique<juce::ComboBox>(p.displayName);
             combo->addItemList(p.choices, 1); // JUCE items start at index 1
             combo->setSelectedItemIndex(static_cast<int>(p.defaultValue));
-            addAndMakeVisible(combo);
-            uiObjects.push_back(combo);
+            addAndMakeVisible(*combo);
 
             auto attachment = std::make_unique<apvts::ComboBoxAttachment>(
                 apvts, p.id, *combo);
             comboAttachments.push_back(std::move(attachment));
+
+            uiObjects.push_back(std::move(combo));
         }
 
-        auto* label = new juce::Label();
+        auto label = std::make_unique<juce::Label>();
         label->setText(p.displayName, juce::dontSendNotification);
         label->setJustificationType(juce::Justification::left);
         label->setFont(normalFont);
-        addAndMakeVisible(label);
-        labels.push_back(label);
+        addAndMakeVisible(*label);
+        labels.push_back(std::move(label));
     }
 
     initialized = true;
 }
 
-sc::SettingsContentComponent::~SettingsContentComponent() = default;
+sc::SettingsContentComponent::~SettingsContentComponent()
+{
+    // Clear attachments before APVTS is deleted
+    sliderAttachments.clear();
+    comboAttachments.clear();
+}
 
 void sc::SettingsContentComponent::resized()
 {
@@ -120,19 +126,16 @@ void sc::SettingsContentComponent::resized()
     const int labelHeight = 14;
     int numSettings = (int)uiObjects.size();
 
-    // Layout the title at the top
+    // Lay out the title at the top
     auto titleZone = bounds.removeFromTop(60);
     title.setBounds(titleZone);
 
-    // Layout the device selector below the title
+    // Lay out the device selector below the title
     auto deviceSelectorZone = bounds.removeFromTop(
          getDeviceSelectorHeight());
     deviceSelector->setBounds(deviceSelectorZone);
 
-    // Layout each setting
-    // auto settings = getSettings();
-    // auto labels = getLabels();
-
+    // Lay out the parameter controls in rows below the device selector
     for (int i = 0; i < numSettings; ++i)
     {
         auto row = bounds.removeFromTop(rowHeight);
@@ -140,7 +143,6 @@ void sc::SettingsContentComponent::resized()
         auto labelZone = row.removeFromTop(labelHeight);
         labels[i]->setBounds(labelZone);
 
-        // settings[i]->setBounds(row.reduced(0, 4));
         uiObjects[i]->setBounds(row.reduced(0, 4));
     }
 }
@@ -161,7 +163,12 @@ void sc::SettingsContentComponent::paint(juce::Graphics& g)
 }
 
 //=============================================================================
-int SettingsComponent::SettingsContentComponent::getDeviceSelectorHeight() const
+int sc::SettingsContentComponent::getDeviceSelectorHeight() const
 {
     return deviceSelector ? deviceSelector->getHeight() - 30 : 0;
+}
+
+const std::vector<std::unique_ptr<juce::Component>>& sc::SettingsContentComponent::getUIObjects() const
+{
+    return uiObjects;
 }
