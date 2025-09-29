@@ -241,6 +241,15 @@ void MainController::audioDeviceIOCallbackWithContext(
     // Pass the buffer to the analyzer
     analyzer->enqueueBlock(&buffer);
 
+    // Copy the buffer to another buffer that can be viewed from a debugger
+    // std::vector<float> tempBufferL, tempBufferR;
+    // tempBufferL.resize(buffer.getNumSamples());
+    // tempBufferR.resize(buffer.getNumSamples());
+    // const float* channelDataL = buffer.getReadPointer(0);
+    // const float* channelDataR = buffer.getReadPointer(1);
+    // std::copy(channelDataL, channelDataL + buffer.getNumSamples(), tempBufferL.begin());
+    // std::copy(channelDataR, channelDataR + buffer.getNumSamples(), tempBufferR.begin());
+
     juce::ignoreUnused(context);
 }
 

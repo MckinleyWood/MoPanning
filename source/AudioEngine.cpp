@@ -14,12 +14,9 @@ AudioEngine::~AudioEngine()
 }
 
 //=============================================================================
-void AudioEngine::fillAudioBuffers(const float *const *inputChannelData,
-                                   int numInputChannels,
-                                   float *const *outputChannelData,
-                                   int numOutputChannels,
-                                   int numSamples,
-                                   juce::AudioBuffer<float>& buffer)
+void AudioEngine::fillAudioBuffers(const float *const *inputChannelData, int numInputChannels,
+                                   float *const *outputChannelData, int numOutputChannels,
+                                   int numSamples, juce::AudioBuffer<float>& buffer)
 {
     buffer.clear();
     juce::AudioSourceChannelInfo info(&buffer, 0, numSamples);

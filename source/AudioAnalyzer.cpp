@@ -411,7 +411,7 @@ void AudioAnalyzer::computeCQT(const juce::AudioBuffer<float>& buffer,
 */
 void AudioAnalyzer::computeITDs(
     std::vector<std::vector<std::vector<std::complex<float>>>> spec,
-    const std::array<std::vector<float>, 2>& cqtMags,
+    const std::array<std::vector<float>, 2>& /* cqtMags */,
     int numBands,
     std::vector<float>& panIndices)
 {
@@ -503,7 +503,7 @@ void AudioAnalyzer::computeITDs(
 
             float peakIndexInterp = ((float)bestLag + peakOffset);
 
-            itdPerBin[bin] = peakIndexInterp / sampleRate;
+            itdPerBin[bin] = peakIndexInterp / (float)sampleRate;
 
             panIndices[bin] = juce::jlimit(-1.0f, 1.0f, itdPerBin[bin] / maxITD[bin]);
         }
@@ -620,7 +620,7 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
         if (transform == CQT)
             linear /= 28.f; // Additional scaling for CQT
 
-        float dBrel = 20 * std::log10(linear / maxAmplitude + epsilon);
+        float dBrel = 20 * std::log10(linear + epsilon);
         if (dBrel < threshold)
             continue; // Below threshold
 
