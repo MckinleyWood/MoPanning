@@ -330,22 +330,25 @@ void AudioAnalyzer::computeFFT(const juce::AudioBuffer<float>& buffer,
     for (int ch = 0; ch < 2; ++ch)
     {
         // Copy & window the buffer data
+        std::vector<float> fftData;
+        fftData.resize(2 * fftSize);
+
         auto* readPtr = buffer.getReadPointer(ch);
         for (int n = 0; n < fftSize; ++n)
         {
-            float s = readPtr[n];
-            fftBuffer[n].real(s * window[n]);
-            fftBuffer[n].imag(0.0f);
+            fftData[n] = readPtr[n];
         }
-
-        fft->perform(fftBuffer.data(), fftBuffer.data(), false);
+            
+        // Compute an in-place FFT
+        fft->performRealOnlyForwardTransform(fftData.data());
 
         outSpectra[ch].resize(fftSize);
-        jassert(fftBuffer.size() == fftSize);
-        jassert(outSpectra[ch].size() == fftSize);
 
         for (int b = 0; b < fftSize; ++b)
-            outSpectra[ch][b] = fftBuffer[b];
+        {
+            outSpectra[ch][b].real(fftData[2 * b]);
+            outSpectra[ch][b].imag(fftData[2 * b + 1]);
+        }
     }
 }
 
@@ -618,7 +621,7 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
             linear *= frequencyWeights[b]; // Apply frequency weighting
         
         if (transform == CQT)
-            linear /= 28.f; // Additional scaling for CQT
+            linear /= 28.f; // Additional scaling for CQT (empirical)
 
         float dBrel = 20 * std::log10(linear + epsilon);
         if (dBrel < threshold)

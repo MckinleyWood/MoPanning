@@ -151,7 +151,7 @@ void MainComponent::getCommandInfo(juce::CommandID id,
 */
 bool MainComponent::perform(const InvocationInfo& info)
 {
-    DBG("commandID = " << info.commandID);
+    // DBG("commandID = " << info.commandID);
     if (info.commandID == cmdToggleSettings)
     {
         toggleView();

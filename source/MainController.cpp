@@ -218,14 +218,28 @@ MainController::~MainController()
 }
 
 //=============================================================================
+/*  Initializes the device manager and starts audio playback. */
 void MainController::startAudio()
 {
-    // Set up the audio device manager and start audio callback
+    // Set up the audio device manager
     auto& dm = engine->getDeviceManager();
-    dm.addAudioCallback(this);
     dm.initialise(2, 2, nullptr, true);
+
+    // Set buffer size to 512 samples as a default
+    auto setup = dm.getAudioDeviceSetup();
+    setup.bufferSize = 512;
+    dm.setAudioDeviceSetup(setup, true);
+
+    // Register this as an audio callback - audio starts now
+    dm.addAudioCallback(this);
 }
 
+/*  The function that is called every time there is a new audio block to
+    process. The AudioEngine will handle the audio data according to the 
+    current input type (file or streaming). Output to the audio device 
+    goes through outputChannelData and the AudioAnalyzer receives a copy 
+    of the audio in 'buffer' for analysis.
+*/
 void MainController::audioDeviceIOCallbackWithContext(
     const float *const *inputChannelData, int numInputChannels,
     float *const *outputChannelData, int numOutputChannels, int numSamples,
@@ -240,16 +254,7 @@ void MainController::audioDeviceIOCallbackWithContext(
 
     // Pass the buffer to the analyzer
     analyzer->enqueueBlock(&buffer);
-
-    // Copy the buffer to another buffer that can be viewed from a debugger
-    // std::vector<float> tempBufferL, tempBufferR;
-    // tempBufferL.resize(buffer.getNumSamples());
-    // tempBufferR.resize(buffer.getNumSamples());
-    // const float* channelDataL = buffer.getReadPointer(0);
-    // const float* channelDataR = buffer.getReadPointer(1);
-    // std::copy(channelDataL, channelDataL + buffer.getNumSamples(), tempBufferL.begin());
-    // std::copy(channelDataR, channelDataR + buffer.getNumSamples(), tempBufferR.begin());
-
+    
     juce::ignoreUnused(context);
 }
 
