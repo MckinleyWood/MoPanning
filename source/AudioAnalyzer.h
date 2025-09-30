@@ -19,8 +19,7 @@ struct frequency_band {
     float pan_index; // -1 = far left, +1 = far right
 };
 
-typedef std::vector<juce::dsp::Complex<float>> fft_buffer_t;
-typedef std::array<std::vector<float>, 2> magnitude_spectrums_t;
+using Complex = juce::dsp::Complex<float>;
 
 enum Transform { FFT, CQT };
 enum PanMethod { level_pan, time_pan, both };
@@ -63,27 +62,32 @@ private:
     //=========================================================================
     /* Setup functions */
 
+    void setupFFT();
+    void setupCQT();
     void setupAWeights(const std::vector<float>& freqs,
                        std::vector<float>& weights);
-    void setupCQT();
+    void setupPanWeights();
     
     /* Analysis functions */
 
-    void computeFFT(const juce::AudioBuffer<float>& buffer,
-                    std::array<fft_buffer_t, 2>& outSpectra);
-    void computeILDs(std::array<std::vector<float>, 2>& magnitudes,
-                     int numBands, std::vector<float>& outPan);
-    void computeCQT(const juce::AudioBuffer<float>& buffer,
-                    std::array<fft_buffer_t, 2> ffts,
-                    std::array<std::vector<float>, 2>& cqtMags);
-    void computeITDs(std::vector<std::vector<std::vector<std::complex<float>>>> spec,
-                    const std::array<std::vector<float>, 2>& cqtMags,
-                    int numBands,
-                    std::vector<float>& panIndices);
     void analyzeBlock(const juce::AudioBuffer<float>& buffer);
 
+    void computeFFT(const juce::AudioBuffer<float>& buffer,
+                    std::array<std::vector<Complex>, 2>& outSpectra);
+    void computeCQT(const std::array<std::vector<Complex>, 2>& ffts,
+                    std::array<std::vector<float>, 2>& cqtMags);
+    void computeILDs(const std::array<std::vector<float>, 2>& magnitudes,
+                     int numBands, std::vector<float>& outPan);
+    void computeITDs(const std::array<std::vector<std::vector<std::complex<float>>>, 2>& spec,
+                     const std::array<std::vector<float>, 2>& cqtMags,
+                     int numBands,
+                     std::vector<float>& panIndices);
+
+    float alphaForFreq(float f);
+    float coherenceThresholdForFreq(float f);
+
     //=========================================================================
-    /* Parameters */
+    /* Parameters - set from outside */
 
     int samplesPerBlock;
     double sampleRate;
@@ -98,41 +102,58 @@ private:
     float threshold; // dB relative to maxAmplitude
 
     //=========================================================================
+    /* Block-size-dependent constants, calculated in prepareToPlay() */
 
-    std::vector<float> window; // Hann window of length fftSize
-
-    int fftSize;
-    std::unique_ptr<juce::dsp::FFT> fft; // JUCE FFT engine
-    fft_buffer_t fftBuffer;
+    int fftSize; // Total number of FFT bins
     int numFFTBins; // Number of useful bins from FFT
+    int numBands; // Number of frequency bands used from the selected transform
     float fftScaleFactor; // Scale factor to normalize FFT output
     float cqtScaleFactor; // Scale factor to normalize CQT output
-    std::vector<float> centerFrequencies; // Center freqs of CQT or FFT bins
+
+    //=========================================================================
+    /* Pre-allocated storage, etc. */
+
+    std::unique_ptr<juce::dsp::FFT> fftEngine; // Calculates FFTs of length fftSize
+    
+    std::array<std::vector<Complex>, 2> fftSpectra; // For storing FFT results
+    std::array<std::vector<float>, 2> magnitudes;
+    std::vector<float> binFrequencies; // Center freqs of CQT or FFT bins
+    std::vector<float> ilds;
+    std::vector<float> itds;
+    std::vector<float> panIndices;
+    std::vector<float> window; // Hann window of length fftSize
     std::vector<float> frequencyWeights; // Weighting factors for each freq bin
+    std::vector<float> itdPerBin;
+    std::vector<float> maxITD; // Max ITD per frequency band
 
     // Each filter is a complex-valued kernel vector (frequency domain)
-    std::vector<std::vector<std::complex<float>>> cqtKernels;
-
-    std::vector<std::vector<std::vector<std::complex<float>>>> fullCQTspec;
+    std::vector<std::vector<Complex>> cqtKernels;
+    std::array<std::vector<std::vector<Complex>>, 2> fullCQTspec;
     
     // Frequency-dependent ITD/ILD parameters
-    std::vector<float> maxITD; // max ITD per frequency band
-    float maxITDlow = 0.00066f; // max ITD at lowest freq
-    float maxITDhigh = 0.0008f; // max ITD at highest freq
-    float f_trans = 2000.0f; // ITD/ILD transition frequency
-    float p  = 2.5f;    // slope
     std::vector<float> itdWeights;
     std::vector<float> ildWeights;
 
+    //=========================================================================
     std::vector<frequency_band> results; // Must be sorted by frequency!!!
     mutable std::mutex resultsMutex;
 
-    // Worker 
     std::unique_ptr<AnalyzerWorker> worker;
 
     // Atomic flag to indicate if the analyzer is prepared
     std::atomic<bool> isPrepared { false };
     mutable std::mutex prepareMutex;
+
+    //=========================================================================
+    /* Compile-time constants */
+
+    static constexpr float epsilon = 1e-12f;
+    static constexpr float pi = MathConstants<float>::pi;
+    static constexpr float cqtNormalization = 1.0f / 28.0f;
+    static constexpr float maxITDlow = 0.00066f; // Max ITD at lowest freq
+    static constexpr float maxITDhigh = 0.0008f; // Max ITD at highest freq
+    static constexpr float f_trans = 2000.0f; // ITD/ILD transition frequency
+    static constexpr float p = 2.5f; // Slope
 };
 
 

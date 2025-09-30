@@ -353,7 +353,7 @@ void MainController::valueTreePropertyChanged(juce::ValueTree& tree,
 
     juce::String paramID = tree.getProperty("id").toString(); 
     float newValue = tree.getProperty("value");
-    DBG("Parameter changed: " << paramID << " -> " << newValue);
+    // DBG("Parameter changed: " << paramID << " -> " << newValue);
 
     // Find the corresponding descriptor and call its onChanged callback
     auto it = std::find_if(parameterDescriptors.begin(), 
