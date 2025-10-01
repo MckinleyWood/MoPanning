@@ -73,15 +73,18 @@ private:
     void analyzeBlock(const juce::AudioBuffer<float>& buffer);
 
     void computeFFT(const juce::AudioBuffer<float>& buffer,
-                    std::array<std::vector<Complex>, 2>& outSpectra);
+                    const std::vector<float>& windowIn,
+                    std::vector<float>& fftDataTemp,
+                    std::array<std::vector<Complex>, 2>& spectraOut);
     void computeCQT(const std::array<std::vector<Complex>, 2>& ffts,
-                    std::array<std::vector<float>, 2>& cqtMags);
-    void computeILDs(const std::array<std::vector<float>, 2>& magnitudes,
-                     int numBands, std::vector<float>& outPan);
+                    const std::vector<std::vector<Complex>>& cqtKernelsIn,
+                    std::array<std::vector<std::vector<std::complex<float>>>, 2>& spectraOut,
+                    std::array<std::vector<float>, 2>& magnitudesOut);
+    void computeILDs(const std::array<std::vector<float>, 2>& magnitudesIn,
+                     std::vector<float>& panOut);
     void computeITDs(const std::array<std::vector<std::vector<std::complex<float>>>, 2>& spec,
-                     const std::array<std::vector<float>, 2>& cqtMags,
                      int numBands,
-                     std::vector<float>& panIndices);
+                     std::vector<float>& panOut);
 
     float alphaForFreq(float f);
     float coherenceThresholdForFreq(float f);
@@ -116,6 +119,7 @@ private:
     std::unique_ptr<juce::dsp::FFT> fftEngine; // Calculates FFTs of length fftSize
     
     std::array<std::vector<Complex>, 2> fftSpectra; // For storing FFT results
+    std::vector<float> fftData; // Temporary storage for in-place real fft
     std::array<std::vector<float>, 2> magnitudes;
     std::vector<float> binFrequencies; // Center freqs of CQT or FFT bins
     std::vector<float> ilds;
@@ -125,6 +129,7 @@ private:
     std::vector<float> frequencyWeights; // Weighting factors for each freq bin
     std::vector<float> itdPerBin;
     std::vector<float> maxITD; // Max ITD per frequency band
+    std::vector<frequency_band> newResults; // For storage before writing to the mutex-protected vector
 
     // Each filter is a complex-valued kernel vector (frequency domain)
     std::vector<std::vector<Complex>> cqtKernels;

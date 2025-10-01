@@ -25,7 +25,7 @@ void AudioAnalyzer::prepareToPlay(int newSamplesPerBlock, double newSampleRate)
     fftSize = samplesPerBlock;
     numFFTBins = fftSize / 2 + 1;
 
-    fftScaleFactor = 4.0f / fftSize / maxAmplitude;
+    fftScaleFactor = 1.0f / fftSize / maxAmplitude;
     cqtScaleFactor = fftScaleFactor * cqtNormalization;
 
     // Initialize FFT engine and storage (if needed)
@@ -40,12 +40,14 @@ void AudioAnalyzer::prepareToPlay(int newSamplesPerBlock, double newSampleRate)
     // Initialize results storage
     fftSpectra[0].resize(fftSize);
     fftSpectra[1].resize(fftSize);
+    fftData.resize(2 * fftSize);
     magnitudes[0].resize(numBands);
     magnitudes[1].resize(numBands);
     binFrequencies.resize(numBands);
     ilds.resize(numBands);
     itds.resize(numBands);
     panIndices.resize(numBands);
+    newResults.reserve(numBands);
 
     // Initialize members needed for the selected frequency transform
     if (transform == FFT)
@@ -92,7 +94,7 @@ void AudioAnalyzer::enqueueBlock(const juce::AudioBuffer<float>* buffer)
 
 void AudioAnalyzer::stopWorker()
 {
-    if (worker)
+    if (worker != nullptr)
     {
         worker->stop();    // Stop cleanly
         worker.reset();    // Then delete
@@ -107,8 +109,10 @@ std::vector<frequency_band> AudioAnalyzer::getLatestResults() const
 
 void AudioAnalyzer::setTransform(Transform newTransform)
 {
-    if (newTransform == transform) return; // No change
-    if (worker) stopWorker(); // Stop worker while we change the parameter
+    if (newTransform == transform) 
+        return; // No change
+    if (worker != nullptr) 
+        stopWorker(); // Stop worker while we change the parameter
 
     transform = newTransform;
     isPrepared.store(false);
@@ -116,7 +120,8 @@ void AudioAnalyzer::setTransform(Transform newTransform)
 
 void AudioAnalyzer::setPanMethod(PanMethod newPanMethod)
 {
-    if (newPanMethod == panMethod) return; // No change
+    if (newPanMethod == panMethod) 
+        return; // No change
     if (worker != nullptr)
         stopWorker(); // Stop worker while we change the parameter
 
@@ -126,7 +131,8 @@ void AudioAnalyzer::setPanMethod(PanMethod newPanMethod)
 
 void AudioAnalyzer::setNumCQTBins(int newNumCQTBins)
 {
-    if (newNumCQTBins == numCQTbins) return; // No change
+    if (newNumCQTBins == numCQTbins) 
+        return; // No change
     if (worker != nullptr)
         stopWorker(); // Stop worker while we change the parameter
 
@@ -136,8 +142,10 @@ void AudioAnalyzer::setNumCQTBins(int newNumCQTBins)
 
 void AudioAnalyzer::setMinFrequency(float newMinFrequency)
 {
-    if (std::fabs(newMinFrequency - minCQTfreq) < 1e-6) return; // No change
-    if (worker) stopWorker(); // Stop worker while we change the parameter
+    if (std::abs(newMinFrequency - minCQTfreq) < 1e-6f) 
+        return; // No change
+    if (worker != nullptr) 
+        stopWorker(); // Stop worker while we change the parameter
 
     minCQTfreq = newMinFrequency;
     isPrepared.store(false);
@@ -146,7 +154,7 @@ void AudioAnalyzer::setMinFrequency(float newMinFrequency)
 void AudioAnalyzer::setMaxAmplitude(float newMaxAmplitude)
 {
     maxAmplitude = newMaxAmplitude;
-    fftScaleFactor = 4.0f / fftSize / maxAmplitude;
+    fftScaleFactor = 1.0f / fftSize / maxAmplitude;
     cqtScaleFactor = fftScaleFactor * cqtNormalization;
 }
 
@@ -170,12 +178,6 @@ void AudioAnalyzer::setFreqWeighting(FrequencyWeighting newFreqWeighting)
 */
 void AudioAnalyzer::setupFFT()
 {
-    numBands = numFFTBins;
-
-    binFrequencies.resize(numBands);
-    magnitudes[0].resize(numBands);
-    magnitudes[1].resize(numBands);
-
     const float binWidth = ((float)sampleRate / 2.f) / numFFTBins;
     for (int b = 0; b < numBands; ++b)
     {
@@ -188,11 +190,8 @@ void AudioAnalyzer::setupFFT()
 */
 void AudioAnalyzer::setupCQT()
 {
-    numBands = numCQTbins;
-
     // Prepare CQT kernels
     cqtKernels.resize(numBands);
-    binFrequencies.resize(numBands);
     
     for (int ch = 0; ch < 2; ++ch)
     {
@@ -331,7 +330,7 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
         return; // Not prepared yet
     
     // Compute FFT for the block
-    computeFFT(buffer, fftSpectra);
+    computeFFT(buffer, window, fftData, fftSpectra);
 
     // Compute the selected frequency transform for the signal
     if (transform == FFT)
@@ -346,7 +345,7 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
     else if (transform == CQT)
     {
         // Compute CQT magnitudes
-        computeCQT(fftSpectra, magnitudes);
+        computeCQT(fftSpectra, cqtKernels, fullCQTspec, magnitudes);
     }
     else
     {
@@ -358,18 +357,17 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
     if (panMethod == level_pan)
     {
         // Use ILD pan indices
-        computeILDs(magnitudes, numBands, panIndices);
+        computeILDs(magnitudes, panIndices);
     }
     else if (panMethod == time_pan)
     {
         // Use ITD pan indices
-        computeITDs(fullCQTspec, magnitudes, numBands, panIndices);
+        computeITDs(fullCQTspec, numBands, panIndices);
     }
     else if (panMethod == both)
     {
-        computeILDs(magnitudes, numBands, ilds);
-        computeITDs(fullCQTspec, magnitudes, numBands, itds);
-        panIndices.resize(numBands);
+        computeILDs(magnitudes, ilds);
+        computeITDs(fullCQTspec, numBands, itds);
 
         for (int b = 0; b < numBands; b++)
         {
@@ -390,8 +388,7 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
     }
     
     // Compute (estimated) perceived amplitudes and build results vector
-    std::vector<frequency_band> newResults;
-    newResults.reserve(numBands);
+    newResults.clear();
 
     for (int b = 0; b < numBands; ++b)
     {
@@ -432,29 +429,27 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
     results in outSpectra.
 */
 void AudioAnalyzer::computeFFT(const juce::AudioBuffer<float>& buffer,
+                               const std::vector<float>& windowIn,
+                               std::vector<float>& fftDataTemp,
                                std::array<std::vector<Complex>, 2>& outSpectra)
 {
     for (int ch = 0; ch < 2; ++ch)
     {
-        // Copy & window the buffer data - this way is inefficient, will fix
-        std::vector<float> fftData; 
-        fftData.resize(2 * fftSize);
-
+        // Copy & window the buffer data
         auto* readPtr = buffer.getReadPointer(ch);
         for (int n = 0; n < fftSize; ++n)
         {
-            fftData[n] = readPtr[n];
+            fftDataTemp[n] = readPtr[n] * windowIn[n];
         }
             
         // Compute an in-place FFT
-        fftEngine->performRealOnlyForwardTransform(fftData.data());
+        fftEngine->performRealOnlyForwardTransform(fftDataTemp.data());
 
-        outSpectra[ch].resize(fftSize);
-
+        // Copy the results to the output 
         for (int b = 0; b < fftSize; ++b)
         {
-            outSpectra[ch][b].real(fftData[2 * b]);
-            outSpectra[ch][b].imag(fftData[2 * b + 1]);
+            outSpectra[ch][b].real(fftDataTemp[2 * b]);
+            outSpectra[ch][b].imag(fftDataTemp[2 * b + 1]);
         }
     }
 }
@@ -463,27 +458,29 @@ void AudioAnalyzer::computeFFT(const juce::AudioBuffer<float>& buffer,
     the magnitudes (one for each channel and CQT bin) in cqtMags.
 */
 void AudioAnalyzer::computeCQT(const std::array<std::vector<Complex>, 2>& ffts,
-                               std::array<std::vector<float>, 2>& cqtMags)
+                               const std::vector<std::vector<Complex>>& cqtKernelsIn,
+                               std::array<std::vector<std::vector<std::complex<float>>>, 2>& spectraOut,
+                               std::array<std::vector<float>, 2>& magnitudesOut)
 {
     for (int ch = 0; ch < 2; ++ch)
     {        
         jassert(ffts[ch].size() == fftSize);
 
         // Compute CQT by inner product with each kernel
-        for (int bin = 0; bin < cqtMags[ch].size(); ++bin)
+        for (int bin = 0; bin < magnitudesOut[ch].size(); ++bin)
         {
             jassert(bin < cqtKernels.size());
-            jassert(fullCQTspec[ch][bin].size() == fftSize);
+            jassert(spectraOut[ch][bin].size() == fftSize);
 
             std::complex<float> sum = 0.0f;
             const auto& kernel = cqtKernels[bin];
             for (int i = 0; i < fftSize; ++i)
             {
-                fullCQTspec[ch][bin][i] = ffts[ch][i] * std::conj(kernel[i]);
-                sum += fullCQTspec[ch][bin][i];
+                spectraOut[ch][bin][i] = ffts[ch][i] * std::conj(kernel[i]);
+                sum += spectraOut[ch][bin][i];
             }
 
-            cqtMags[ch][bin] = std::abs(sum);
+            magnitudesOut[ch][bin] = std::abs(sum);
         }
     }
 }
@@ -491,13 +488,13 @@ void AudioAnalyzer::computeCQT(const std::array<std::vector<Complex>, 2>& ffts,
 /*  Computes the inter-channel level difference for each frequency bin
     and stores the results in panIndices.
 */
-void AudioAnalyzer::computeILDs(const std::array<std::vector<float>, 2>& magnitudes,
-                                int numBands, std::vector<float>& panIndices)
+void AudioAnalyzer::computeILDs(const std::array<std::vector<float>, 2>& magnitudesIn,
+                                std::vector<float>& panOut)
 {
-    for (int b = 0; b < numBands; ++b)
+    for (int b = 0; b < magnitudesIn[0].size(); ++b)
     {
-        float L = magnitudes[0][b];
-        float R = magnitudes[1][b];
+        float L = magnitudesIn[0][b];
+        float R = magnitudesIn[1][b];
         float denom = L * L + R * R + epsilon; // Avoid zero
         float sim = (2.0f * L * R) / denom;
 
@@ -505,7 +502,7 @@ void AudioAnalyzer::computeILDs(const std::array<std::vector<float>, 2>& magnitu
         float dir = (L > R ? -1.0f : (R > L ? 1.0f : 0.0f));
 
         // Final pan is in the range [-1, +1]
-        panIndices[b] = dir * (1.0f - sim);
+        panOut[b] = dir * (1.0f - sim);
     }
 }
 
@@ -514,7 +511,6 @@ void AudioAnalyzer::computeILDs(const std::array<std::vector<float>, 2>& magnitu
 */
 void AudioAnalyzer::computeITDs(
     const std::array<std::vector<std::vector<std::complex<float>>>, 2>& spec,
-    const std::array<std::vector<float>, 2>& /* cqtMags */,
     int numBands,
     std::vector<float>& panIndices)
 {
