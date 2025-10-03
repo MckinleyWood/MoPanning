@@ -6,17 +6,15 @@ MainComponent::MainComponent(MainController& mc,
     : controller(mc),
       commandManager(cm)
 {
-    visualizer = std::make_unique<GLVisualizer>(controller);
-    settings = std::make_unique<SettingsComponent>(controller);
-
-    addAndMakeVisible(visualizer.get());
-    addAndMakeVisible(settings.get());
-
     controller.registerVisualizer(visualizer.get());
     controller.setDefaultParameters();
 
     settings->setVisible(false); // Since we start in Focus mode
     setSize(1200, 750);
+
+    // Defer the attachment setup until after *this* is fully constructed.
+    // callAsync will run on the Message Thread shortly after the constructor returns.
+    juce::MessageManager::callAsync([this] { initGridAttachment(); });
 }
 
 //=============================================================================
@@ -31,6 +29,8 @@ void MainComponent::resized()
     {
         visualizer->setBounds(bounds);
         settings->setVisible(false);
+        grid->setBounds(bounds);
+        gridToggle.setBounds(10, 10, 120, 24); // top-left corner
     }
     else // viewMode == Split
     {
@@ -38,6 +38,8 @@ void MainComponent::resized()
         auto right = bounds.removeFromRight(sidebarW);
         settings->setBounds(right);
         visualizer->setBounds(bounds);
+        grid->setBounds(bounds);
+        gridToggle.setBounds(10, 10, 120, 24);
         settings->setVisible(true);
     }
 }
@@ -220,4 +222,36 @@ juce::PopupMenu MainComponent::getMenuForIndex(int topLevelIndex,
    #endif
 
     return m;
+}
+
+void MainComponent::initGridAttachment()
+{
+    // Guard: make sure APVTS and parameter exist
+    auto& apvts = controller.getAPVTS();         // safe to call now
+    if (auto* param = apvts.getParameter("showGrid"))
+    {
+        // create the attachment (lambda captures `this` — safe now)
+        gridAttachment = std::make_unique<juce::ParameterAttachment>(
+            *param,
+            [this](float newValue)
+            {
+                bool visible = newValue > 0.5f;
+                juce::MessageManager::callAsync([this, visible]
+                {
+                    gridToggle.setToggleState(visible, juce::dontSendNotification);
+                    grid->setVisible(visible);
+                });
+            },
+            nullptr // undo manager optional
+        );
+
+        // Initial sync
+        bool visible = param->getValue() > 0.5f;
+        gridToggle.setToggleState(visible, juce::dontSendNotification);
+        grid->setVisible(visible);
+    }
+    else
+    {
+        DBG("Warning: showGrid parameter not found at initGridAttachment()");
+    }
 }

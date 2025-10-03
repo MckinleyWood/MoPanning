@@ -152,6 +152,19 @@ MainController::MainController()
                         static_cast<ColourScheme>(value));
             }
         },
+        // showGrid
+        {
+            "showGrid", "Show Grid", 
+            "Toggle display of the ground grid in 3D mode.",
+            ParameterDescriptor::Type::Choice, 0, {},
+            {"Off", "On"}, "",
+            [this](float value) 
+            {
+                bool showGrid = (static_cast<int>(value) != 0);
+                if (grid != nullptr)
+                    grid->setVisible (showGrid);
+            }
+        },
         // recedeSpeed
         {
             "recedeSpeed", "Recede Speed", 
@@ -303,6 +316,11 @@ ParamLayout MainController::makeParameterLayout(
 void MainController::registerVisualizer(GLVisualizer* v)
 {
     visualizer = v;
+}
+
+void MainController::registerGrid(GridComponent* gr)
+{
+    grid = gr;
 }
 
 void MainController::setDefaultParameters()

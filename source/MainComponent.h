@@ -3,6 +3,7 @@
 #include "MainController.h"
 #include "GLVisualizer.h"
 #include "SettingsComponent.h"
+#include "GridComponent.h"
 
 //=============================================================================
 /*  This is the top-level UI container. It holds the GLVisualizer 
@@ -32,6 +33,8 @@ public:
     void resized() override;
     void paint(juce::Graphics&) override;
 
+    bool isGridVisible() const { return gridToggle.getToggleState(); }
+
 private:
     //=========================================================================
     void toggleView();
@@ -51,12 +54,18 @@ private:
     void menuItemSelected(int /*menuID*/,
                           int /*topLevelIndex*/) override {}
 
+    void initGridAttachment();
+
     //=========================================================================
     MainController& controller;
     juce::ApplicationCommandManager& commandManager;
     std::unique_ptr<GLVisualizer> visualizer;
     std::unique_ptr<SettingsComponent> settings;
+    std::unique_ptr<GridComponent> grid;
     ViewMode viewMode { ViewMode::Focus };
+    juce::ToggleButton gridToggle { "Show Grid" };
+    std::unique_ptr<juce::ParameterAttachment> gridAttachment;
+
 
     //=========================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
