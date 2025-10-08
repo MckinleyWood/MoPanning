@@ -62,6 +62,9 @@ private:
     //=========================================================================
     /* Setup functions */
 
+    void setScaleFactors(int fftSizeIn, 
+                         float maxAmplitudeIn, 
+                         float cqtNormalizationIn);
     void setupFFT();
     void setupCQT();
     void setupAWeights(const std::vector<float>& freqs,
