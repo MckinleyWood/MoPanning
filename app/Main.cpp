@@ -40,7 +40,7 @@ public:
     void initialise(const juce::String& commandLine) override
     {
         // DBG("MoPanning Starting up!");
-        juce::ignoreUnused (commandLine);
+        juce::ignoreUnused(commandLine);
 
         commandManager = std::make_unique<juce::ApplicationCommandManager>();
         controller = std::make_unique<MainController>();
@@ -105,6 +105,11 @@ public:
 
             setContentOwned(mc.release(), true);
 
+            cm.registerAllCommandsForTarget(mcPtr);
+            cm.setFirstCommandTarget(mcPtr);
+            cm.getKeyMappings()->resetToDefaultMappings();
+            addKeyListener(cm.getKeyMappings());
+
             // Set up the menu bar
            #if JUCE_MAC
             setUsingNativeTitleBar(true);
@@ -116,11 +121,6 @@ public:
             auto bar = std::make_unique<juce::MenuBarComponent>(mcPtr);
             setMenuBarComponent(bar.release());
            #endif
-
-            cm.registerAllCommandsForTarget(mcPtr);
-            cm.setFirstCommandTarget(mcPtr);
-            cm.getKeyMappings()->resetToDefaultMappings();
-            addKeyListener(cm.getKeyMappings());
 
             setResizable(true, true);
             centreWithSize(getWidth(), getHeight());
