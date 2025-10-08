@@ -25,8 +25,7 @@ void AudioAnalyzer::prepareToPlay(int newSamplesPerBlock, double newSampleRate)
     fftSize = samplesPerBlock;
     numFFTBins = fftSize / 2 + 1;
 
-    fftScaleFactor = 1.0f / fftSize / maxAmplitude;
-    cqtScaleFactor = fftScaleFactor * cqtNormalization;
+    setScaleFactors(fftSize, maxAmplitude, cqtNormalization);
 
     // Initialize FFT engine and storage (if needed)
     if (fftEngine == nullptr || fftEngine->getSize() != fftSize)
@@ -154,8 +153,7 @@ void AudioAnalyzer::setMinFrequency(float newMinFrequency)
 void AudioAnalyzer::setMaxAmplitude(float newMaxAmplitude)
 {
     maxAmplitude = newMaxAmplitude;
-    fftScaleFactor = 1.0f / fftSize / maxAmplitude;
-    cqtScaleFactor = fftScaleFactor * cqtNormalization;
+    setScaleFactors(fftSize, maxAmplitude, cqtNormalization);
 }
 
 void AudioAnalyzer::setThreshold(float newThreshold)
@@ -173,6 +171,14 @@ void AudioAnalyzer::setFreqWeighting(FrequencyWeighting newFreqWeighting)
 }
 
 //=============================================================================
+void AudioAnalyzer::setScaleFactors(int fftSizeIn, 
+                                    float maxAmplitudeIn, 
+                                    float cqtNormalizationIn)
+{
+    fftScaleFactor = 4.0f / fftSizeIn / maxAmplitudeIn;
+    cqtScaleFactor = fftScaleFactor * cqtNormalizationIn;
+}
+
 /*  Initializes the variables and vectors needed for FFT mode, including 
     numBands, binFrequencies, and magnitudes. 
 */
@@ -395,16 +401,15 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
         float magL = std::abs(magnitudes[0][b]);
         float magR = std::abs(magnitudes[1][b]);
         float mag = (magL + magR) * 0.5f; // Average magnitude
+        float linear = mag; // Linear amplitude
 
-        // DBG("freq = " << binFrequencies[b]
-        //     << " Hz, aWeight = " << frequencyWeights[b]);
-        float linear = mag * fftScaleFactor; // Linear amplitude
+        if (transform == FFT)
+            linear *= fftScaleFactor; // Linear amplitude
+        else if (transform == CQT)
+            linear *= cqtScaleFactor;
 
         if (freqWeighting != none)
             linear *= frequencyWeights[b]; // Apply frequency weighting
-        
-        if (transform == CQT)
-            linear /= 28.f; // Additional scaling for CQT (empirical)
 
         float dBrel = 20 * std::log10(linear + epsilon);
         if (dBrel < threshold)
