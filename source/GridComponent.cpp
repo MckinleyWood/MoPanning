@@ -1,11 +1,24 @@
 #include "GridComponent.h"
 
 GridComponent::GridComponent(MainController& controllerRef)
-    : controller(controllerRef) {}
+    : controller(controllerRef) {
+
+        setInterceptsMouseClicks(false, false);
+        setAlwaysOnTop(true);
+        setOpaque(false);
+    }
 
 void GridComponent::paint (juce::Graphics& g)
 {
-    g.setColour(juce::Colours::darkgrey);
+    // Clear background to transparent
+    g.fillAll(juce::Colours::transparentBlack);
+    setOpaque(false);
+
+
+    g.setColour(juce::Colours::red.withAlpha(0.2f));
+
+    // Grid line color
+    // g.setColour(juce::Colours::darkgrey);
 
     if(frequencies.empty())
         return;

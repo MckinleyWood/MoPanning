@@ -6,15 +6,40 @@ MainComponent::MainComponent(MainController& mc,
     : controller(mc),
       commandManager(cm)
 {
+    std::cout << "MainComponent constructor entered\n"; std::cout.flush();
+    DBG("MainComponent constructor");
+
+    visualizer = std::make_unique<GLVisualizer>(controller);
+    addAndMakeVisible(visualizer.get());
+    settings = std::make_unique<SettingsComponent>(controller);
+    addAndMakeVisible(settings.get());
+    grid = std::make_unique<GridComponent>(controller);
+    addAndMakeVisible(grid.get());
+    grid->setBounds(getLocalBounds());
+
+    DBG("Grid pointer is " + juce::String(grid ? "valid" : "null"));
+
+
+
+
+    grid->setAlwaysOnTop(true);
+
+
     controller.registerVisualizer(visualizer.get());
     controller.setDefaultParameters();
 
-    settings->setVisible(false); // Since we start in Focus mode
+    if (settings != nullptr)
+        settings->setVisible(false);
+
     setSize(1200, 750);
 
     // Defer the attachment setup until after *this* is fully constructed.
     // callAsync will run on the Message Thread shortly after the constructor returns.
-    juce::MessageManager::callAsync([this] { initGridAttachment(); });
+    DBG("Scheduling initGridAttachment() via callAsync");
+    juce::MessageManager::callAsync([this] { 
+        DBG("Inside initGridAttachment lambda");
+        initGridAttachment(); 
+    });
 }
 
 //=============================================================================
@@ -23,24 +48,30 @@ MainComponent::MainComponent(MainController& mc,
 */
 void MainComponent::resized()
 {
-    auto bounds = getLocalBounds();
+    if (grid) grid->setBounds(getLocalBounds());
+    if (visualizer) visualizer->setBounds(getLocalBounds());
 
-    if (viewMode == ViewMode::Focus)
+    if (settings != nullptr)
     {
-        visualizer->setBounds(bounds);
-        settings->setVisible(false);
-        grid->setBounds(bounds);
-        gridToggle.setBounds(10, 10, 120, 24); // top-left corner
-    }
-    else // viewMode == Split
-    {
-        const int sidebarW = 300;
-        auto right = bounds.removeFromRight(sidebarW);
-        settings->setBounds(right);
-        visualizer->setBounds(bounds);
-        grid->setBounds(bounds);
-        gridToggle.setBounds(10, 10, 120, 24);
-        settings->setVisible(true);
+        auto bounds = getLocalBounds();
+
+        if (viewMode == ViewMode::Focus)
+        {
+            visualizer->setBounds(bounds);
+            settings->setVisible(false);
+            grid->setBounds(bounds);
+            gridToggle.setBounds(10, 10, 120, 24); // top-left corner
+        }
+        else // viewMode == Split
+        {
+            const int sidebarW = 300;
+            auto right = bounds.removeFromRight(sidebarW);
+            settings->setBounds(right);
+            visualizer->setBounds(bounds);
+            grid->setBounds(bounds);
+            gridToggle.setBounds(10, 10, 120, 24);
+            settings->setVisible(true);
+        }
     }
 }
 
@@ -226,6 +257,8 @@ juce::PopupMenu MainComponent::getMenuForIndex(int topLevelIndex,
 
 void MainComponent::initGridAttachment()
 {
+    DBG("Entered initGridAttachment()");
+
     // Guard: make sure APVTS and parameter exist
     auto& apvts = controller.getAPVTS();         // safe to call now
     if (auto* param = apvts.getParameter("showGrid"))

@@ -11,6 +11,9 @@ GLVisualizer::GLVisualizer(MainController& c) : controller(c)
     openGLContext.setOpenGLVersionRequired(glVersion);
     openGLContext.setContinuousRepainting(true);
 
+    setInterceptsMouseClicks(false, false); // don't block mouse or focus
+    setWantsKeyboardFocus(false);           // don't take keyboard focus
+
     startTime = (float)juce::Time::getMillisecondCounterHiRes() * 0.001f;
     lastFrameTime = startTime;
 }
