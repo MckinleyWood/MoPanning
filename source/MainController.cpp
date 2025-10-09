@@ -3,7 +3,7 @@
 //=============================================================================
 MainController::MainController()
 {
-    // Allocate analyzer and engince
+    // Allocate analyzer and engine
     analyzer = std::make_unique<AudioAnalyzer>();
     engine = std::make_unique<AudioEngine>();
 
@@ -179,9 +179,9 @@ MainController::MainController()
                 if (grid)
                 {
                     grid->setVisible(showGrid);
+                    grid->toFront(false);
                     grid->repaint();
                 }
-            DBG("showGrid parameter changed. Value = " << value);
             }
         },
         // recedeSpeed
@@ -342,6 +342,23 @@ void MainController::registerVisualizer(GLVisualizer* v)
 void MainController::registerGrid(GridComponent* g)
 {
     grid = g;
+
+    if (grid != nullptr)
+    {
+        // Get the AudioParameterChoice from the APVTS
+        if (auto* param = dynamic_cast<juce::AudioParameterChoice*>(
+                apvts->getParameter("showGrid")))
+        {
+            int valueIndex = param->getIndex();
+            bool showGrid = (valueIndex != 0);
+
+            DBG("registerGrid: syncing grid visibility");
+
+            grid->setVisible(showGrid);
+            grid->toFront(false);
+            grid->repaint();
+        }
+    }
 }
 
 void MainController::unregisterGrid()
