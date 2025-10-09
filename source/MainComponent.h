@@ -28,6 +28,7 @@ public:
 
     //=========================================================================
     explicit MainComponent(MainController&, juce::ApplicationCommandManager&);
+    ~MainComponent() override;
 
     //=========================================================================
     void resized() override;

@@ -75,6 +75,8 @@ MainController::MainController()
             {"5Hz", "20Hz", "50Hz", "100Hz"}, "",
             [this](float value) 
             {
+                DBG("MainController: minFrequency changed to " 
+                    << value);
                 float newMinFreq;
                 switch ((int)value)
                 {
@@ -84,11 +86,24 @@ MainController::MainController()
                     case 3: newMinFreq = 100.0f; break;
                     default: newMinFreq = 20.0f; break;
                 }
-                if (analyzer == nullptr || visualizer == nullptr)
-                    return;
-                analyzer->setMinFrequency(newMinFreq);
-                visualizer->setMinFrequency(newMinFreq);
+
+                // Call asynchronously to ensure grid exists
+                juce::MessageManager::callAsync([this, newMinFreq] {
+                    if (grid != nullptr){
+                        DBG(juce::String("MainController: grid minFreq set to ") + juce::String(newMinFreq));
+                        grid->setMinFrequency(newMinFreq);
+                        DBG("MainController: grid minFreq set to " 
+                            << newMinFreq);
+                    }
+                    if (visualizer != nullptr){
+                        visualizer->setMinFrequency(newMinFreq);
+                    }
+                        
+                    if (analyzer != nullptr)
+                        analyzer->setMinFrequency(newMinFreq);
+                });
             }
+
         },
         // peakAmplitude
         {
@@ -156,13 +171,17 @@ MainController::MainController()
         {
             "showGrid", "Show Grid", 
             "Toggle display of the ground grid in 3D mode.",
-            ParameterDescriptor::Type::Choice, 0, {},
+            ParameterDescriptor::Type::Choice, 1, {},
             {"Off", "On"}, "",
             [this](float value) 
             {
                 bool showGrid = (static_cast<int>(value) != 0);
-                if (grid != nullptr)
-                    grid->setVisible (showGrid);
+                if (grid)
+                {
+                    grid->setVisible(showGrid);
+                    grid->repaint();
+                }
+            DBG("showGrid parameter changed. Value = " << value);
             }
         },
         // recedeSpeed
@@ -281,6 +300,8 @@ void MainController::audioDeviceAboutToStart(juce::AudioIODevice* device)
     analyzer->setPrepared(false);
     analyzer->prepareToPlay(samplesPerBlock, sampleRate);
     visualizer->prepareToPlay(samplesPerBlock, sampleRate);
+    if (grid != nullptr)
+        grid->setSampleRate(sampleRate);
 }
 
 void MainController::audioDeviceStopped() 
@@ -318,9 +339,14 @@ void MainController::registerVisualizer(GLVisualizer* v)
     visualizer = v;
 }
 
-void MainController::registerGrid(GridComponent* gr)
+void MainController::registerGrid(GridComponent* g)
 {
-    grid = gr;
+    grid = g;
+}
+
+void MainController::unregisterGrid()
+{
+    grid = nullptr;
 }
 
 void MainController::setDefaultParameters()

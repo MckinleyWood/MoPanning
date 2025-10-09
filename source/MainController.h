@@ -52,7 +52,8 @@ public:
         const std::vector<ParameterDescriptor>& descriptors);
 
     void registerVisualizer(GLVisualizer* v);
-    void registerGrid(GridComponent* gr);
+    void registerGrid(GridComponent* g);
+    void unregisterGrid();
     void setDefaultParameters();
     bool loadFile(const juce::File& f);
     void togglePlayback();
