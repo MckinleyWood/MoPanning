@@ -28,13 +28,10 @@ public:
 
     //=========================================================================
     explicit MainComponent(MainController&, juce::ApplicationCommandManager&);
-    ~MainComponent() override;
 
     //=========================================================================
     void resized() override;
     void paint(juce::Graphics&) override;
-
-    bool isGridVisible() const { return gridToggle.getToggleState(); }
 
 private:
     //=========================================================================
@@ -55,8 +52,6 @@ private:
     void menuItemSelected(int /*menuID*/,
                           int /*topLevelIndex*/) override {}
 
-    void initGridAttachment();
-
     //=========================================================================
     MainController& controller;
     juce::ApplicationCommandManager& commandManager;
@@ -64,9 +59,7 @@ private:
     std::unique_ptr<SettingsComponent> settings;
     std::unique_ptr<GridComponent> grid;
     ViewMode viewMode { ViewMode::Focus };
-    juce::ToggleButton gridToggle { "Show Grid" };
     std::unique_ptr<juce::ParameterAttachment> gridAttachment;
-
 
     //=========================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)

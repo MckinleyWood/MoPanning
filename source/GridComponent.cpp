@@ -96,3 +96,8 @@ void GridComponent::paint(juce::Graphics& g)
                    juce::Justification::left);
     }
 }
+
+void GridComponent::setGridVisible(bool shouldShow)
+{
+    setVisible(shouldShow);
+}

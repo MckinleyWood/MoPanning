@@ -171,17 +171,12 @@ MainController::MainController()
         {
             "showGrid", "Show Grid", 
             "Toggle display of the ground grid in 3D mode.",
-            ParameterDescriptor::Type::Choice, 1, {},
+            ParameterDescriptor::Type::Choice, 0, {},
             {"Off", "On"}, "",
             [this](float value) 
             {
-                bool showGrid = (static_cast<int>(value) != 0);
-                if (grid)
-                {
-                    grid->setVisible(showGrid);
-                    grid->toFront(false);
-                    grid->repaint();
-                }
+                bool showGrid = (static_cast<int>(value) == 1);
+                grid->setGridVisible(showGrid);
             }
         },
         // recedeSpeed
@@ -342,28 +337,6 @@ void MainController::registerVisualizer(GLVisualizer* v)
 void MainController::registerGrid(GridComponent* g)
 {
     grid = g;
-
-    if (grid != nullptr)
-    {
-        // Get the AudioParameterChoice from the APVTS
-        if (auto* param = dynamic_cast<juce::AudioParameterChoice*>(
-                apvts->getParameter("showGrid")))
-        {
-            int valueIndex = param->getIndex();
-            bool showGrid = (valueIndex != 0);
-
-            DBG("registerGrid: syncing grid visibility");
-
-            grid->setVisible(showGrid);
-            grid->toFront(false);
-            grid->repaint();
-        }
-    }
-}
-
-void MainController::unregisterGrid()
-{
-    grid = nullptr;
 }
 
 void MainController::setDefaultParameters()

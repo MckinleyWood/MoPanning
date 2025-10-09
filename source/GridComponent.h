@@ -14,6 +14,8 @@ public:
 
     void paint (juce::Graphics& g) override;
 
+    void setGridVisible(bool shouldShow);
+
 private:
     MainController& controller;
 
