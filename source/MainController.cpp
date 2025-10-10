@@ -94,7 +94,10 @@ MainController::MainController()
                         grid->setMinFrequency(newMinFreq);
                         DBG("MainController: grid minFreq set to " 
                             << newMinFreq);
+
+                        updateGridTexture();
                     }
+
                     if (visualizer != nullptr){
                         visualizer->setMinFrequency(newMinFreq);
                     }
@@ -356,6 +359,11 @@ bool MainController::loadFile(const juce::File& f)
 void MainController::togglePlayback()
 {
     engine->togglePlayback();
+}
+
+void MainController::updateGridTexture()
+{
+    visualizer->createGridImageFromComponent(grid);
 }
 
 //=============================================================================

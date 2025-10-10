@@ -1,5 +1,6 @@
 #include "GLVisualizer.h"
 #include "MainController.h"
+#include "GridComponent.h"
 
 
 //=============================================================================
@@ -328,8 +329,55 @@ void GLVisualizer::render()
     if (err != GL_NO_ERROR)
         DBG("OpenGL error: " << juce::String::toHexString((int)err));
 
-    // Ensure grid is painted on top
-    getParentComponent()->repaint();
+   // --- GRID OVERLAY START ---
+    if (gridTextureReady)
+    {
+        // Disable depth so overlay always draws on top
+        glDisable(GL_DEPTH_TEST);
+
+        // Enable alpha blending
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        // Use a very simple shader for the grid quad
+        // (JUCE's OpenGLTexture has a bind() helper that works with shaders)
+        gridGLTex.bind();
+
+        // Fullscreen quad in clip-space [-1,1]
+        static const float quadVerts[] = {
+            -1.f, -1.f,
+            1.f, -1.f,
+            -1.f,  1.f,
+            1.f,  1.f
+        };
+
+        // Fullscreen quad texture coordinates [0,1]
+        static const float quadUVs[] = {
+            0.f, 1.f,
+            1.f, 1.f,
+            0.f, 0.f,
+            1.f, 0.f
+        };
+
+        // Enable vertex arrays
+        glEnableClientState(GL_VERTEX_ARRAY);
+        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+
+        glVertexPointer(2, GL_FLOAT, 0, quadVerts);
+        glTexCoordPointer(2, GL_FLOAT, 0, quadUVs);
+
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+        // Disable arrays
+        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        glDisableClientState(GL_VERTEX_ARRAY);
+
+        gridGLTex.release();
+
+        // Restore depth test for next frame
+        glEnable(GL_DEPTH_TEST);
+    }
+    // --- GRID OVERLAY END ---
 }
 
 void GLVisualizer::resized() 
@@ -369,6 +417,27 @@ void GLVisualizer::resized()
         jassertfalse; // Unknown dimension
     }
     
+}
+
+void GLVisualizer::createGridImageFromComponent(GridComponent* gridComp)
+{
+    if (getWidth() <= 0 || getHeight() <= 0 || !gridComp)
+        return;
+
+    // Render the grid component into a JUCE Image on the message thread
+    juce::Image img(juce::Image::ARGB, getWidth(), getHeight(), true);
+    juce::Graphics g(img);
+    g.setOrigin(0, 0);
+    gridComp->paint(g);
+
+    // Copy into member variable
+    gridImage = img;
+
+    // Mark the texture as dirty so it will be uploaded next render call
+    gridTextureDirty = true;
+
+    // Ensure GLVisualizer repaints
+    openGLContext.triggerRepaint();
 }
 
 //=============================================================================

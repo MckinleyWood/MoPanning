@@ -1,5 +1,5 @@
 #include "GridComponent.h"
-#include <cmath> // for std::log
+#include <cmath>
 
 GridComponent::GridComponent(MainController& controllerRef)
     : controller(controllerRef),
@@ -35,7 +35,7 @@ void GridComponent::updateFrequencies()
     }
 
     repaint();
-    DBG("GridComponent::updateFrequencies called. Frequencies updated.");
+    DBG("GridComponent::updateFrequencies called. Frequencies updated. Repainted.");
 }
 
 void GridComponent::setMinFrequency(float f)
@@ -45,7 +45,6 @@ void GridComponent::setMinFrequency(float f)
 
     minFrequency = f;
     updateFrequencies();
-    repaint();
 }
 
 void GridComponent::setSampleRate(double sr)
@@ -61,7 +60,7 @@ void GridComponent::paint(juce::Graphics& g)
     // Clear background to transparent
     g.fillAll(juce::Colours::transparentBlack);
 
-    g.setColour(juce::Colours::red.withAlpha(0.2f));
+    g.setColour(juce::Colours::red);
     // g.setColour(juce::Colours::lightgrey);
 
     if(frequencies.empty())

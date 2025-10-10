@@ -1,6 +1,8 @@
 #pragma once
 #include <JuceHeader.h>
 
+class GridComponent;
+
 class MainController;
 
 //=============================================================================
@@ -60,6 +62,8 @@ public:
 
     void paint(juce::Graphics& g) override;
 
+    void createGridImageFromComponent(GridComponent* gridComp);
+
 private:
     //=========================================================================
     struct Particle
@@ -91,7 +95,12 @@ private:
     double sampleRate;
     float startTime; // App-launch time in seconds
     float lastFrameTime; // Time of last frame in seconds
-    
+
+    juce::Image gridImage;                // protected by atomic flag logic (image lives on message thread)
+    juce::OpenGLTexture gridGLTex;        // JUCE helper class
+    std::atomic<bool> gridTextureDirty{false};
+    std::atomic<bool> haveGridImage{false}; // whether there's an image ready to upload
+    bool gridTextureReady = false;
 
     //=========================================================================
     /* Parameters */

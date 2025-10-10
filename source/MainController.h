@@ -56,6 +56,7 @@ public:
     void setDefaultParameters();
     bool loadFile(const juce::File& f);
     void togglePlayback();
+    void updateGridTexture();
 
     std::vector<ParameterDescriptor> getParameterDescriptors() const;
     juce::AudioProcessorValueTreeState& getAPVTS() noexcept;
