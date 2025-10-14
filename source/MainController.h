@@ -27,7 +27,7 @@ struct ParameterDescriptor
     juce::StringArray choices; // For choice parameters
     juce::String unit;
     std::function<void(float)> onChanged;
-    // enum UIType { Slider, ComboBox } uiType; // To choose UI style maybe
+    bool display = true;
 };
 
 //=============================================================================

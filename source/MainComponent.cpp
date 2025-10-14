@@ -6,8 +6,6 @@ MainComponent::MainComponent(MainController& mc,
     : controller(mc),
       commandManager(cm)
 {
-    DBG("MainComponent constructor");
-
     visualizer = std::make_unique<GLVisualizer>(controller);
     settings = std::make_unique<SettingsComponent>(controller);
     grid = std::make_unique<GridComponent>(controller);    
@@ -21,8 +19,6 @@ MainComponent::MainComponent(MainController& mc,
     controller.registerVisualizer(visualizer.get());
     controller.registerGrid(grid.get());
     grid->setAlwaysOnTop(true);
-
-    DBG("Grid pointer is " + juce::String(grid ? "valid" : "null"));
 
     controller.setDefaultParameters();
 
@@ -163,7 +159,6 @@ void MainComponent::getCommandInfo(juce::CommandID id,
 */
 bool MainComponent::perform(const InvocationInfo& info)
 {
-    // DBG("commandID = " << info.commandID);
     if (info.commandID == cmdToggleSettings)
     {
         toggleView();

@@ -31,7 +31,8 @@ MainController::MainController()
             {
                 if (analyzer != nullptr)
                     analyzer->setTransform(static_cast<Transform>(value));
-            }
+            },
+            false
         },
         // panMethod
         {
@@ -180,7 +181,8 @@ MainController::MainController()
             {
                 bool showGrid = (static_cast<int>(value) == 1);
                 grid->setGridVisible(showGrid);
-            }
+            },
+            false
         },
         // recedeSpeed
         {
@@ -198,7 +200,7 @@ MainController::MainController()
         {
             "dotSize", "Particle Size", 
             "Size of each particle in the visualization.",
-            ParameterDescriptor::Type::Float, 0.15f,
+            ParameterDescriptor::Type::Float, 0.1f,
             juce::NormalisableRange<float>(0.01f, 1.f), {}, "",
             [this](float value) 
             {
@@ -216,7 +218,8 @@ MainController::MainController()
             {
                 if (visualizer != nullptr)
                     visualizer->setAmpScale(value);
-            }
+            },
+            false
         },
         // fadeEndZ
         {

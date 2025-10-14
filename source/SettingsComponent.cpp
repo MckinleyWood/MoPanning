@@ -72,6 +72,10 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     auto& apvts = controller.getAPVTS();
     for (const auto& p : parameters)
     {
+        if (p.display == false)
+        {
+            continue;
+        }
         if (p.type == ParameterDescriptor::Float)
         {
             auto slider = std::make_unique<NonScrollingSlider>(p.displayName);

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(MOPANNING VERSION 0.0.1)
+project(MOPANNING VERSION 0.1.0)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -11,6 +11,8 @@ juce_add_gui_app(MoPanning
     PRODUCT_NAME "MoPanning" # The name of the final executable
     MICROPHONE_PERMISSION_ENABLED TRUE
     MICROPHONE_PERMISSION_TEXT "This app requires access to the microphone for live audio input."
+    VERSION ${PROJECT_VERSION}
+    
 )
 
 juce_generate_juce_header(MoPanning)

@@ -183,6 +183,8 @@ public:
         
         // Pre-allocate analysis buffer
         analysisBuffer.setSize(2, windowSize);
+
+        writePosition = 0;
     }
 
     ~AnalyzerWorker()
@@ -300,7 +302,7 @@ private:
     }
 
     juce::AudioBuffer<float> ringBuffer;
-    std::atomic<int> writePosition = 0;
+    std::atomic<int> writePosition;
     int readPosition = 0;
 
     juce::AudioBuffer<float> analysisBuffer;

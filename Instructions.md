@@ -1,7 +1,7 @@
 # MoPanning Instructions
 Thanks for installing MoPanning, a perception-based real-time visualization program for stereo audio including music. Below are instructions on how to install and use MoPanning. 
 
-After you have tried it out, we would love your feedback! We have a Google form at [form link], or you can reach us at mopanning@outlook.com.
+After you have tried it out, we would love your feedback! We have a Google form at https://forms.gle/uvojXPtnCtWrd9Zg8, or you can reach us at mopanning@outlook.com.
 
 ## Installation
 To install, drag and drop the MoPanning icon into the Applications folder. The app can then be run from there. Since we haven't paid for an Apple developer account, your Mac will tell you the app might be malware. You can go to your privacy and security settings and hit 'open anyway' if you trust us. When you open MoPanning, make sure you hit 'allow' for access to the microphone.

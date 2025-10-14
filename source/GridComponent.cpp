@@ -12,8 +12,8 @@ GridComponent::GridComponent(MainController& controllerRef)
 
     // Populate default frequencies immediately
     updateFrequencies();
-    DBG("GridComponent created with minFrequency: " << minFrequency 
-        << " Hz, sampleRate: " << sampleRate << " Hz");
+    // DBG("GridComponent created with minFrequency: " << minFrequency 
+    //     << " Hz, sampleRate: " << sampleRate << " Hz");
 }
 
 // Call this whenever sampleRate or minFrequency changes
@@ -35,13 +35,13 @@ void GridComponent::updateFrequencies()
     }
 
     repaint();
-    DBG("GridComponent::updateFrequencies called. Frequencies updated. Repainted.");
+    // DBG("GridComponent::updateFrequencies called. Frequencies updated. Repainted.");
 }
 
 void GridComponent::setMinFrequency(float f)
 {
-    DBG("GridComponent::setMinFrequency called");
-    DBG(juce::String::formatted("this = %p", this));
+    // DBG("GridComponent::setMinFrequency called");
+    // DBG(juce::String::formatted("this = %p", this));
 
     minFrequency = f;
     updateFrequencies();
@@ -49,7 +49,7 @@ void GridComponent::setMinFrequency(float f)
 
 void GridComponent::setSampleRate(double sr)
 {
-    DBG("GridComponent::setSampleRate called");
+    // DBG("GridComponent::setSampleRate called");
     sampleRate = sr;
     updateFrequencies();
     repaint();
@@ -65,7 +65,7 @@ void GridComponent::paint(juce::Graphics& g)
 
     if(frequencies.empty())
     {
-        DBG("GridComponent::paint() skipped — frequencies is empty");
+        // DBG("GridComponent::paint() skipped — frequencies is empty");
         return;
     }
 
