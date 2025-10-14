@@ -172,17 +172,17 @@ private:
 class AudioAnalyzer::AnalyzerWorker
 {
 public:
-    AnalyzerWorker(int numSlots, int blockSizeIn, AudioAnalyzer& parent)
-        : fifo(numSlots), 
-          buffers(numSlots), 
+    AnalyzerWorker(int windowSizeIn, double sampleRateIn, AudioAnalyzer& parent) 
+        : windowSize(windowSizeIn),
+          sampleRate(sampleRateIn),
           parentAnalyzer(parent)
     {
-        // Pre-allocate buffers
-        for (auto& buf : buffers)
-            buf.setSize(2, blockSizeIn);
-
-        // Launch background thread
-        shouldExit = false;
+        // Pre-allocate ring buffer - large enough for 16 blocks or 2 seconds
+        int bufferSize = std::max((int)sampleRate * 2, windowSize * 16);
+        ringBuffer.setSize(2, bufferSize);
+        
+        // Pre-allocate analysis buffer
+        analysisBuffer.setSize(2, windowSize);
     }
 
     ~AnalyzerWorker()
@@ -213,22 +213,34 @@ public:
         } 
     }
 
-    /* Called on audio thread: enqueue a copy of 'input' into the FIFO. */
-    void pushBlock(const juce::AudioBuffer<float>& input)
+    /*  This function is called on audio thread to enqueue a copy of 
+        the incoming audio block into the ring buffer. 
+    */
+    void pushBlock(const juce::AudioBuffer<float>& newBlock)
     {
-        int start1, size1, start2, size2;
+        int n = newBlock.getNumSamples();
+        int N = ringBuffer.getNumSamples();
 
-        // If no free space, drop the block
-        if (fifo.getFreeSpace() == 0)
-            return;
+        for (int ch = 0; ch < 2; ++ch)
+        {
+            if (writePosition + n < N)
+            {
+                // We have room, copy the samples starting from writePosition
+                ringBuffer.copyFrom(ch, writePosition, newBlock, ch, 0, n);
+            }
+            else
+            {
+                int samplesToEnd = N - writePosition;
+                // Copy the samples from writePosition to end of the ring buffer
+                ringBuffer.copyFrom(ch, writePosition, newBlock, ch, 0, samplesToEnd);
 
-        fifo.prepareToWrite(1, start1, size1, start2, size2);
-
-        // size1 should be 1, and start2/size2 unused
-        // Copy into pre-allocated buffer slot
-        // We assume input has same numChannels and blockSize
-        buffers[start1].makeCopyOf(input);
-        fifo.finishedWrite(size1);
+                // Copy the rest of the samples from the start of the ring buffer
+                ringBuffer.copyFrom(ch, 0, newBlock, ch, samplesToEnd, n - samplesToEnd);
+            }
+        }
+        
+        // Update the write position, wrapping around if necessary
+        writePosition = (writePosition + n) % N;
 
         // Notify worker thread that new data is available
         std::lock_guard<std::mutex> lock(mutex);
@@ -238,34 +250,63 @@ public:
     }
 
 private:
-    // Background thread main loop 
+    /*  This function is run on a background thread to continuously
+        check if there are enough samples available to run analysis, and
+        to copy them to the audio analyzer if so. 
+    */
     void run()
     {
         while (!shouldExit)
         {
-            int start1, size1, start2, size2;
-            // Check if there is data ready
-            if (fifo.getNumReady() > 0)
-            {
-                fifo.prepareToRead(1, start1, size1, start2, size2);
-                if (size1 < 0) continue;
+            int n = windowSize;
+            int N = ringBuffer.getNumSamples();
 
-                if (parentAnalyzer.getPrepared())
-                    parentAnalyzer.analyzeBlock(buffers[start1]);
-                
-                fifo.finishedRead(size1);
-            }
-            else
+            int samplesAvailable = (writePosition - readPosition + N) % N;
+            
+            // Check if there is data ready
+            if (samplesAvailable < windowSize)
             {
                 // If there is no data ready, wait briefly or until notified
                 std::unique_lock<std::mutex> lock(mutex);
                 cv.wait_for(lock, std::chrono::milliseconds(2));
+                continue; // Re-check condition
             }
+
+            // Copy data from the ring buffer to the analysis buffer
+            for (int ch = 0; ch < 2; ++ch)
+            {
+                if (readPosition + n <= N)
+                {
+                    // We have room, copy the samples starting from readPosition
+                    analysisBuffer.copyFrom(ch, 0, ringBuffer, ch, readPosition, n);
+                }
+                else
+                {
+                    int samplesToEnd = N - readPosition;
+                    // Copy the samples from readPosition to end of the ring buffer
+                    analysisBuffer.copyFrom(ch, 0, ringBuffer, ch, readPosition, samplesToEnd);
+
+                    // Copy the rest of the samples from the start of the ring buffer
+                    analysisBuffer.copyFrom(ch, samplesToEnd, ringBuffer, ch, 0, n - samplesToEnd);
+                }
+            }
+
+            // Update the read position, wrapping around if necessary
+            readPosition = (readPosition + n) % N;
+
+            // Pass the analysis buffer to the audio analyzer
+            parentAnalyzer.analyzeBlock(analysisBuffer);
         }
     }
 
-    juce::AbstractFifo fifo;
-    std::vector<juce::AudioBuffer<float>> buffers;
+    juce::AudioBuffer<float> ringBuffer;
+    std::atomic<int> writePosition = 0;
+    int readPosition = 0;
+
+    juce::AudioBuffer<float> analysisBuffer;
+    int windowSize; // Size of each analysis window
+    double sampleRate;
+
     std::thread thread;
     std::atomic<bool> shouldExit {false};
     std::condition_variable cv;

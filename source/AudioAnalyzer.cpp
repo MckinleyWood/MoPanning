@@ -71,9 +71,7 @@ void AudioAnalyzer::prepareToPlay(int newSamplesPerBlock, double newSampleRate)
         setupPanWeights();
 
     // Start the worker thread
-    int numSlots = 4;
-    worker = std::make_unique<AnalyzerWorker>(
-        numSlots, samplesPerBlock, *this);
+    worker = std::make_unique<AnalyzerWorker>(1024, sampleRate, *this);
     worker->start();
 
     isPrepared.store(true);
@@ -87,7 +85,7 @@ void AudioAnalyzer::prepareToPlay()
 
 void AudioAnalyzer::enqueueBlock(const juce::AudioBuffer<float>* buffer)
 {
-    if (worker && buffer != nullptr)
+    if (worker != nullptr && buffer != nullptr)
         worker->pushBlock(*buffer);
 }
 
@@ -179,8 +177,8 @@ void AudioAnalyzer::setScaleFactors(int fftSizeIn,
     cqtScaleFactor = fftScaleFactor * cqtNormalizationIn;
 }
 
-/*  Initializes the variables and vectors needed for FFT mode, including 
-    numBands, binFrequencies, and magnitudes. 
+/*  Initializes the variables and vectors needed for FFT mode, which is
+    just binFrequencies in this case.
 */
 void AudioAnalyzer::setupFFT()
 {
@@ -192,7 +190,7 @@ void AudioAnalyzer::setupFFT()
 }
 
 /*  Initializes the variables and vectors needed for CQT mode, including 
-    numBands, binFrequencies, magnitudes, cqtKernels, and fullCQTspec. 
+    binFrequencies, cqtKernels, and fullCQTspec. 
 */
 void AudioAnalyzer::setupCQT()
 {
