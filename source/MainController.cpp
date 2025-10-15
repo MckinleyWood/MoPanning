@@ -3,7 +3,7 @@
 //=============================================================================
 MainController::MainController()
 {
-    // Allocate analyzer and engine
+    // Initialize audio analyzer and engine
     analyzer = std::make_unique<AudioAnalyzer>();
     engine = std::make_unique<AudioEngine>();
 
@@ -131,20 +131,10 @@ MainController::MainController()
                     default: newMinFreq = 20.0f; break;
                 }
 
-                // Call asynchronously to ensure grid exists
-                juce::MessageManager::callAsync([this, newMinFreq] {
-                    if (grid != nullptr){
-                        grid->setMinFrequency(newMinFreq);
-                        updateGridTexture();
-                    }
-
-                    if (visualizer != nullptr){
-                        visualizer->setMinFrequency(newMinFreq);
-                    }
-                        
-                    if (analyzer != nullptr)
-                        analyzer->setMinFrequency(newMinFreq);
-                });
+                grid->setMinFrequency(newMinFreq);
+                visualizer->setMinFrequency(newMinFreq);
+                analyzer->setMinFrequency(newMinFreq);
+                updateGridTexture();
             }
 
         },
@@ -213,15 +203,17 @@ MainController::MainController()
         // showGrid
         {
             "showGrid", "Show Grid", 
-            "Toggle display of the ground grid in 3D mode.",
+            "Toggle display of the grid.",
             ParameterDescriptor::Type::Choice, 0, {},
             {"Off", "On"}, "",
             [this](float value) 
             {
                 bool showGrid = (static_cast<int>(value) == 1);
                 grid->setGridVisible(showGrid);
+                if (visualizer != nullptr)
+                    visualizer->setShowGrid(showGrid);
             },
-            false
+            true
         },
         // recedeSpeed
         {
@@ -340,8 +332,7 @@ void MainController::audioDeviceAboutToStart(juce::AudioIODevice* device)
     analyzer->setPrepared(false);
     analyzer->prepare(sampleRate);
     visualizer->prepareToPlay(samplesPerBlock, sampleRate);
-    if (grid != nullptr)
-        grid->setSampleRate(sampleRate);
+    grid->setSampleRate(sampleRate);
 }
 
 void MainController::audioDeviceStopped() 

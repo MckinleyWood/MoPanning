@@ -30,9 +30,16 @@ void GLVisualizer::prepareToPlay(int newSamplesPerBlock, double newSampleRate)
     sampleRate = newSampleRate;
     juce::ignoreUnused(newSamplesPerBlock);
 }
+
 //=============================================================================
+/*  This function builds the 1D texture that is used to convert look up 
+    colour for amplitude value.
+*/
 void GLVisualizer::buildTexture()
 {
+    if (newTextureRequsted == false)
+        return;
+    
     using namespace juce::gl;
     // auto& ext = openGLContext.extensions;
 
@@ -82,6 +89,8 @@ void GLVisualizer::buildTexture()
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    newTextureRequsted = false;
 }
 
 //=============================================================================
@@ -219,11 +228,7 @@ void GLVisualizer::render()
     glEnable(GL_PROGRAM_POINT_SIZE);
 
     // Check if we need to rebuild the texture
-    if (newTextureRequsted)
-    {
-        buildTexture();
-        newTextureRequsted = false;
-    }
+    buildTexture();
 
     // Clear to black
     juce::OpenGLHelpers::clear(juce::Colours::black);
@@ -233,9 +238,7 @@ void GLVisualizer::render()
 
     shader->use();
 
-    float t = (float)(juce::Time::getMillisecondCounterHiRes() * 0.001 
-                    - startTime);
-
+    float t = (float)(juce::Time::getMillisecondCounterHiRes() * 0.001 - startTime);
     float dt = t - lastFrameTime;
     float dz = dt * recedeSpeed;
     lastFrameTime = t;
@@ -329,55 +332,21 @@ void GLVisualizer::render()
     if (err != GL_NO_ERROR)
         DBG("OpenGL error: " << juce::String::toHexString((int)err));
 
-   // --- GRID OVERLAY START ---
-    if (gridTextureReady)
+    // Add the grid overlay on top    
+    if (showGrid == true)
     {
-        // Disable depth so overlay always draws on top
-        glDisable(GL_DEPTH_TEST);
+        // Upload the grid texture if needed
+        if (gridTextureDirty.load() == true)
+        {
+            gridGLTex.loadImage(gridImage);
+            gridTextureDirty.store(false);
+        }
 
-        // Enable alpha blending
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-        // Use a very simple shader for the grid quad
-        // (JUCE's OpenGLTexture has a bind() helper that works with shaders)
-        gridGLTex.bind();
-
-        // Fullscreen quad in clip-space [-1,1]
-        static const float quadVerts[] = {
-            -1.f, -1.f,
-            1.f, -1.f,
-            -1.f,  1.f,
-            1.f,  1.f
-        };
-
-        // Fullscreen quad texture coordinates [0,1]
-        static const float quadUVs[] = {
-            0.f, 1.f,
-            1.f, 1.f,
-            0.f, 0.f,
-            1.f, 0.f
-        };
-
-        // Enable vertex arrays
-        glEnableClientState(GL_VERTEX_ARRAY);
-        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-
-        glVertexPointer(2, GL_FLOAT, 0, quadVerts);
-        glTexCoordPointer(2, GL_FLOAT, 0, quadUVs);
-
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-        // Disable arrays
-        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-        glDisableClientState(GL_VERTEX_ARRAY);
+        // Draw the quad...?
+        // Will also need shaders, etc. for this
 
         gridGLTex.release();
-
-        // Restore depth test for next frame
-        glEnable(GL_DEPTH_TEST);
     }
-    // --- GRID OVERLAY END ---
 }
 
 void GLVisualizer::resized() 
@@ -421,7 +390,9 @@ void GLVisualizer::resized()
 
 void GLVisualizer::createGridImageFromComponent(GridComponent* gridComp)
 {
-    if (getWidth() <= 0 || getHeight() <= 0 || !gridComp)
+    int width = getWidth();
+    int height = getHeight();
+    if (width <= 0 || height <= 0 || !gridComp)
         return;
 
     // Render the grid component into a JUCE Image on the message thread
@@ -434,7 +405,7 @@ void GLVisualizer::createGridImageFromComponent(GridComponent* gridComp)
     gridImage = img;
 
     // Mark the texture as dirty so it will be uploaded next render call
-    gridTextureDirty = true;
+    gridTextureDirty.store(true);
 
     // Ensure GLVisualizer repaints
     openGLContext.triggerRepaint();
@@ -453,9 +424,15 @@ void GLVisualizer::setColourScheme(ColourScheme newColourScheme)
     newTextureRequsted = true;
 }
 
+void GLVisualizer::setShowGrid(bool shouldShow)
+{
+    showGrid = shouldShow;
+}
+
 void GLVisualizer::setMinFrequency(float newMinFrequency)
 {
     minFrequency = newMinFrequency;
+
 }
 
 void GLVisualizer::setRecedeSpeed(float newRecedeSpeed)

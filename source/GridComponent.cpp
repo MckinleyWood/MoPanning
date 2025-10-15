@@ -55,6 +55,11 @@ void GridComponent::setSampleRate(double sr)
     repaint();
 }
 
+void GridComponent::resized()
+{
+    controller.updateGridTexture(); // Notify controller to update texture
+}
+
 void GridComponent::paint(juce::Graphics& g)
 {
     // Clear background to transparent

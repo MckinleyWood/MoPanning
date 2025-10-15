@@ -1,7 +1,6 @@
 #pragma once
 #include <JuceHeader.h>
-
-class MainController;
+#include "MainController.h"
 
 class GridComponent : public juce::Component
 {
@@ -12,6 +11,7 @@ public:
     void setSampleRate(double sr);
     void updateFrequencies();
 
+    void resized() override;
     void paint (juce::Graphics& g) override;
 
     void setGridVisible(bool shouldShow);

@@ -54,6 +54,7 @@ public:
     //=========================================================================
     void setDimension(Dimension newDimension);
     void setColourScheme(ColourScheme newColourScheme);
+    void setShowGrid(bool shouldShow);
     void setMinFrequency(float newMinFrequency);
     void setRecedeSpeed(float newRecedeSpeed);
     void setDotSize(float newDotSize);
@@ -90,16 +91,15 @@ private:
     MainController& controller;
 
     GLuint colourMapTex = 0;
-    bool newTextureRequsted = false; // Flag to rebuild texture
+    bool newTextureRequsted = true; // Flag to rebuild texture
 
     double sampleRate;
     float startTime; // App-launch time in seconds
     float lastFrameTime; // Time of last frame in seconds
 
-    juce::Image gridImage;                // protected by atomic flag logic (image lives on message thread)
-    juce::OpenGLTexture gridGLTex;        // JUCE helper class
+    juce::Image gridImage; 
+    juce::OpenGLTexture gridGLTex; 
     std::atomic<bool> gridTextureDirty{false};
-    std::atomic<bool> haveGridImage{false}; // whether there's an image ready to upload
     bool gridTextureReady = false;
 
     //=========================================================================
@@ -107,6 +107,8 @@ private:
 
     Dimension dimension;
     ColourScheme colourScheme;
+    
+    bool showGrid;
 
     float minFrequency; // Minimum frequency to display (Hz)
     float recedeSpeed; // Speed that objects recede
