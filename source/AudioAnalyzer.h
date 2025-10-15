@@ -33,8 +33,8 @@ public:
     ~AudioAnalyzer();
 
     // Must be called before analyzeBlock()
-    void prepareToPlay(int samplesPerBlock, double sampleRate);
-    void prepareToPlay(); // Uses current sampleRate and samplesPerBlock
+    void prepare(double newSampleRate);
+    void prepare(); // Uses current sampleRate
 
     // Called by audio thread
     void enqueueBlock(const juce::AudioBuffer<float>* buffer);
@@ -42,6 +42,8 @@ public:
     // Called by GUI thread to get latest results
     std::vector<frequency_band> getLatestResults() const;
 
+    void setWindowSize(int newWindowSize);
+    void setHopSize(int newHopSize);
     void setTransform(Transform newTransform);
     void setPanMethod(PanMethod newPanMethod);
     void setNumCQTBins(int newNumCQTBins);
@@ -62,7 +64,7 @@ private:
     //=========================================================================
     /* Setup functions */
 
-    void setScaleFactors(int fftSizeIn, 
+    void setScaleFactors(int windowSizeIn, 
                          float maxAmplitudeIn, 
                          float cqtNormalizationIn);
     void setupFFT();
@@ -110,7 +112,8 @@ private:
     //=========================================================================
     /* Block-size-dependent constants, calculated in prepareToPlay() */
 
-    int fftSize; // Total number of FFT bins
+    int windowSize; // Total number of FFT bins
+    int hopSize; // Number of samples between analysis windows
     int numFFTBins; // Number of useful bins from FFT
     int numBands; // Number of frequency bands used from the selected transform
     float fftScaleFactor; // Scale factor to normalize FFT output
@@ -119,7 +122,7 @@ private:
     //=========================================================================
     /* Pre-allocated storage, etc. */
 
-    std::unique_ptr<juce::dsp::FFT> fftEngine; // Calculates FFTs of length fftSize
+    std::unique_ptr<juce::dsp::FFT> fftEngine; // Calculates FFTs of length windowSize
     
     std::array<std::vector<Complex>, 2> fftSpectra; // For storing FFT results
     std::vector<float> fftData; // Temporary storage for in-place real fft
@@ -128,7 +131,7 @@ private:
     std::vector<float> ilds;
     std::vector<float> itds;
     std::vector<float> panIndices;
-    std::vector<float> window; // Hann window of length fftSize
+    std::vector<float> window; // Hann window of length windowSize
     std::vector<float> frequencyWeights; // Weighting factors for each freq bin
     std::vector<float> itdPerBin;
     std::vector<float> maxITD; // Max ITD per frequency band
@@ -172,8 +175,9 @@ private:
 class AudioAnalyzer::AnalyzerWorker
 {
 public:
-    AnalyzerWorker(int windowSizeIn, double sampleRateIn, AudioAnalyzer& parent) 
+    AnalyzerWorker(int windowSizeIn, int hopSizeIn, double sampleRateIn, AudioAnalyzer& parent) 
         : windowSize(windowSizeIn),
+          hopSize(hopSizeIn),
           sampleRate(sampleRateIn),
           parentAnalyzer(parent)
     {
@@ -213,6 +217,11 @@ public:
         {
             thread.join(); // Wait for it to finish
         } 
+    }
+
+    void setHopSize(int newHopSize)
+    {
+        hopSize = newHopSize;
     }
 
     /*  This function is called on audio thread to enqueue a copy of 
@@ -274,6 +283,17 @@ private:
                 continue; // Re-check condition
             }
 
+            // DBG("Worker thread processing block.");
+
+            // Check if we are running behind the audio thread
+            if (samplesAvailable > windowSize * 8)
+            {
+                // If we are too far behind, skip ahead to the latest data
+                readPosition = (writePosition - windowSize * 2 + N) % N;
+                overloaded = true;
+                // DBG("AnalyzerWorker overloaded, skipping ahead.");
+            }
+
             // Copy data from the ring buffer to the analysis buffer
             for (int ch = 0; ch < 2; ++ch)
             {
@@ -294,7 +314,7 @@ private:
             }
 
             // Update the read position, wrapping around if necessary
-            readPosition = (readPosition + n) % N;
+            readPosition = (readPosition + hopSize) % N;
 
             // Pass the analysis buffer to the audio analyzer
             parentAnalyzer.analyzeBlock(analysisBuffer);
@@ -306,8 +326,11 @@ private:
     int readPosition = 0;
 
     juce::AudioBuffer<float> analysisBuffer;
-    int windowSize; // Size of each analysis window
+    int windowSize;
+    int hopSize; 
     double sampleRate;
+
+    bool overloaded = false;
 
     std::thread thread;
     std::atomic<bool> shouldExit {false};

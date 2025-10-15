@@ -10,26 +10,22 @@ AudioAnalyzer::~AudioAnalyzer()
 
 //=============================================================================
 /*  Prepares the audio analyzer. */
-void AudioAnalyzer::prepareToPlay(int newSamplesPerBlock, double newSampleRate)
+void AudioAnalyzer::prepare(double newSampleRate)
 {
     if (isPrepared.load())
         return; // Already prepared
 
     stopWorker(); // Stop any existing worker thread
 
-    jassert((samplesPerBlock & (samplesPerBlock - 1)) == 0);
-
-    samplesPerBlock = newSamplesPerBlock;
     sampleRate = newSampleRate;
     
-    fftSize = samplesPerBlock;
-    numFFTBins = fftSize / 2 + 1;
+    numFFTBins = windowSize / 2 + 1;
 
-    setScaleFactors(fftSize, maxAmplitude, cqtNormalization);
+    setScaleFactors(windowSize, maxAmplitude, cqtNormalization);
 
     // Initialize FFT engine and storage (if needed)
-    if (fftEngine == nullptr || fftEngine->getSize() != fftSize)
-        fftEngine = std::make_unique<juce::dsp::FFT>((int)std::log2(fftSize));
+    if (fftEngine == nullptr || fftEngine->getSize() != windowSize)
+        fftEngine = std::make_unique<juce::dsp::FFT>((int)std::log2(windowSize));
     
     if (transform == FFT)
         numBands = numFFTBins;
@@ -37,9 +33,9 @@ void AudioAnalyzer::prepareToPlay(int newSamplesPerBlock, double newSampleRate)
         numBands = numCQTbins;
 
     // Initialize results storage
-    fftSpectra[0].resize(fftSize);
-    fftSpectra[1].resize(fftSize);
-    fftData.resize(2 * fftSize);
+    fftSpectra[0].resize(windowSize);
+    fftSpectra[1].resize(windowSize);
+    fftData.resize(2 * windowSize);
     magnitudes[0].resize(numBands);
     magnitudes[1].resize(numBands);
     binFrequencies.resize(numBands);
@@ -55,11 +51,11 @@ void AudioAnalyzer::prepareToPlay(int newSamplesPerBlock, double newSampleRate)
         setupCQT();
     
     // Build the Hann window (if needed)
-    if (window.size() != fftSize)
+    if (window.size() != windowSize)
     {
-        window.resize(fftSize);
-        for (int n = 0; n < fftSize; ++n)
-            window[n] = 0.5f * (1.0f - std::cos(2.0f * pi * n / (fftSize - 1)));
+        window.resize(windowSize);
+        for (int n = 0; n < windowSize; ++n)
+            window[n] = 0.5f * (1.0f - std::cos(2.0f * pi * n / (windowSize - 1)));
     }
 
     // Set up frequency-weighting factors
@@ -71,16 +67,16 @@ void AudioAnalyzer::prepareToPlay(int newSamplesPerBlock, double newSampleRate)
         setupPanWeights();
 
     // Start the worker thread
-    worker = std::make_unique<AnalyzerWorker>(1024, sampleRate, *this);
+    worker = std::make_unique<AnalyzerWorker>(windowSize, hopSize, sampleRate, *this);
     worker->start();
 
     isPrepared.store(true);
 }
 
-void AudioAnalyzer::prepareToPlay()
+void AudioAnalyzer::prepare()
 {
-    // Use current sampleRate and samplesPerBlock if none specified
-    prepareToPlay(samplesPerBlock, sampleRate);
+    // Use current sampleRate if none specified
+    prepare(sampleRate);
 }
 
 void AudioAnalyzer::enqueueBlock(const juce::AudioBuffer<float>* buffer)
@@ -102,6 +98,29 @@ std::vector<frequency_band> AudioAnalyzer::getLatestResults() const
 {
     std::lock_guard<std::mutex> lock(resultsMutex);
     return results;
+}
+
+void AudioAnalyzer::setWindowSize(int newWindowSize)
+{
+    if (newWindowSize == windowSize) 
+        return; // No change
+
+    if (worker != nullptr) 
+        stopWorker(); // Stop the worker thread while we change the parameter
+
+    windowSize = newWindowSize;
+    isPrepared.store(false);
+}
+
+void AudioAnalyzer::setHopSize(int newHopSize)
+{
+    if (newHopSize == hopSize) 
+        return; // No change
+
+    hopSize = newHopSize;
+
+    if (worker != nullptr) 
+        worker->setHopSize(newHopSize);
 }
 
 void AudioAnalyzer::setTransform(Transform newTransform)
@@ -151,7 +170,7 @@ void AudioAnalyzer::setMinFrequency(float newMinFrequency)
 void AudioAnalyzer::setMaxAmplitude(float newMaxAmplitude)
 {
     maxAmplitude = newMaxAmplitude;
-    setScaleFactors(fftSize, maxAmplitude, cqtNormalization);
+    setScaleFactors(windowSize, maxAmplitude, cqtNormalization);
 }
 
 void AudioAnalyzer::setThreshold(float newThreshold)
@@ -162,18 +181,19 @@ void AudioAnalyzer::setThreshold(float newThreshold)
 void AudioAnalyzer::setFreqWeighting(FrequencyWeighting newFreqWeighting)
 {
     if (newFreqWeighting == freqWeighting) return; // No change
-    if (worker) stopWorker(); // Stop worker while we change the parameter
+    if (worker != nullptr) 
+        stopWorker(); // Stop worker while we change the parameter
 
     freqWeighting = newFreqWeighting;
     isPrepared.store(false);
 }
 
 //=============================================================================
-void AudioAnalyzer::setScaleFactors(int fftSizeIn, 
+void AudioAnalyzer::setScaleFactors(int windowSizeIn, 
                                     float maxAmplitudeIn, 
                                     float cqtNormalizationIn)
 {
-    fftScaleFactor = 4.0f / fftSizeIn / maxAmplitudeIn;
+    fftScaleFactor = 4.0f / windowSizeIn / maxAmplitudeIn;
     cqtScaleFactor = fftScaleFactor * cqtNormalizationIn;
 }
 
@@ -203,7 +223,7 @@ void AudioAnalyzer::setupCQT()
 
         for (int bin = 0; bin < numBands; ++bin)
         {
-            fullCQTspec[ch][bin].resize(fftSize);
+            fullCQTspec[ch][bin].resize(windowSize);
         }
     }
 
@@ -221,13 +241,13 @@ void AudioAnalyzer::setupCQT()
         binFrequencies[bin] = freq;
 
         // Generate complex sinusoid for this frequency (for inner products)
-        int kernelLength = fftSize;
+        int kernelLength = windowSize;
         std::vector<std::complex<float>> kernelTime(kernelLength, 0.0f);
         
         for (int n = 0; n < kernelLength; ++n)
         {
             // Edited for centering
-            float t = (n - fftSize * 0.5f) / float(sampleRate); 
+            float t = (n - windowSize * 0.5f) / float(sampleRate); 
             float w = 0.5f * (1.0f - std::cos(2.0f * pi * n 
                                             / (kernelLength - 1)));
             // Complex sinusioid * window
@@ -263,7 +283,7 @@ void AudioAnalyzer::setupCQT()
     }
 
     // Estimate memory use for CQT kernels
-    // auto bytes = numCQTbins * fftSize * sizeof(std::complex<float>);
+    // auto bytes = numCQTbins * windowSize * sizeof(std::complex<float>);
     // DBG("Estimated CQT kernel memory use: " << (bytes / 1024.0f) << " KB");
 }
 
@@ -295,7 +315,6 @@ void AudioAnalyzer::setupAWeights(const std::vector<float>& freqs,
         float aWeightDB = 20.0f * log10(numerator / denominator) + 2.0f; 
         float linearGain = pow(10.0f, aWeightDB / 20.0f); 
 
-        // DBG("A-weight at " << f << " Hz: " << linearGain);
         weights[b] = linearGain;
     }
 }
@@ -440,7 +459,7 @@ void AudioAnalyzer::computeFFT(const juce::AudioBuffer<float>& buffer,
     {
         // Copy & window the buffer data
         auto* readPtr = buffer.getReadPointer(ch);
-        for (int n = 0; n < fftSize; ++n)
+        for (int n = 0; n < windowSize; ++n)
         {
             fftDataTemp[n] = readPtr[n] * windowIn[n];
         }
@@ -449,7 +468,7 @@ void AudioAnalyzer::computeFFT(const juce::AudioBuffer<float>& buffer,
         fftEngine->performRealOnlyForwardTransform(fftDataTemp.data());
 
         // Copy the results to the output 
-        for (int b = 0; b < fftSize; ++b)
+        for (int b = 0; b < windowSize; ++b)
         {
             outSpectra[ch][b].real(fftDataTemp[2 * b]);
             outSpectra[ch][b].imag(fftDataTemp[2 * b + 1]);
@@ -467,17 +486,17 @@ void AudioAnalyzer::computeCQT(const std::array<std::vector<Complex>, 2>& ffts,
 {
     for (int ch = 0; ch < 2; ++ch)
     {        
-        jassert(ffts[ch].size() == fftSize);
+        jassert(ffts[ch].size() == windowSize);
 
         // Compute CQT by inner product with each kernel
         for (int bin = 0; bin < magnitudesOut[ch].size(); ++bin)
         {
             jassert(bin < cqtKernels.size());
-            jassert(spectraOut[ch][bin].size() == fftSize);
+            jassert(spectraOut[ch][bin].size() == windowSize);
 
             std::complex<float> sum = 0.0f;
             const auto& kernel = cqtKernels[bin];
-            for (int i = 0; i < fftSize; ++i)
+            for (int i = 0; i < windowSize; ++i)
             {
                 spectraOut[ch][bin][i] = ffts[ch][i] * std::conj(kernel[i]);
                 sum += spectraOut[ch][bin][i];
@@ -517,8 +536,8 @@ void AudioAnalyzer::computeITDs(
     int numBands,
     std::vector<float>& panIndices)
 {
-    std::vector<std::complex<float>> crossSpectrum(fftSize);
-    std::vector<std::complex<float>> crossCorr(fftSize);
+    std::vector<std::complex<float>> crossSpectrum(windowSize);
+    std::vector<std::complex<float>> crossCorr(windowSize);
 
     for (int bin = 0; bin < numBands; ++bin)
     {
@@ -529,7 +548,7 @@ void AudioAnalyzer::computeITDs(
         // --- GCC-PHAT ---
         float alpha = alphaForFreq(freq);
 
-        for (int k = 0; k < fftSize; ++k)
+        for (int k = 0; k < windowSize; ++k)
         {
             auto R = (leftBin[k] * std::conj(rightBin[k]));
             float mag = std::abs(R);
@@ -555,9 +574,9 @@ void AudioAnalyzer::computeITDs(
         int maxIndex = 0;
         float maxVal = -1.0f;
         int bestLag = 0;
-        for (int i = 0; i < fftSize; ++i)
+        for (int i = 0; i < windowSize; ++i)
         {
-            int lag = (i <= fftSize / 2) ? i : (i - fftSize);
+            int lag = (i <= windowSize / 2) ? i : (i - windowSize);
             if (std::abs(lag) > maxLagSamples) continue;
 
             float val = std::abs(crossCorr[i]);
@@ -572,7 +591,7 @@ void AudioAnalyzer::computeITDs(
         // --- Coherence check ---
         // Normalize correlation peak by total energy
         float leftEnergy = 0.0f, rightEnergy = 0.0f;
-        for (int k = 0; k < fftSize; ++k)
+        for (int k = 0; k < windowSize; ++k)
         {
             leftEnergy  += std::norm(leftBin[k]);
             rightEnergy += std::norm(rightBin[k]);
@@ -587,8 +606,8 @@ void AudioAnalyzer::computeITDs(
         if (valid)
         {
             // Parabolic interpolation around peak
-            int leftIndex  = (int)((maxIndex + fftSize - 1) % fftSize);
-            int rightIndex = (int)((maxIndex + 1) % fftSize);
+            int leftIndex  = (int)((maxIndex + windowSize - 1) % windowSize);
+            int rightIndex = (int)((maxIndex + 1) % windowSize);
 
             float y0 = std::abs(crossCorr[leftIndex]);
             float y1 = std::abs(crossCorr[maxIndex]);

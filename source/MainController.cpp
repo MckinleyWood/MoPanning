@@ -21,6 +21,51 @@ MainController::MainController()
                     engine->setInputType(static_cast<InputType>(value));
             }
         },
+        // windowSize
+        {
+            "windowSize", "Window Size", 
+            "The length of the analysis window in samples.",
+            ParameterDescriptor::Type::Choice, 2, {},
+            {"256", "512", "1024", "2048", "4096"}, "",
+            [this](float value) 
+            {
+                int newSize;
+                switch (static_cast<int>(value))
+                {
+                    case 0: newSize = 256; break;
+                    case 1: newSize = 512; break;
+                    case 2: newSize = 1024; break;
+                    case 3: newSize = 2048; break;
+                    case 4: newSize = 4096; break;
+                    default: newSize = 1024; break;
+                }
+                if (analyzer != nullptr)
+                    analyzer->setWindowSize(newSize);
+            },
+            true
+        },
+        // hopSize
+        {
+            "hopSize", "Hop Size", 
+            "The number of samples between analysis windows.",
+            ParameterDescriptor::Type::Choice, 2, {},
+            {"128", "256", "512", "1024", "2048", "4096"}, "",
+            [this](float value) 
+            {
+                int newSize;
+                switch (static_cast<int>(value))
+                {
+                    case 0: newSize = 128; break;
+                    case 1: newSize = 256; break;
+                    case 2: newSize = 512; break;
+                    case 3: newSize = 1024; break;
+                    default: newSize = 256; break;
+                }
+                if (analyzer != nullptr)
+                    analyzer->setHopSize(newSize);
+            },
+            true
+        },
         // transform
         { 
             "transform", "Frequency Transform",
@@ -76,8 +121,6 @@ MainController::MainController()
             {"5Hz", "20Hz", "50Hz", "100Hz"}, "",
             [this](float value) 
             {
-                DBG("MainController: minFrequency changed to " 
-                    << value);
                 float newMinFreq;
                 switch ((int)value)
                 {
@@ -91,11 +134,7 @@ MainController::MainController()
                 // Call asynchronously to ensure grid exists
                 juce::MessageManager::callAsync([this, newMinFreq] {
                     if (grid != nullptr){
-                        DBG(juce::String("MainController: grid minFreq set to ") + juce::String(newMinFreq));
                         grid->setMinFrequency(newMinFreq);
-                        DBG("MainController: grid minFreq set to " 
-                            << newMinFreq);
-
                         updateGridTexture();
                     }
 
@@ -299,7 +338,7 @@ void MainController::audioDeviceAboutToStart(juce::AudioIODevice* device)
     // engine->setInputType(static_cast<InputType>(getInputType()));
     engine->prepareToPlay(samplesPerBlock, sampleRate);
     analyzer->setPrepared(false);
-    analyzer->prepareToPlay(samplesPerBlock, sampleRate);
+    analyzer->prepare(sampleRate);
     visualizer->prepareToPlay(samplesPerBlock, sampleRate);
     if (grid != nullptr)
         grid->setSampleRate(sampleRate);
@@ -411,5 +450,5 @@ void MainController::valueTreePropertyChanged(juce::ValueTree& tree,
         it->onChanged(newValue);
     }
 
-    analyzer->prepareToPlay();
+    analyzer->prepare();
 }
