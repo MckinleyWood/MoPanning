@@ -26,8 +26,6 @@ target_sources(MoPanning
         source/AudioEngine.h
         source/GLVisualizer.cpp
         source/GLVisualizer.h
-        source/GridComponent.cpp
-        source/GridComponent.h
         source/MainComponent.cpp
         source/MainComponent.h
         source/MainController.cpp
