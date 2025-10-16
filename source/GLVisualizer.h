@@ -14,13 +14,13 @@ struct VertexBufferObject
     void create(juce::OpenGLContext& context)
     {
         if (id == 0)
-            context.extensions.glGenBuffers (1, &id);
+            context.extensions.glGenBuffers(1, &id);
     }
     void release(juce::OpenGLContext& context)
     {
         if (id != 0)
         {
-            context.extensions.glDeleteBuffers (1, &id);
+            context.extensions.glDeleteBuffers(1, &id);
             id = 0;
         }
     }
@@ -28,7 +28,7 @@ struct VertexBufferObject
 };
 
 enum ColourScheme { greyscale, rainbow };
-enum Dimension { Dim2D, Dim3D };
+enum Dimension { dimension2, dimension3 };
 
 //=============================================================================
 /*  This is the component for the OpenGL canvas. It handles rendering 
@@ -75,13 +75,18 @@ private:
         float spawnAlpha;
         float spawnTime = 0.0f; // Time since app start when particle spawned
     };
+
     std::deque<Particle> particles; // Queue of particles
     
-    std::unique_ptr<juce::OpenGLShaderProgram> shader;
-    VertexBufferObject vbo; // Vertex buffer object
-    GLuint vao = 0; // Vertex-array object
+    std::unique_ptr<juce::OpenGLShaderProgram> mainShader;
+    VertexBufferObject mainVBO; // Vertex buffer object
+    GLuint mainVAO = 0; // Vertex-array object
     GLuint instanceVBO = 0; // buffer ID for per-instance data
     struct InstanceData { float x, y, z, spawnAlpha; };
+
+    std::unique_ptr<juce::OpenGLShaderProgram> gridShader;
+    GLuint gridVBO; // Vertex buffer object for the grid
+    GLuint gridVAO = 0; // Vertex-array object for the grid
 
     juce::Vector3D<float> cameraPosition { 0.0f, 0.0f, -2.0f };
 

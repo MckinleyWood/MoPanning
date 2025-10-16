@@ -99,8 +99,8 @@ void GLVisualizer::initialise()
     using namespace juce::gl;
     auto& ext = openGLContext.extensions;
 
-    // GLSL vertex shader initialization code
-    static const char* vertSrc = R"(#version 150
+    // GLSL vertex shader initialization code for the dot cloud
+    static const char* mainVertSrc = R"(#version 150
         in vec4 instanceData;
 
         uniform mat4 uProjection;
@@ -138,8 +138,8 @@ void GLVisualizer::initialise()
         }
     )";
 
-    // GLSL fragment shader initialization code
-    static const char* fragSrc = R"(#version 150
+    // GLSL fragment shader initialization code for the dot cloud
+    static const char* mainFragSrc = R"(#version 150
         in vec4 vColour;
         out vec4 frag;
 
@@ -156,22 +156,22 @@ void GLVisualizer::initialise()
         }
     )";
     
-    // Compile and link the shaders
-    shader.reset(new juce::OpenGLShaderProgram(openGLContext));
-    shader->addVertexShader(vertSrc);
-    shader->addFragmentShader(fragSrc);
+    // Compile and link the main shaders
+    mainShader.reset(new juce::OpenGLShaderProgram(openGLContext));
+    mainShader->addVertexShader(mainVertSrc);
+    mainShader->addFragmentShader(mainFragSrc);
 
-    ext.glBindAttribLocation(shader->getProgramID(), 0, "instanceData");
+    ext.glBindAttribLocation(mainShader->getProgramID(), 0, "instanceData");
 
-    bool shaderLinked = shader->link();
+    bool shaderLinked = mainShader->link();
     jassert(shaderLinked);
     juce::ignoreUnused(shaderLinked);
 
     buildTexture();
 
-    // Generate and bind the vertex-array object
-    ext.glGenVertexArrays(1, &vao);
-    ext.glBindVertexArray(vao);
+    // Generate and bind the main vertex-array object
+    ext.glGenVertexArrays(1, &mainVAO);
+    ext.glBindVertexArray(mainVAO);
 
     // Create instance buffer
     ext.glGenBuffers(1, &instanceVBO);
@@ -189,6 +189,64 @@ void GLVisualizer::initialise()
     
     // Unbind VAO to avoid accidental state leakage
     ext.glBindVertexArray(0);
+
+    // Shader code for rendering the grid
+    static const char* gridVertSrc = R"(#version 150
+        in vec2 aPos;
+        in vec2 aUV;
+        out vec2 vUV;
+        void main() 
+        {
+            vUV = aUV;
+            gl_Position = vec4(aPos, 0.0, 1.0);
+        }
+    )";
+
+    static const char* gridFragSrc = R"(#version 150
+        uniform sampler2D uTex;
+        in vec2 vUV;
+        out vec4 fragColor;
+        void main() 
+        {
+            fragColor = texture(uTex, vUV);
+        }
+    )";
+
+    // Complile and link the grid shaders
+    gridShader.reset(new juce::OpenGLShaderProgram(openGLContext));
+    gridShader->addVertexShader(gridVertSrc);
+    gridShader->addFragmentShader(gridFragSrc);
+
+    shaderLinked = gridShader->link();
+    jassert(shaderLinked);
+
+    // Create VAO/VBO
+    ext.glGenVertexArrays(1, &gridVAO);
+    ext.glBindVertexArray(gridVAO);
+
+    ext.glGenBuffers(1, &gridVBO);
+    ext.glBindBuffer(GL_ARRAY_BUFFER, gridVBO);
+
+    // Interleaved pos(x,y), uv(u,v)
+    static const float quadData[] = {
+        -1.f, -1.f,  0.f, 1.f,
+        1.f, -1.f,  1.f, 1.f,
+        -1.f,  1.f,  0.f, 0.f,
+        1.f,  1.f,  1.f, 0.f
+    };
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadData), quadData, GL_STATIC_DRAW);
+
+    // Attribute locations
+    GLint posLoc = ext.glGetAttribLocation(gridShader->getProgramID(), "aPos");
+    GLint uvLoc  = ext.glGetAttribLocation(gridShader->getProgramID(), "aUV");
+    glEnableVertexAttribArray((GLuint)posLoc);
+    glEnableVertexAttribArray((GLuint)uvLoc);
+    glVertexAttribPointer((GLuint)posLoc, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glVertexAttribPointer((GLuint)uvLoc,  2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+
+    ext.glBindVertexArray(0);
+    ext.glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void GLVisualizer::shutdown()
@@ -196,23 +254,37 @@ void GLVisualizer::shutdown()
     auto& ext = openGLContext.extensions;
     
     // Delete VAO and VBOs
-    if (vao != 0) 
+    if (mainVAO != 0) 
     { 
-        ext.glDeleteVertexArrays(1, &vao); 
-        vao = 0; 
+        ext.glDeleteVertexArrays(1, &mainVAO); 
+        mainVAO = 0; 
     }
-    if (vbo.id != 0) 
+    if (mainVBO.id != 0) 
     { 
-        ext.glDeleteBuffers(1, &vbo.id); 
-        vbo.id = 0; 
+        ext.glDeleteBuffers(1, &mainVBO.id); 
+        mainVBO.id = 0; 
     }
     if (instanceVBO != 0) 
     {
         ext.glDeleteBuffers(1, &instanceVBO);
         instanceVBO = 0;
     }
+    if (gridVBO != 0) 
+    { 
+        ext.glDeleteBuffers(1, &gridVBO); 
+        gridVBO = 0; 
+    }
+    if (gridVAO) 
+    { 
+        ext.glDeleteVertexArrays(1, &gridVAO); 
+        gridVAO = 0; 
+    }
 
-    shader.reset();
+    // Delete the grid texture
+    gridGLTex.release();
+
+    mainShader.reset();
+    gridShader.reset();
 }
 
 void GLVisualizer::render()
@@ -227,16 +299,16 @@ void GLVisualizer::render()
     glDepthFunc(GL_LEQUAL);
     glEnable(GL_PROGRAM_POINT_SIZE);
 
-    // Check if we need to rebuild the texture
+    // Check if we need to rebuild the colourmap texture
     buildTexture();
 
     // Clear to black
     juce::OpenGLHelpers::clear(juce::Colours::black);
     glClear(GL_DEPTH_BUFFER_BIT); 
 
-    if (shader == nullptr) return; // Early-out on link failure
+    if (mainShader == nullptr) return; // Early-out on link failure
 
-    shader->use();
+    mainShader->use();
 
     float t = (float)(juce::Time::getMillisecondCounterHiRes() * 0.001 - startTime);
     float dt = t - lastFrameTime;
@@ -314,23 +386,19 @@ void GLVisualizer::render()
                         instances.data());
 
     // Set uniforms
-    shader->setUniformMat4("uProjection", projection.mat, 1, GL_FALSE);
-    shader->setUniformMat4("uView", view.mat, 1, GL_FALSE);
-    shader->setUniform("uColourMap", 0);
-    shader->setUniform("uFadeEndZ", fadeEndZ);
-    shader->setUniform("uDotSize", dotSize);
-    shader->setUniform("uAmpScale", ampScale);
+    mainShader->setUniformMat4("uProjection", projection.mat, 1, GL_FALSE);
+    mainShader->setUniformMat4("uView", view.mat, 1, GL_FALSE);
+    mainShader->setUniform("uColourMap", 0);
+    mainShader->setUniform("uFadeEndZ", fadeEndZ);
+    mainShader->setUniform("uDotSize", dotSize);
+    mainShader->setUniform("uAmpScale", ampScale);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_1D, colourMapTex);
 
     // Draw all particles!!
-    ext.glBindVertexArray(vao);
+    ext.glBindVertexArray(mainVAO);
     glDrawArraysInstanced(GL_POINTS, 0, 1, (GLsizei)instances.size());
-
-    GLenum err = glGetError();
-    if (err != GL_NO_ERROR)
-        DBG("OpenGL error: " << juce::String::toHexString((int)err));
 
     // Add the grid overlay on top    
     if (showGrid == true)
@@ -338,15 +406,30 @@ void GLVisualizer::render()
         // Upload the grid texture if needed
         if (gridTextureDirty.load() == true)
         {
+            gridGLTex.release();
             gridGLTex.loadImage(gridImage);
             gridTextureDirty.store(false);
         }
 
-        // Draw the quad...?
-        // Will also need shaders, etc. for this
+        // Disable depth testing so grid is always on top
+        glDisable(GL_DEPTH_TEST);
 
-        gridGLTex.release();
+        // Set up and bind the grid shader
+        gridShader->use();
+        gridShader->setUniform("uTex", 1);
+        glActiveTexture(GL_TEXTURE1);
+        gridGLTex.bind();
+        
+        // Draw the grid quad
+        ext.glBindVertexArray(gridVAO);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        ext.glBindVertexArray(0);
     }
+
+    // Check for OpenGL errors
+    GLenum err = glGetError();
+    if (err != GL_NO_ERROR)
+        DBG("OpenGL error: " << juce::String::toHexString((int)err));
 }
 
 void GLVisualizer::resized() 
@@ -363,7 +446,7 @@ void GLVisualizer::resized()
 
     switch (dimension)
     {
-    case Dim2D:
+    case dimension2:
         // Orthographic projection for 2D
         projection = juce::Matrix3D<float>(
             2.0f / (r - l), 0, 0, 0,
@@ -372,7 +455,7 @@ void GLVisualizer::resized()
            -(r + l) / (r - l), -(t + b) / (t-b), -(f + n) / (f - n), 1.0f);
         break;
     
-    case Dim3D:
+    case dimension3:
         // Perspective projection for 3D
         projection = juce::Matrix3D<float>::fromFrustum(
               -nearZ * std::tan(fovRadians * 0.5f) * aspect,   // left
