@@ -1,5 +1,7 @@
 #include "GLVisualizer.h"
 #include "MainController.h"
+#include "GridComponent.h"
+
 
 //=============================================================================
 GLVisualizer::GLVisualizer(MainController& c) : controller(c) 

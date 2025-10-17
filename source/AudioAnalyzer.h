@@ -110,9 +110,9 @@ private:
     float threshold; // dB relative to maxAmplitude
 
     //=========================================================================
-    /* Window size-dependent constants, calculated in prepare() */
+    /* Block-size-dependent constants, calculated in prepareToPlay() */
 
-    int windowSize; // Number of samples in window = total number of FFT bins
+    int windowSize; // Total number of FFT bins
     int hopSize; // Number of samples between analysis windows
     int numFFTBins; // Number of useful bins from FFT
     int numBands; // Number of frequency bands used from the selected transform

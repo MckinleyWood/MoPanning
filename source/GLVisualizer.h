@@ -1,6 +1,8 @@
 #pragma once
 #include <JuceHeader.h>
 
+class GridComponent;
+
 class MainController;
 
 //=============================================================================
@@ -38,6 +40,8 @@ public:
     void setFadeEndZ(float newFadeEndZ);
 
     void paint(juce::Graphics& g) override;
+
+    void createGridImageFromComponent(GridComponent* gridComp);
 
 private:
     //=========================================================================

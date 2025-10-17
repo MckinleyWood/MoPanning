@@ -26,7 +26,7 @@ MainController::MainController()
             "windowSize", "Window Size", 
             "The length of the analysis window in samples.",
             ParameterDescriptor::Type::Choice, 2, {},
-            {"256", "512", "1024", "2048", "4096"}, "samples",
+            {"256", "512", "1024", "2048", "4096"}, "",
             [this](float value) 
             {
                 int newSize;
@@ -49,7 +49,7 @@ MainController::MainController()
             "hopSize", "Hop Size", 
             "The number of samples between analysis windows.",
             ParameterDescriptor::Type::Choice, 2, {},
-            {"128", "256", "512", "1024", "2048", "4096"}, "samples",
+            {"128", "256", "512", "1024", "2048", "4096"}, "",
             [this](float value) 
             {
                 int newSize;
@@ -116,7 +116,7 @@ MainController::MainController()
         // minFrequency
         {
             "minFrequency", "Minimum Frequency", 
-            "The minimum frequency (Hz) to include in the analysis.",
+            "Minimum frequency (Hz) to include in the analysis.",
             ParameterDescriptor::Type::Choice, 1, {},
             {"5Hz", "20Hz", "50Hz", "100Hz"}, "",
             [this](float value) 
@@ -136,6 +136,7 @@ MainController::MainController()
                 analyzer->setMinFrequency(newMinFreq);
                 updateGridTexture();
             }
+
         },
         // peakAmplitude
         {
@@ -288,6 +289,11 @@ void MainController::startAudio()
     auto& dm = engine->getDeviceManager();
     dm.initialise(2, 2, nullptr, true);
 
+    // Set buffer size to 512 samples as a default
+    auto setup = dm.getAudioDeviceSetup();
+    setup.bufferSize = 512;
+    dm.setAudioDeviceSetup(setup, true);
+
     // Register this as an audio callback - audio starts now
     dm.addAudioCallback(this);
 }
@@ -364,6 +370,11 @@ void MainController::registerVisualizer(GLVisualizer* v)
     visualizer = v;
 }
 
+void MainController::registerGrid(GridComponent* g)
+{
+    grid = g;
+}
+
 void MainController::setDefaultParameters()
 {
     for (auto& d : parameterDescriptors)
@@ -381,6 +392,11 @@ bool MainController::loadFile(const juce::File& f)
 void MainController::togglePlayback()
 {
     engine->togglePlayback();
+}
+
+void MainController::updateGridTexture()
+{
+    visualizer->createGridImageFromComponent(grid);
 }
 
 //=============================================================================
