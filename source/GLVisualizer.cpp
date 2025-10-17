@@ -25,12 +25,6 @@ GLVisualizer::~GLVisualizer()
     openGLContext.detach();
 }
 
-void GLVisualizer::prepareToPlay(int newSamplesPerBlock, double newSampleRate)
-{
-    sampleRate = newSampleRate;
-    juce::ignoreUnused(newSamplesPerBlock);
-}
-
 //=============================================================================
 /*  This function builds the 1D texture that is used to convert look up 
     colour for amplitude value.
@@ -94,6 +88,12 @@ void GLVisualizer::buildTexture()
 }
 
 //=============================================================================
+/*  This function is called when the OpenGL context is created. It is
+    where we initialize all of our GL resources, including the shaders
+    for the main dot cloud and the grid overlay, the colourmap texture,
+    
+
+*/
 void GLVisualizer::initialise() 
 {
     using namespace juce::gl;
@@ -259,11 +259,6 @@ void GLVisualizer::shutdown()
         ext.glDeleteVertexArrays(1, &mainVAO); 
         mainVAO = 0; 
     }
-    if (mainVBO.id != 0) 
-    { 
-        ext.glDeleteBuffers(1, &mainVBO.id); 
-        mainVBO.id = 0; 
-    }
     if (instanceVBO != 0) 
     {
         ext.glDeleteBuffers(1, &instanceVBO);
@@ -340,10 +335,6 @@ void GLVisualizer::render()
 
         float aspect = getWidth() * 1.0f / getHeight();
 
-        // For determining the amplitude range
-        // float minAmp = std::numeric_limits<float>::max();
-        // float maxAmp = 0.f;
-
         for (frequency_band band : results)
         {
             if (band.frequency < minFrequency || band.frequency > maxFreq) 
@@ -357,19 +348,7 @@ void GLVisualizer::render()
 
             Particle newParticle = { x, y, z, a, t };
             particles.push_back(newParticle);
-
-            // if (a < minAmp)
-            //     minAmp = a;
-
-            // if (a > maxAmp)
-            //     maxAmp = a;
-
-            // if (band.frequency > 500.f && band.frequency < 600.f)
-            // DBG("Added new particle for frequency " << band.frequency << ": "
-            //     << "x = " << x << ", y = " << y << ", a = " << a);
         }
-
-        // DBG("Amplitude range: [" << minAmp << ", " << maxAmp << "]");
     }
 
     // Build instance data array
@@ -381,9 +360,7 @@ void GLVisualizer::render()
     // Upload instance data to GPU
     ext.glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
     jassert((int)instances.size() <= maxParticles);
-    ext.glBufferSubData(GL_ARRAY_BUFFER, 0,
-                        instances.size() * sizeof(InstanceData),
-                        instances.data());
+    ext.glBufferSubData(GL_ARRAY_BUFFER, 0, instances.size() * sizeof(InstanceData), instances.data());
 
     // Set uniforms
     mainShader->setUniformMat4("uProjection", projection.mat, 1, GL_FALSE);
@@ -473,15 +450,12 @@ void GLVisualizer::resized()
 
 void GLVisualizer::createGridImageFromComponent(GridComponent* gridComp)
 {
-    int width = getWidth();
-    int height = getHeight();
-    if (width <= 0 || height <= 0 || !gridComp)
+    if (getWidth() <= 0 || getHeight() <= 0 || gridComp == nullptr)
         return;
 
     // Render the grid component into a JUCE Image on the message thread
     juce::Image img(juce::Image::ARGB, getWidth(), getHeight(), true);
     juce::Graphics g(img);
-    g.setOrigin(0, 0);
     gridComp->paint(g);
 
     // Copy into member variable
@@ -489,12 +463,14 @@ void GLVisualizer::createGridImageFromComponent(GridComponent* gridComp)
 
     // Mark the texture as dirty so it will be uploaded next render call
     gridTextureDirty.store(true);
-
-    // Ensure GLVisualizer repaints
-    openGLContext.triggerRepaint();
 }
 
 //=============================================================================
+void GLVisualizer::setSampleRate(double newSampleRate)
+{
+    sampleRate = newSampleRate;
+}
+
 void GLVisualizer::setDimension(Dimension newDimension)
 {
     dimension = newDimension;
@@ -515,7 +491,6 @@ void GLVisualizer::setShowGrid(bool shouldShow)
 void GLVisualizer::setMinFrequency(float newMinFrequency)
 {
     minFrequency = newMinFrequency;
-
 }
 
 void GLVisualizer::setRecedeSpeed(float newRecedeSpeed)
@@ -538,7 +513,7 @@ void GLVisualizer::setFadeEndZ(float newFadeEndZ)
     fadeEndZ = newFadeEndZ;
 }
 
-/*  This is here just to keep juce::Component happy, it wants a paint()
+/*  This is just here to keep juce::Component happy; it wants a paint()
     method because the component is marked as opaque.
 */
 void GLVisualizer::paint(juce::Graphics& g)

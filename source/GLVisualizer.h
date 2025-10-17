@@ -6,27 +6,6 @@ class GridComponent;
 class MainController;
 
 //=============================================================================
-/*  Struct representing an OpenGL Vertex Buffer Object. */
-struct VertexBufferObject
-{
-    GLuint id = 0;
-
-    void create(juce::OpenGLContext& context)
-    {
-        if (id == 0)
-            context.extensions.glGenBuffers(1, &id);
-    }
-    void release(juce::OpenGLContext& context)
-    {
-        if (id != 0)
-        {
-            context.extensions.glDeleteBuffers(1, &id);
-            id = 0;
-        }
-    }
-    ~VertexBufferObject() = default;
-};
-
 enum ColourScheme { greyscale, rainbow };
 enum Dimension { dimension2, dimension3 };
 
@@ -41,8 +20,6 @@ public:
     explicit GLVisualizer(MainController&);
     ~GLVisualizer() override;
 
-    void prepareToPlay(int newSamplesPerBlock, double newSampleRate);
-
     //=========================================================================
     void buildTexture();
 
@@ -52,6 +29,7 @@ public:
     void resized() override;
 
     //=========================================================================
+    void setSampleRate(double newSampleRate);
     void setDimension(Dimension newDimension);
     void setColourScheme(ColourScheme newColourScheme);
     void setShowGrid(bool shouldShow);
@@ -76,45 +54,44 @@ private:
         float spawnTime = 0.0f; // Time since app start when particle spawned
     };
 
+    struct InstanceData { float x, y, z, spawnAlpha; };
+
     std::deque<Particle> particles; // Queue of particles
     
     std::unique_ptr<juce::OpenGLShaderProgram> mainShader;
-    VertexBufferObject mainVBO; // Vertex buffer object
-    GLuint mainVAO = 0; // Vertex-array object
-    GLuint instanceVBO = 0; // buffer ID for per-instance data
-    struct InstanceData { float x, y, z, spawnAlpha; };
-
+    GLuint instanceVBO = 0;
+    GLuint mainVAO = 0;
+    
     std::unique_ptr<juce::OpenGLShaderProgram> gridShader;
-    GLuint gridVBO; // Vertex buffer object for the grid
-    GLuint gridVAO = 0; // Vertex-array object for the grid
-
-    juce::Vector3D<float> cameraPosition { 0.0f, 0.0f, -2.0f };
-
-    juce::Matrix3D<float> view; // View matrix
-    juce::Matrix3D<float> projection; // Projection matrix
-
-    MainController& controller;
-
-    GLuint colourMapTex = 0;
-    bool newTextureRequsted = true; // Flag to rebuild texture
-
-    double sampleRate;
-    float startTime; // App-launch time in seconds
-    float lastFrameTime; // Time of last frame in seconds
+    GLuint gridVBO = 0;
+    GLuint gridVAO = 0;
 
     juce::Image gridImage; 
     juce::OpenGLTexture gridGLTex; 
     std::atomic<bool> gridTextureDirty{false};
     bool gridTextureReady = false;
 
+    juce::Vector3D<float> cameraPosition { 0.0f, 0.0f, -2.0f };
+    juce::Matrix3D<float> view; // View matrix
+    juce::Matrix3D<float> projection; // Projection matrix
+
+    GLuint colourMapTex = 0;
+    bool newTextureRequsted = true; // Flag to rebuild texture
+
+    float startTime; // App-launch time in seconds
+    float lastFrameTime; // Time of last frame in seconds
+
+    MainController& controller;
+
     //=========================================================================
     /* Parameters */
+
+    double sampleRate;
 
     Dimension dimension;
     ColourScheme colourScheme;
     
     bool showGrid;
-
     float minFrequency; // Minimum frequency to display (Hz)
     float recedeSpeed; // Speed that objects recede
     float dotSize; // Radius of the dots

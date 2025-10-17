@@ -181,7 +181,7 @@ public:
           sampleRate(sampleRateIn),
           parentAnalyzer(parent)
     {
-        // Pre-allocate ring buffer - large enough for 16 blocks or 2 seconds
+        // Pre-allocate ring buffer - large enough for 16 windows or 2 seconds
         int bufferSize = std::max((int)sampleRate * 2, windowSize * 16);
         ringBuffer.setSize(2, bufferSize);
         
@@ -202,7 +202,6 @@ public:
 
     void start()
     {
-        shouldExit = false;
         thread = std::thread([this] { run(); });
     }
 
@@ -283,7 +282,7 @@ private:
                 continue; // Re-check condition
             }
 
-            // DBG("Worker thread processing block.");
+            DBG("Worker thread processing block.");
 
             // Check if we are running behind the audio thread
             if (samplesAvailable > windowSize * 8)
@@ -291,7 +290,7 @@ private:
                 // If we are too far behind, skip ahead to the latest data
                 readPosition = (writePosition - windowSize * 2 + N) % N;
                 overloaded = true;
-                // DBG("AnalyzerWorker overloaded, skipping ahead.");
+                DBG("AnalyzerWorker overloaded, skipping ahead.");
             }
 
             // Copy data from the ring buffer to the analysis buffer

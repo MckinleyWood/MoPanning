@@ -331,7 +331,7 @@ void MainController::audioDeviceAboutToStart(juce::AudioIODevice* device)
     engine->prepareToPlay(samplesPerBlock, sampleRate);
     analyzer->setPrepared(false);
     analyzer->prepare(sampleRate);
-    visualizer->prepareToPlay(samplesPerBlock, sampleRate);
+    visualizer->setSampleRate(sampleRate);
     grid->setSampleRate(sampleRate);
 }
 
