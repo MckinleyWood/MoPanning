@@ -4,29 +4,8 @@
 class MainController;
 
 //=============================================================================
-/*  Struct representing an OpenGL Vertex Buffer Object. */
-struct VertexBufferObject
-{
-    GLuint id = 0;
-
-    void create(juce::OpenGLContext& context)
-    {
-        if (id == 0)
-            context.extensions.glGenBuffers (1, &id);
-    }
-    void release(juce::OpenGLContext& context)
-    {
-        if (id != 0)
-        {
-            context.extensions.glDeleteBuffers (1, &id);
-            id = 0;
-        }
-    }
-    ~VertexBufferObject() = default;
-};
-
 enum ColourScheme { greyscale, rainbow };
-enum Dimension { Dim2D, Dim3D };
+enum Dimension { dimension2, dimension3 };
 
 //=============================================================================
 /*  This is the component for the OpenGL canvas. It handles rendering 
@@ -39,8 +18,6 @@ public:
     explicit GLVisualizer(MainController&);
     ~GLVisualizer() override;
 
-    void prepareToPlay(int newSamplesPerBlock, double newSampleRate);
-
     //=========================================================================
     void buildTexture();
 
@@ -50,8 +27,10 @@ public:
     void resized() override;
 
     //=========================================================================
+    void setSampleRate(double newSampleRate);
     void setDimension(Dimension newDimension);
     void setColourScheme(ColourScheme newColourScheme);
+    void setShowGrid(bool shouldShow);
     void setMinFrequency(float newMinFrequency);
     void setRecedeSpeed(float newRecedeSpeed);
     void setDotSize(float newDotSize);
@@ -70,34 +49,45 @@ private:
         float spawnAlpha;
         float spawnTime = 0.0f; // Time since app start when particle spawned
     };
-    std::deque<Particle> particles; // Queue of particles
-    
-    std::unique_ptr<juce::OpenGLShaderProgram> shader;
-    VertexBufferObject vbo; // Vertex buffer object
-    GLuint vao = 0; // Vertex-array object
-    GLuint instanceVBO = 0; // buffer ID for per-instance data
+
     struct InstanceData { float x, y, z, spawnAlpha; };
 
-    juce::Vector3D<float> cameraPosition { 0.0f, 0.0f, -2.0f };
+    std::deque<Particle> particles; // Queue of particles
+    
+    std::unique_ptr<juce::OpenGLShaderProgram> mainShader;
+    GLuint instanceVBO = 0;
+    GLuint mainVAO = 0;
+    
+    std::unique_ptr<juce::OpenGLShaderProgram> gridShader;
+    GLuint gridVBO = 0;
+    GLuint gridVAO = 0;
 
+    juce::Image gridImage; 
+    juce::OpenGLTexture gridGLTex; 
+    std::atomic<bool> gridTextureDirty{false};
+    bool gridTextureReady = false;
+
+    juce::Vector3D<float> cameraPosition { 0.0f, 0.0f, -2.0f };
     juce::Matrix3D<float> view; // View matrix
     juce::Matrix3D<float> projection; // Projection matrix
 
-    MainController& controller;
-
     GLuint colourMapTex = 0;
-    bool newTextureRequsted = false; // Flag to rebuild texture
+    bool newTextureRequsted = true; // Flag to rebuild texture
 
-    double sampleRate;
     float startTime; // App-launch time in seconds
     float lastFrameTime; // Time of last frame in seconds
+
+    MainController& controller;
 
     //=========================================================================
     /* Parameters */
 
+    double sampleRate;
+
     Dimension dimension;
     ColourScheme colourScheme;
-
+    
+    bool showGrid;
     float minFrequency; // Minimum frequency to display (Hz)
     float recedeSpeed; // Speed that objects recede
     float dotSize; // Radius of the dots

@@ -3,7 +3,7 @@
 //=============================================================================
 MainController::MainController()
 {
-    // Allocate analyzer and engine
+    // Initialize audio analyzer and engine
     analyzer = std::make_unique<AudioAnalyzer>();
     engine = std::make_unique<AudioEngine>();
 
@@ -131,11 +131,10 @@ MainController::MainController()
                     default: newMinFreq = 20.0f; break;
                 }
 
-                if (visualizer != nullptr)
-                    visualizer->setMinFrequency(newMinFreq);
-                
-                if (analyzer != nullptr)
-                    analyzer->setMinFrequency(newMinFreq);
+                grid->setMinFrequency(newMinFreq);
+                visualizer->setMinFrequency(newMinFreq);
+                analyzer->setMinFrequency(newMinFreq);
+                updateGridTexture();
             }
         },
         // peakAmplitude
@@ -199,6 +198,21 @@ MainController::MainController()
                     visualizer->setColourScheme(
                         static_cast<ColourScheme>(value));
             }
+        },
+        // showGrid
+        {
+            "showGrid", "Show Grid", 
+            "Toggle display of the grid.",
+            ParameterDescriptor::Type::Choice, 0, {},
+            {"Off", "On"}, "",
+            [this](float value) 
+            {
+                bool showGrid = (static_cast<int>(value) == 1);
+                grid->setGridVisible(showGrid);
+                if (visualizer != nullptr)
+                    visualizer->setShowGrid(showGrid);
+            },
+            true
         },
         // recedeSpeed
         {
@@ -311,7 +325,8 @@ void MainController::audioDeviceAboutToStart(juce::AudioIODevice* device)
     engine->prepareToPlay(samplesPerBlock, sampleRate);
     analyzer->setPrepared(false);
     analyzer->prepare(sampleRate);
-    visualizer->prepareToPlay(samplesPerBlock, sampleRate);
+    visualizer->setSampleRate(sampleRate);
+    grid->setSampleRate(sampleRate);
 }
 
 void MainController::audioDeviceStopped() 
