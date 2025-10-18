@@ -213,7 +213,7 @@ MainController::MainController()
                 if (visualizer != nullptr)
                     visualizer->setShowGrid(showGrid);
             },
-            true
+            false
         },
         // recedeSpeed
         {

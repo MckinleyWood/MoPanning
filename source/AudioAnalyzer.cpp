@@ -242,7 +242,7 @@ void AudioAnalyzer::setupCQT()
 
         // Generate complex sinusoid for this frequency (for inner products)
         int kernelLength = windowSize;
-        std::vector<std::complex<float>> kernelTime(kernelLength, 0.0f);
+        std::vector<Complex> kernelTime(kernelLength, 0.0f);
         
         for (int n = 0; n < kernelLength; ++n)
         {
@@ -274,8 +274,8 @@ void AudioAnalyzer::setupCQT()
         juce::dsp::FFT kernelFFT((int)std::log2(kernelLength));
         kernelFFT.perform(fftInput, fftOutput, false);
 
-        // Copy result back into std::vector<std::complex<float>>
-        std::vector<std::complex<float>> kernelFreq(kernelLength);
+        // Copy result back into std::vector<Complex>
+        std::vector<Complex> kernelFreq(kernelLength);
         for (int i = 0; i < kernelLength; ++i)
             kernelFreq[i] = fftOutput[i];
 
@@ -283,7 +283,7 @@ void AudioAnalyzer::setupCQT()
     }
 
     // Estimate memory use for CQT kernels
-    // auto bytes = numCQTbins * windowSize * sizeof(std::complex<float>);
+    // auto bytes = numCQTbins * windowSize * sizeof(Complex);
     // DBG("Estimated CQT kernel memory use: " << (bytes / 1024.0f) << " KB");
 }
 
@@ -481,7 +481,7 @@ void AudioAnalyzer::computeFFT(const juce::AudioBuffer<float>& buffer,
 */
 void AudioAnalyzer::computeCQT(const std::array<std::vector<Complex>, 2>& ffts,
                                const std::vector<std::vector<Complex>>& cqtKernelsIn,
-                               std::array<std::vector<std::vector<std::complex<float>>>, 2>& spectraOut,
+                               std::array<std::vector<std::vector<Complex>>, 2>& spectraOut,
                                std::array<std::vector<float>, 2>& magnitudesOut)
 {
     for (int ch = 0; ch < 2; ++ch)
@@ -491,11 +491,11 @@ void AudioAnalyzer::computeCQT(const std::array<std::vector<Complex>, 2>& ffts,
         // Compute CQT by inner product with each kernel
         for (int bin = 0; bin < magnitudesOut[ch].size(); ++bin)
         {
-            jassert(bin < cqtKernels.size());
+            jassert(bin < cqtKernelsIn.size());
             jassert(spectraOut[ch][bin].size() == windowSize);
 
-            std::complex<float> sum = 0.0f;
-            const auto& kernel = cqtKernels[bin];
+            Complex sum = 0.0f;
+            const auto& kernel = cqtKernelsIn[bin];
             for (int i = 0; i < windowSize; ++i)
             {
                 spectraOut[ch][bin][i] = ffts[ch][i] * std::conj(kernel[i]);
@@ -532,14 +532,13 @@ void AudioAnalyzer::computeILDs(const std::array<std::vector<float>, 2>& magnitu
     works for CQT transform type. 
 */
 void AudioAnalyzer::computeITDs(
-    const std::array<std::vector<std::vector<std::complex<float>>>, 2>& spec,
-    int numBands,
-    std::vector<float>& panIndices)
+    const std::array<std::vector<std::vector<Complex>>, 2>& spec,
+    int numBandsIn, std::vector<float>& panOut)
 {
-    std::vector<std::complex<float>> crossSpectrum(windowSize);
-    std::vector<std::complex<float>> crossCorr(windowSize);
+    std::vector<Complex> crossSpectrum(windowSize);
+    std::vector<Complex> crossCorr(windowSize);
 
-    for (int bin = 0; bin < numBands; ++bin)
+    for (int bin = 0; bin < numBandsIn; ++bin)
     {
         const auto& leftBin = spec[0][bin];
         const auto& rightBin = spec[1][bin];
@@ -560,7 +559,7 @@ void AudioAnalyzer::computeITDs(
             }
             else
             {
-                crossSpectrum[k] = std::complex<float>(0.0f, 0.0f);
+                crossSpectrum[k] = Complex(0.0f, 0.0f);
             }
         }
 
@@ -622,15 +621,15 @@ void AudioAnalyzer::computeITDs(
 
             itdPerBin[bin] = peakIndexInterp / (float)sampleRate;
 
-            panIndices[bin] = juce::jlimit(-1.0f, 1.0f, itdPerBin[bin] / maxITD[bin]);
+            panOut[bin] = juce::jlimit(-1.0f, 1.0f, itdPerBin[bin] / maxITD[bin]);
         }
         else
         {
             if (panMethod == time_pan) // For time_pan method, set to NaN if invalid
-                panIndices[bin] = std::numeric_limits<float>::quiet_NaN();
+                panOut[bin] = std::numeric_limits<float>::quiet_NaN();
             
             else // For 'both' method, just set to zero
-                panIndices[bin] = 0.0f;
+                panOut[bin] = 0.0f;
         }
     }
 }
