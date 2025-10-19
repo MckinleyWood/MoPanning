@@ -5,17 +5,23 @@ AudioAnalyzer::AudioAnalyzer() {}
 AudioAnalyzer::~AudioAnalyzer()
 {
     // Destroy worker, which joins the thread
-    stopWorker();
+    for (auto& worker : workers)
+    {
+        stopWorker(worker);
+    }
 }
 
 //=============================================================================
 /*  Prepares the audio analyzer. */
-void AudioAnalyzer::prepare(double newSampleRate)
+void AudioAnalyzer::prepare(double newSampleRate, int numTracks)
 {
     if (isPrepared.load())
         return; // Already prepared
 
-    stopWorker(); // Stop any existing worker thread
+    for (auto& worker : workers)
+    {
+        stopWorker(worker); // Stop any existing worker thread
+    }
 
     sampleRate = newSampleRate;
     
@@ -66,9 +72,13 @@ void AudioAnalyzer::prepare(double newSampleRate)
     if (panMethod == both || panMethod == time_pan)
         setupPanWeights();
 
-    // Start the worker thread
-    worker = std::make_unique<AnalyzerWorker>(windowSize, hopSize, sampleRate, *this);
-    worker->start();
+    // Start the worker threads
+    for (int i = 0; i < numTracks; ++i)
+    {
+        auto worker = std::make_unique<AnalyzerWorker>(windowSize, hopSize, sampleRate, i, *this);
+        worker->start();
+        workers.push_back(std::move(worker));
+    }
 
     isPrepared.store(true);
 }
@@ -79,18 +89,36 @@ void AudioAnalyzer::prepare()
     prepare(sampleRate);
 }
 
-void AudioAnalyzer::enqueueBlock(const juce::AudioBuffer<float>* buffer)
+void AudioAnalyzer::enqueueBlock(const juce::AudioBuffer<float>* buffer, int trackIndex, int numTracks)
 {
-    if (worker != nullptr && buffer != nullptr)
-        worker->pushBlock(*buffer);
+    if (!buffer) return;
+
+    if (numTracks != workers.size())
+    {
+        pendingNumTracks.store(numTracks);
+        flushAnalysisQueue();  // drop old blocks waiting in queue
+    }
+
+    if (trackIndex < workers.size() && workers[trackIndex])
+        workers[trackIndex]->pushBlock(*buffer);
 }
 
-void AudioAnalyzer::stopWorker()
+
+void AudioAnalyzer::stopWorker(std::unique_ptr<AnalyzerWorker>& worker)
 {
     if (worker != nullptr)
     {
         worker->stop();    // Stop cleanly
         worker.reset();    // Then delete
+    }
+}
+
+void AudioAnalyzer::flushAnalysisQueue()
+{
+    for (auto& worker : workers)
+    {
+        if (worker)
+            worker->flushRingBuffer();
     }
 }
 
@@ -105,8 +133,16 @@ void AudioAnalyzer::setWindowSize(int newWindowSize)
     if (newWindowSize == windowSize) 
         return; // No change
 
-    if (worker != nullptr) 
-        stopWorker(); // Stop the worker thread while we change the parameter
+    for (auto& worker : workers)
+    {
+        stopWorker(worker);
+    }
+
+    for (auto& worker : workers)
+    {
+        if (worker != nullptr) 
+            stopWorker(worker); // Stop the worker thread while we change the parameter
+    }
 
     windowSize = newWindowSize;
     isPrepared.store(false);
@@ -119,16 +155,22 @@ void AudioAnalyzer::setHopSize(int newHopSize)
 
     hopSize = newHopSize;
 
-    if (worker != nullptr) 
-        worker->setHopSize(newHopSize);
+    for (auto& worker : workers)
+    {
+        if (worker != nullptr) 
+            worker->setHopSize(newHopSize);
+    }
 }
 
 void AudioAnalyzer::setTransform(Transform newTransform)
 {
     if (newTransform == transform) 
         return; // No change
-    if (worker != nullptr) 
-        stopWorker(); // Stop worker while we change the parameter
+    
+    for (auto& worker : workers)
+    {
+        stopWorker(worker); // Stop worker while we change the parameter
+    }
 
     transform = newTransform;
     isPrepared.store(false);
@@ -138,8 +180,11 @@ void AudioAnalyzer::setPanMethod(PanMethod newPanMethod)
 {
     if (newPanMethod == panMethod) 
         return; // No change
-    if (worker != nullptr)
-        stopWorker(); // Stop worker while we change the parameter
+
+    for (auto& worker : workers)
+    {
+        stopWorker(worker); // Stop worker while we change the parameter
+    }
 
     panMethod = newPanMethod;
     isPrepared.store(false);
@@ -149,8 +194,11 @@ void AudioAnalyzer::setNumCQTBins(int newNumCQTBins)
 {
     if (newNumCQTBins == numCQTbins) 
         return; // No change
-    if (worker != nullptr)
-        stopWorker(); // Stop worker while we change the parameter
+
+    for (auto& worker : workers)
+    {
+        stopWorker(worker); // Stop worker while we change the parameter
+    }
 
     numCQTbins = newNumCQTBins;
     isPrepared.store(false);
@@ -160,8 +208,11 @@ void AudioAnalyzer::setMinFrequency(float newMinFrequency)
 {
     if (std::abs(newMinFrequency - minCQTfreq) < 1e-6f) 
         return; // No change
-    if (worker != nullptr) 
-        stopWorker(); // Stop worker while we change the parameter
+
+    for (auto& worker : workers)
+    {
+        stopWorker(worker); // Stop worker while we change the parameter
+    }
 
     minCQTfreq = newMinFrequency;
     isPrepared.store(false);
@@ -181,8 +232,11 @@ void AudioAnalyzer::setThreshold(float newThreshold)
 void AudioAnalyzer::setFreqWeighting(FrequencyWeighting newFreqWeighting)
 {
     if (newFreqWeighting == freqWeighting) return; // No change
-    if (worker != nullptr) 
-        stopWorker(); // Stop worker while we change the parameter
+
+    for (auto& worker : workers)
+    {
+        stopWorker(worker); // Stop worker while we change the parameter
+    }
 
     freqWeighting = newFreqWeighting;
     isPrepared.store(false);
@@ -347,8 +401,16 @@ void AudioAnalyzer::setupPanWeights()
     panning method, and stores the results in the 'results' member 
     variable for the GUI thread to access.
 */
-void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
+void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer, int trackIndex)
 {
+    newNumTracks = pendingNumTracks.load();
+    if (newNumTracks > 0)
+    {
+        isPrepared.store(false);
+        prepare(sampleRate, newNumTracks);
+        pendingNumTracks.store(-1);
+    }
+
     if (!isPrepared.load())
         return; // Not prepared yet
     
@@ -435,7 +497,7 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer)
         float amp = (dBrel - threshold) / -threshold; // Scale to [0, 1]
         amp = juce::jlimit(0.0f, 1.0f, amp); // Clamp
 
-        newResults.push_back({ binFrequencies[b], amp, panIndices[b] });
+        newResults.push_back({ binFrequencies[b], amp, panIndices[b], trackIndex });
     }
 
     // Hand results to GUI

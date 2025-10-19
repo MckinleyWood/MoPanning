@@ -67,6 +67,9 @@ public:
     void valueTreePropertyChanged(juce::ValueTree&, 
                                   const juce::Identifier& id) override;
 
+    juce::AudioBuffer<float> buffer;
+    std::vector<juce::AudioBuffer<float>> buffers;
+
 private:
     //=========================================================================
     std::unique_ptr<AudioAnalyzer> analyzer;

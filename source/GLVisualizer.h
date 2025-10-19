@@ -6,7 +6,16 @@ class GridComponent;
 class MainController;
 
 //=============================================================================
-enum ColourScheme { greyscale, rainbow };
+enum ColourScheme 
+{
+    greyscale, 
+    rainbow,
+    red,
+    blue,
+    green,
+    warm,
+    cool
+};
 enum Dimension { dimension2, dimension3 };
 
 //=============================================================================
@@ -31,7 +40,8 @@ public:
     //=========================================================================
     void setSampleRate(double newSampleRate);
     void setDimension(Dimension newDimension);
-    void setColourScheme(ColourScheme newColourScheme);
+    // void setColourScheme(ColourScheme newColourScheme);
+    void setTrackColourScheme(ColourScheme newColourScheme, int trackIndex);
     void setShowGrid(bool shouldShow);
     void setMinFrequency(float newMinFrequency);
     void setRecedeSpeed(float newRecedeSpeed);
@@ -52,9 +62,10 @@ private:
         float z; // Current z position
         float spawnAlpha;
         float spawnTime = 0.0f; // Time since app start when particle spawned
+        float trackIndex;
     };
 
-    struct InstanceData { float x, y, z, spawnAlpha; };
+    struct InstanceData { float x, y, z, spawnAlpha, trackIndex; };
 
     std::deque<Particle> particles; // Queue of particles
     
@@ -75,7 +86,7 @@ private:
     juce::Matrix3D<float> view; // View matrix
     juce::Matrix3D<float> projection; // Projection matrix
 
-    GLuint colourMapTex = 0;
+    std::vector<GLuint> trackColourTextures;
     bool newTextureRequsted = true; // Flag to rebuild texture
 
     float startTime; // App-launch time in seconds
@@ -89,7 +100,10 @@ private:
     double sampleRate;
 
     Dimension dimension;
-    ColourScheme colourScheme;
+    std::vector<ColourScheme> trackColourSchemes;
+
+    std::vector<size_t> trackParticleCounts;
+    std::vector<size_t> trackParticleOffsets;
     
     bool showGrid;
     float minFrequency; // Minimum frequency to display (Hz)

@@ -35,54 +35,79 @@ void GLVisualizer::buildTexture()
         return;
     
     using namespace juce::gl;
-    // auto& ext = openGLContext.extensions;
 
-    if (colourMapTex != 0)
-        glDeleteTextures(1, &colourMapTex);
-
-    // Create a 1D texture for color mapping
-    glGenTextures(1, &colourMapTex);
-    glBindTexture(GL_TEXTURE_1D, colourMapTex);
-
-    // Define the color map data
     const int numColours = 256;
-    std::vector<juce::Colour> colours(numColours);
-    
-    switch (colourScheme)
+    const size_t numTracks = trackColourSchemes.size();
+
+    // Ensure trackColourTextures is large enough
+    if (trackColourTextures.size() < numTracks)
+        trackColourTextures.resize(numTracks, 0);
+
+    // Build one texture per track
+    for (size_t track = 0; track < numTracks; ++track)
     {
-    case greyscale:
+        // Delete old texture if exists
+        if (trackColourTextures[track] != 0)
+            glDeleteTextures(1, &trackColourTextures[track]);
+
+        glGenTextures(1, &trackColourTextures[track]);
+        glBindTexture(GL_TEXTURE_1D, trackColourTextures[track]);
+
+        std::vector<juce::Colour> colours(numColours);
+        switch (trackColourSchemes[track])
+        {
+            case greyscale:
+                for (int i = 0; i < numColours; ++i)
+                    colours[i] = juce::Colour((juce::uint8)i, (juce::uint8)i, (juce::uint8)i);
+                break;
+            case rainbow:
+                for (int i = 0; i < numColours; ++i)
+                    colours[i] = juce::Colour::fromHSV((float)i / numColours, 
+                                                       1.0f, 1.0f, 1.0f);
+                break;
+            case red:
+                for (int i = 0; i < numColours; ++i)
+                    colours[i] = juce::Colour::fromFloatRGBA((float)i/numColours, 0.0f, 0.0f, 1.0f);
+                break;
+
+            case green:
+                for (int i = 0; i < numColours; ++i)
+                    colours[i] = juce::Colour::fromFloatRGBA(0.0f, (float)i/numColours, 0.0f, 1.0f);
+                break;
+
+            case blue:
+                for (int i = 0; i < numColours; ++i)
+                    colours[i] = juce::Colour::fromFloatRGBA(0.0f, 0.0f, (float)i/numColours, 1.0f);
+                break;
+
+            case warm:
+                for (int i = 0; i < numColours; ++i)
+                    colours[i] = juce::Colour::fromHSV(0.05f + 0.1f * (float)i / numColours, 1.0f, 1.0f, 1.0f);
+                break;
+
+            case cool:
+                for (int i = 0; i < numColours; ++i)
+                    colours[i] = juce::Colour::fromHSV(0.6f + 0.1f * (float)i / numColours, 1.0f, 1.0f, 1.0f);
+                break;
+        }
+
+        std::vector<float> colorData(numColours * 3);
         for (int i = 0; i < numColours; ++i)
-            colours[i] = juce::Colour((juce::uint8)i, (juce::uint8)i, (juce::uint8)i);
-        break;
-    
-    case rainbow:
-        for (int i = 0; i < numColours; ++i)
-            colours[i] = juce::Colour::fromHSV((float)i / numColours, 
-                                               1.0f, 1.0f, 1.0f);
-        break;
+        {
+            colorData[i * 3 + 0] = colours[i].getFloatRed();
+            colorData[i * 3 + 1] = colours[i].getFloatGreen();
+            colorData[i * 3 + 2] = colours[i].getFloatBlue();
+        }
 
-    default:
-        jassertfalse; // Unsupported colour scheme
-        break;
+        // Upload the texture data
+        glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, numColours, 0,
+                    GL_RGB, GL_FLOAT, colorData.data());
+
+        // Set texture parameters
+        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
-
-    std::vector<float> colorData(numColours * 3);
-    
-    for (int i = 0; i < numColours; ++i)
-    {
-        colorData[i * 3 + 0] = colours[i].getFloatRed();
-        colorData[i * 3 + 1] = colours[i].getFloatGreen();
-        colorData[i * 3 + 2] = colours[i].getFloatBlue();
-    }
-
-    // Upload the texture data
-    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, numColours, 0,
-                 GL_RGB, GL_FLOAT, colorData.data());
-
-    // Set texture parameters
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     newTextureRequsted = false;
 }
@@ -102,6 +127,7 @@ void GLVisualizer::initialise()
     // GLSL vertex shader initialization code for the dot cloud
     static const char* mainVertSrc = R"(#version 150
         in vec4 instanceData;
+        in float instanceTrackIndex;
 
         uniform mat4 uProjection;
         uniform mat4 uView;
@@ -120,7 +146,7 @@ void GLVisualizer::initialise()
             // Depth factor for fading effect
             float depth = -instanceData.z / uFadeEndZ;
             float alpha = amp * (1.0 - depth);
-            
+
             // Look up color from the texture
             vec3 rgb = texture(uColourMap, amp).rgb;
 
@@ -162,6 +188,7 @@ void GLVisualizer::initialise()
     mainShader->addFragmentShader(mainFragSrc);
 
     ext.glBindAttribLocation(mainShader->getProgramID(), 0, "instanceData");
+    ext.glBindAttribLocation(mainShader->getProgramID(), 1, "instanceTrackIndex");
 
     bool shaderLinked = mainShader->link();
     jassert(shaderLinked);
@@ -182,10 +209,14 @@ void GLVisualizer::initialise()
                      maxParticles * sizeof(InstanceData),
                      nullptr,
                      GL_DYNAMIC_DRAW);
-    ext.glEnableVertexAttribArray(0);
-    ext.glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 
-                              sizeof(InstanceData), nullptr);
-    glVertexAttribDivisor(0, 1); // This attribute advances once per instance
+
+    // Offset to trackIndex within InstanceData
+    auto offset = reinterpret_cast<void*>(4 * sizeof(float));
+
+    ext.glEnableVertexAttribArray(1);
+    ext.glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 
+                              sizeof(InstanceData), offset);
+    glVertexAttribDivisor(1, 1); // This attribute advances once per instance
     
     // Unbind VAO to avoid accidental state leakage
     ext.glBindVertexArray(0);
@@ -345,8 +376,9 @@ void GLVisualizer::render()
             y = juce::jmap(y, -1.0f, 1.0f);
             float z = 0.f;
             float a = band.amplitude;
+            float index = band.trackIndex;
 
-            Particle newParticle = { x, y, z, a, t };
+            Particle newParticle = { x, y, z, a, t, index };
             particles.push_back(newParticle);
         }
     }
@@ -355,7 +387,7 @@ void GLVisualizer::render()
     std::vector<InstanceData> instances;
     instances.reserve(particles.size());
     for (auto& p : particles)
-        instances.push_back({ p.spawnX, p.spawnY, p.z, p.spawnAlpha });
+        instances.push_back({ p.spawnX, p.spawnY, p.z, p.spawnAlpha, p.trackIndex });
 
     // Upload instance data to GPU
     ext.glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
@@ -370,11 +402,46 @@ void GLVisualizer::render()
     mainShader->setUniform("uDotSize", dotSize);
     mainShader->setUniform("uAmpScale", ampScale);
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_1D, colourMapTex);
+    // Prepare per-track particle counts and offsets
+    const size_t numTracks = trackColourSchemes.size();
+    trackParticleCounts.assign(numTracks, 0);
+    trackParticleOffsets.assign(numTracks, 0);
+
+    // Count particles per track
+    for (auto& p : particles)
+    {
+        if (p.trackIndex >= 0 && p.trackIndex < (int)numTracks)
+            trackParticleCounts[p.trackIndex]++;
+    }
+
+    // Compute offsets
+    size_t offset = 0;
+    for (size_t i = 0; i < numTracks; ++i)
+    {
+        trackParticleOffsets[i] = offset;
+        offset += trackParticleCounts[i];
+    }
+
+    ext.glBindVertexArray(mainVAO);
+
+    for (size_t track = 0; track < numTracks; ++track)
+    {
+        if (trackParticleCounts[track] == 0)
+            continue;
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_1D, trackColourTextures[track]);
+
+        glDrawArraysInstanced(GL_POINTS, 
+                              0,   // start
+                              1,   // single vertex (instanced)
+                              (GLsizei)trackParticleCounts[track]);
+    }
+
+    // Unbind VAO
+    ext.glBindVertexArray(0);
 
     // Draw all particles!!
-    ext.glBindVertexArray(mainVAO);
     glDrawArraysInstanced(GL_POINTS, 0, 1, (GLsizei)instances.size());
 
     // Add the grid overlay on top    
@@ -477,9 +544,18 @@ void GLVisualizer::setDimension(Dimension newDimension)
     resized(); // Force a resize to update the projection matrix
 }
 
-void GLVisualizer::setColourScheme(ColourScheme newColourScheme)
+// void GLVisualizer::setColourScheme(ColourScheme newColourScheme)
+// {
+//     colourScheme = newColourScheme;
+//     newTextureRequsted = true;
+// }
+
+void GLVisualizer::setTrackColourScheme(ColourScheme newColourScheme, int trackIndex)
 {
-    colourScheme = newColourScheme;
+    if (trackIndex >= (int)trackColourSchemes.size())
+        trackColourSchemes.resize(trackIndex + 1, greyscale);
+    
+    trackColourSchemes[trackIndex] = newColourScheme;
     newTextureRequsted = true;
 }
 

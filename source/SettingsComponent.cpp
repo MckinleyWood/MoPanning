@@ -51,10 +51,10 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     title.setColour(juce::Label::textColourId, juce::Colours::white);
     addAndMakeVisible(title);
 
-    // Set up device selector
+    // Set up device selector--max 16 input channels, 2 output channels
     deviceSelector = std::make_unique<CustomAudioDeviceSelectorComponent>(
         controller.getDeviceManager(),
-        2, 2, 2, 2,
+        2, 16, 2, 2,
         false, false, true, true);
 
     deviceSelector.get()->onHeightChanged = [this]()

@@ -17,6 +17,7 @@ struct frequency_band {
     float frequency; // Band frequency in Hertz
     float amplitude; // Range 0 - 1 ...?
     float pan_index; // -1 = far left, +1 = far right
+    int trackIndex;
 };
 
 using Complex = juce::dsp::Complex<float>;
@@ -33,11 +34,11 @@ public:
     ~AudioAnalyzer();
 
     // Must be called before analyzeBlock()
-    void prepare(double newSampleRate);
+    void prepare(double newSampleRate, int numTracks = 1);
     void prepare(); // Uses current sampleRate
 
     // Called by audio thread
-    void enqueueBlock(const juce::AudioBuffer<float>* buffer);
+    void enqueueBlock(const juce::AudioBuffer<float>* buffer, int trackIndex, int numTracks);
 
     // Called by GUI thread to get latest results
     std::vector<frequency_band> getLatestResults() const;
@@ -54,11 +55,12 @@ public:
 
     bool getPrepared() const { return isPrepared.load(); }
     void setPrepared(bool prepared) { isPrepared.store(prepared); }
+    void flushAnalysisQueue();
 
     //=========================================================================
     class AnalyzerWorker;
 
-    void stopWorker();
+    void stopWorker(std::unique_ptr<AnalyzerWorker>& worker);
     
 private:
     //=========================================================================
@@ -75,7 +77,7 @@ private:
     
     /* Analysis functions */
 
-    void analyzeBlock(const juce::AudioBuffer<float>& buffer);
+    void analyzeBlock(const juce::AudioBuffer<float>& buffer, int trackIndex);
 
     void computeFFT(const juce::AudioBuffer<float>& buffer,
                     const std::vector<float>& windowIn,
@@ -149,11 +151,15 @@ private:
     std::vector<frequency_band> results; // Must be sorted by frequency!!!
     mutable std::mutex resultsMutex;
 
-    std::unique_ptr<AnalyzerWorker> worker;
+    std::vector<std::unique_ptr<AnalyzerWorker>> workers; // One worker per track
 
     // Atomic flag to indicate if the analyzer is prepared
     std::atomic<bool> isPrepared { false };
     mutable std::mutex prepareMutex;
+
+    // For handling dynamic number of tracks
+    std::atomic<int> pendingNumTracks { -1 }; // -1 means no update
+    int newNumTracks = 0;
 
     //=========================================================================
     /* Compile-time constants */
@@ -175,10 +181,11 @@ private:
 class AudioAnalyzer::AnalyzerWorker
 {
 public:
-    AnalyzerWorker(int windowSizeIn, int hopSizeIn, double sampleRateIn, AudioAnalyzer& parent) 
+    AnalyzerWorker(int windowSizeIn, int hopSizeIn, double sampleRateIn, int trackIndexIn, AudioAnalyzer& parent) 
         : windowSize(windowSizeIn),
           hopSize(hopSizeIn),
           sampleRate(sampleRateIn),
+          trackIndex(trackIndexIn),
           parentAnalyzer(parent)
     {
         // Pre-allocate ring buffer - large enough for 16 windows or 2 seconds
@@ -259,6 +266,13 @@ public:
         // DBG("Enqueued block on audio thread.");
     }
 
+    void flushRingBuffer()
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        readPosition = writePosition; // effectively drop any unprocessed data
+        ringBuffer.clear();
+    }
+
 private:
     /*  This function is run on a background thread to continuously
         check if there are enough samples available to run analysis, and
@@ -316,7 +330,7 @@ private:
             readPosition = (readPosition + hopSize) % N;
 
             // Pass the analysis buffer to the audio analyzer
-            parentAnalyzer.analyzeBlock(analysisBuffer);
+            parentAnalyzer.analyzeBlock(analysisBuffer, trackIndex);
         }
     }
 
@@ -330,6 +344,8 @@ private:
     double sampleRate;
 
     bool overloaded = false;
+
+    int trackIndex;
 
     std::thread thread;
     std::atomic<bool> shouldExit {false};

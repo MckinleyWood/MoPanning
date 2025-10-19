@@ -187,17 +187,56 @@ MainController::MainController()
                     visualizer->setDimension(static_cast<Dimension>(value));
             }
         },
-        // colourScheme
+        // colourSchemeTrack1
         {
-            "colourScheme", "Colour Scheme", 
-            "Colour scheme for visualization.",
+            "track1ColourScheme", "Track 1 Colour Scheme", 
+            "Colour scheme for visualization of track 1.",
             ParameterDescriptor::Type::Choice, 1, {},
-            {"Greyscale", "Rainbow"}, "",
+            {"Greyscale", "Rainbow", "Red", "Green", "Blue", "Warm", "Cool"}, "",
             [this](float value) 
             {
                 if (visualizer != nullptr)
-                    visualizer->setColourScheme(
-                        static_cast<ColourScheme>(value));
+                    visualizer->setTrackColourScheme(
+                        static_cast<ColourScheme>(value), 0);
+            }
+        },
+        // colourSchemeTrack2
+        {
+            "track2ColourScheme", "Track 2 Colour Scheme", 
+            "Colour scheme for visualization of track 2.",
+            ParameterDescriptor::Type::Choice, 1, {},
+            {"Greyscale", "Rainbow", "Red", "Green", "Blue", "Warm", "Cool"}, "",
+            [this](float value) 
+            {
+                if (visualizer != nullptr)
+                    visualizer->setTrackColourScheme(
+                        static_cast<ColourScheme>(value), 1);
+            }
+        },
+        // colourSchemeTrack3
+        {
+            "track3ColourScheme", "Track 3 Colour Scheme", 
+            "Colour scheme for visualization of track 3.",
+            ParameterDescriptor::Type::Choice, 1, {},
+            {"Greyscale", "Rainbow", "Red", "Green", "Blue", "Warm", "Cool"}, "",
+            [this](float value) 
+            {
+                if (visualizer != nullptr)
+                    visualizer->setTrackColourScheme(
+                        static_cast<ColourScheme>(value), 2);
+            }
+        },
+        // colourSchemeTrack4
+        {
+            "track4ColourScheme", "Track 4 Colour Scheme", 
+            "Colour scheme for visualization of track 4.",
+            ParameterDescriptor::Type::Choice, 1, {},
+            {"Greyscale", "Rainbow", "Red", "Green", "Blue", "Warm", "Cool"}, "",
+            [this](float value) 
+            {
+                if (visualizer != nullptr)
+                    visualizer->setTrackColourScheme(
+                        static_cast<ColourScheme>(value), 3);
             }
         },
         // showGrid
@@ -296,6 +335,11 @@ void MainController::startAudio()
 
     // Register this as an audio callback - audio starts now
     dm.addAudioCallback(this);
+
+    // Prepare internal buffers
+    buffers.resize(2);
+    for (auto& buf : buffers)
+        buf.setSize(2, 512);
 }
 
 /*  The function that is called every time there is a new audio block to
@@ -309,15 +353,40 @@ void MainController::audioDeviceIOCallbackWithContext(
     float *const *outputChannelData, int numOutputChannels, int numSamples,
     const juce::AudioIODeviceCallbackContext& context)
 {
-    juce::AudioBuffer<float> buffer(2, numSamples);
-    
-    // Delegate to the audio engine
-    engine->fillAudioBuffers(inputChannelData, numInputChannels,
-                            outputChannelData, numOutputChannels,
-                            numSamples, buffer);
+    int numTracks = numInputChannels / 2;
 
-    // Pass the buffer to the analyzer
-    analyzer->enqueueBlock(&buffer);
+    // Prepare buffer
+    if ((int)buffers.size() != numTracks)
+        buffers.resize(numTracks);
+
+
+    if (buffers[0].getNumSamples() != numSamples)
+    {
+        for (auto& b : buffers)
+            b.setSize(2, numSamples, false, false, true);
+    }
+
+    else
+    {
+        for (auto& b : buffers)
+            b.clear();
+    }
+
+    for (int ch = 0; ch < numTracks; ch++)
+    {
+        const float* selectedChannels[2] = {
+            inputChannelData[2*ch],
+            inputChannelData[2*ch + 1]
+        };
+
+        // Delegate to the audio engine
+        engine->fillAudioBuffers(selectedChannels, numInputChannels,
+                                outputChannelData, numOutputChannels,
+                                numSamples, buffers[ch]);
+
+        // Pass the buffer to the analyzer
+        analyzer->enqueueBlock(&buffers[ch], ch, numTracks);
+    }
     
     juce::ignoreUnused(context);
 }
