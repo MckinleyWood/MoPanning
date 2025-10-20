@@ -11,8 +11,8 @@ enum ColourScheme
     greyscale, 
     rainbow,
     red,
-    blue,
     green,
+    blue,
     warm,
     cool
 };

@@ -355,22 +355,33 @@ void MainController::audioDeviceIOCallbackWithContext(
 {
     int numTracks = numInputChannels / 2;
 
-    // Prepare buffer
+    // Ensure buffers vector matches number of stereo tracks
     if ((int)buffers.size() != numTracks)
+    {
+        const int oldSize = (int)buffers.size();
         buffers.resize(numTracks);
 
-
-    if (buffers[0].getNumSamples() != numSamples)
-    {
-        for (auto& b : buffers)
-            b.setSize(2, numSamples, false, false, true);
+        // Initialize any newly added buffers right away
+        for (int i = oldSize; i < numTracks; ++i)
+            buffers[i].setSize(2, numSamples, false, false, true);
     }
 
-    else
-    {
-        for (auto& b : buffers)
-            b.clear();
-    }
+    // if (buffers[0].getNumSamples() != numSamples)
+    // {
+    //     for (auto& b : buffers)
+    //         b.setSize(2, numSamples, false, false, true);
+    // }
+
+    // else
+    // {
+    //     for (auto& b : buffers)
+    //         b.clear();
+    // }
+
+    for (int i = 0; i < (int)buffers.size(); ++i)
+        DBG("Buffer " << i << " channels = " << buffers[i].getNumChannels());
+
+    float trackGain = 1.0f / std::sqrt((float)numTracks);
 
     for (int ch = 0; ch < numTracks; ch++)
     {
@@ -379,10 +390,12 @@ void MainController::audioDeviceIOCallbackWithContext(
             inputChannelData[2*ch + 1]
         };
 
+        bool isFirstTrack = (ch == 0);
+
         // Delegate to the audio engine
-        engine->fillAudioBuffers(selectedChannels, numInputChannels,
+        engine->fillAudioBuffers(selectedChannels, 2,
                                 outputChannelData, numOutputChannels,
-                                numSamples, buffers[ch]);
+                                numSamples, buffers[ch], isFirstTrack, trackGain);
 
         // Pass the buffer to the analyzer
         analyzer->enqueueBlock(&buffers[ch], ch, numTracks);

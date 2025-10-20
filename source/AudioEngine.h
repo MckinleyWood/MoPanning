@@ -21,7 +21,9 @@ public:
                           float *const *outputChannelData,
                           int numOutputChannels,
                           int numSamples,
-                          juce::AudioBuffer<float>& buffer);
+                          juce::AudioBuffer<float>& buffer,
+                          bool isFirstTrack,
+                          float trackGainIn = 1.0f);
 
     void setInputType(InputType type);
 
