@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.22)
-project(MOPANNING VERSION 0.1.1)
+project(MOPANNING VERSION 0.1.2)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "" FORCE)
+# set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "" FORCE) # This causes problems for some reason??
 
 add_subdirectory(JUCE)
 
@@ -64,9 +66,14 @@ target_link_libraries(MoPanning
         # juce::juce_recommended_warning_flags # Annoying
 )
 
+# Define supported Windows version for MSVC: Windows 10+
+if (MSVC)
+  target_compile_definitions(MoPanning PRIVATE WINVER=0x0A00 _WIN32_WINNT=0x0A00)
+endif()
+
 target_compile_options(MoPanning
   PUBLIC
-  # Flags for GCC / Clang:
+  # Warning flags for GCC / Clang:
   $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:
     -Wall
     -Wshadow
@@ -100,7 +107,7 @@ target_compile_options(MoPanning
     -Winconsistent-missing-destructor-override
   >
 
-  # Flags for MSVC
+  # Warning flags for MSVC:
   $<$<CXX_COMPILER_ID:MSVC>:
     /W4
     /permissive-
