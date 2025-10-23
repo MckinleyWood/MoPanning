@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 #include <mutex>
 #include <vector>
+#include <atomic>
 
 /*  AudioAnalyzer.h
 
@@ -41,7 +42,7 @@ public:
     void enqueueBlock(const juce::AudioBuffer<float>* buffer, int trackIndex, int numTracks);
 
     // Called by GUI thread to get latest results
-    std::vector<frequency_band> getLatestResults() const;
+    std::vector<frequency_band> getLatestResults();
 
     void setWindowSize(int newWindowSize);
     void setHopSize(int newHopSize);
@@ -153,8 +154,9 @@ private:
 
     std::vector<std::unique_ptr<AnalyzerWorker>> workers; // One worker per track
 
-    // Atomic flag to indicate if the analyzer is prepared
+    // Atomic flag to indicate if the analyzer is prepared or preparing
     std::atomic<bool> isPrepared { false };
+    std::atomic<bool> isPreparing { false };
     mutable std::mutex prepareMutex;
 
     // For handling dynamic number of tracks
@@ -210,6 +212,7 @@ public:
     void start()
     {
         thread = std::thread([this] { run(); });
+        DBG("Started AnalyzerWorker thread for track " << trackIndex);
     }
 
     void stop()

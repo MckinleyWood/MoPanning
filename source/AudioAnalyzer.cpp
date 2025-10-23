@@ -1,7 +1,7 @@
 #include "AudioAnalyzer.h"
 
 //=============================================================================
-AudioAnalyzer::AudioAnalyzer() {}
+AudioAnalyzer::AudioAnalyzer() : pendingNumTracks(-1) {}
 AudioAnalyzer::~AudioAnalyzer()
 {
     // Destroy worker, which joins the thread
@@ -15,16 +15,21 @@ AudioAnalyzer::~AudioAnalyzer()
 /*  Prepares the audio analyzer. */
 void AudioAnalyzer::prepare(double newSampleRate, int numTracks)
 {
-    if (isPrepared.load())
-        return; // Already prepared
+    if (isPrepared.load() || isPreparing.load())
+        return; // Avoids re-prepare during prepare
+
+    isPreparing.store(true);
 
     for (auto& worker : workers)
     {
         stopWorker(worker); // Stop any existing worker thread
     }
 
+    workers.clear();
+    workers.resize(numTracks); // Resize for new track count
+
     sampleRate = newSampleRate;
-    
+
     numFFTBins = windowSize / 2 + 1;
 
     setScaleFactors(windowSize, maxAmplitude, cqtNormalization);
@@ -72,15 +77,24 @@ void AudioAnalyzer::prepare(double newSampleRate, int numTracks)
     if (panMethod == both || panMethod == time_pan)
         setupPanWeights();
 
+    // Clean up and reserve results for new numBands * numTracks
+    {
+        std::lock_guard<std::mutex> lock(resultsMutex);
+        results.clear(); // Clear old bands (handles windowSize or numTracks changes)
+        results.reserve(numBands * numTracks); // Preallocate for new size
+    }
+
     // Start the worker threads
+    DBG("numTracks: " << numTracks << ", numBands: " << numBands);
     for (int i = 0; i < numTracks; ++i)
     {
-        auto worker = std::make_unique<AnalyzerWorker>(windowSize, hopSize, sampleRate, i, *this);
-        worker->start();
-        workers.push_back(std::move(worker));
+        workers[i] = std::make_unique<AnalyzerWorker>(windowSize, hopSize, sampleRate, i, *this);
+        workers[i]->start();
+        DBG("Started AnalyzerWorker for track " << i);
     }
 
     isPrepared.store(true);
+    isPreparing.store(false);
 }
 
 void AudioAnalyzer::prepare()
@@ -91,16 +105,28 @@ void AudioAnalyzer::prepare()
 
 void AudioAnalyzer::enqueueBlock(const juce::AudioBuffer<float>* buffer, int trackIndex, int numTracks)
 {
+    DBG("Enqueueing block for track " << trackIndex);
     if (!buffer) return;
 
-    if (numTracks != workers.size())
+    if (numTracks != (int)workers.size() && !isPreparing.load())
     {
-        pendingNumTracks.store(numTracks);
-        flushAnalysisQueue();  // drop old blocks waiting in queue
+        DBG("AudioAnalyzer: Number of tracks changed from " << workers.size() << " to " << numTracks << ", preparing now.");
+        isPreparing.store(true); // Prevent reentrant prepares
+        prepare(sampleRate, numTracks); // Prepare immediately
+        pendingNumTracks.store(-1); // Clear pending
+        isPreparing.store(false);
+        flushAnalysisQueue(); // Clear stale data
     }
 
-    if (trackIndex < workers.size() && workers[trackIndex])
-        workers[trackIndex]->pushBlock(*buffer);
+    // If trackIndex is greater than current number of workers, ignore until re-prepared
+    if (trackIndex >= (int)workers.size() || workers[trackIndex] == nullptr)
+    {
+        DBG("Skipping enqueue for track " << trackIndex << ": worker not ready");
+        return;
+    }
+
+    workers[trackIndex]->pushBlock(*buffer);
+    DBG("Block enqueued for track " << trackIndex);
 }
 
 
@@ -122,9 +148,13 @@ void AudioAnalyzer::flushAnalysisQueue()
     }
 }
 
-std::vector<frequency_band> AudioAnalyzer::getLatestResults() const
+std::vector<frequency_band> AudioAnalyzer::getLatestResults()
 {
     std::lock_guard<std::mutex> lock(resultsMutex);
+    std::set<int> trackIndices;
+    for (const auto& band : results)
+        trackIndices.insert(band.trackIndex);
+    DBG("getLatestResults: results.size=" << results.size() << ", tracks=" << trackIndices.size());
     return results;
 }
 
@@ -403,11 +433,13 @@ void AudioAnalyzer::setupPanWeights()
 */
 void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer, int trackIndex)
 {
-    newNumTracks = pendingNumTracks.load();
-    if (newNumTracks > 0)
+    int newNumTracksLocal = pendingNumTracks.load();
+    if (newNumTracksLocal > 0)
     {
-        isPrepared.store(false);
-        prepare(sampleRate, newNumTracks);
+        // isPrepared.store(false);
+        // DBG("AudioAnalyzer: Re-preparing for " << newNumTracks << " tracks.");
+        // prepare(sampleRate, newNumTracks);
+        // DBG("AudioAnalyzer: Re-preparation complete.");
         pendingNumTracks.store(-1);
     }
 
@@ -500,13 +532,24 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer, int tra
         newResults.push_back({ binFrequencies[b], amp, panIndices[b], trackIndex });
     }
 
-    // Hand results to GUI
+    // Set trackIndex on each new band
+    for (auto& band : newResults)
     {
-        std::lock_guard<std::mutex> resultsLock(resultsMutex);
-        results = std::move(newResults);
+        band.trackIndex = trackIndex;
     }
 
-    // DBG("Analyzed block. Results size = " << results.size());
+    // Merge into global results
+    {
+        std::lock_guard<std::mutex> lock(resultsMutex);
+        // Remove old bands for this track
+        results.erase(std::remove_if(results.begin(), results.end(),
+                                    [trackIndex](const frequency_band& b) { return b.trackIndex == trackIndex; }),
+                    results.end());
+        // Append new ones
+        results.insert(results.end(), newResults.begin(), newResults.end());
+    }
+
+    DBG("After merge: trackIndex=" << trackIndex << ", newResults.size=" << newResults.size() << ", results.size=" << results.size());
 }
 
 /*  Computes the FFT of each channel of the input buffer and stores the

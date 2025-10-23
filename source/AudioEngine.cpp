@@ -34,9 +34,9 @@ void AudioEngine::fillAudioBuffers(const float *const *inputChannelData, int num
             // Fill the buffer with the input data directly
             if (numInputChannels >= 1)
             {
-                jassert (buffer.getNumChannels() >= 2);
-                DBG("fillAudioBuffers: buffer channels = " << buffer.getNumChannels()
-                    << " numSamples = " << numSamples);
+                // jassert (buffer.getNumChannels() >= 2);
+                // DBG("fillAudioBuffers: buffer channels = " << buffer.getNumChannels()
+                //     << " numSamples = " << numSamples);
                 buffer.copyFrom(0, 0, inputChannelData[0], numSamples);
             }
             if (numInputChannels >= 2)

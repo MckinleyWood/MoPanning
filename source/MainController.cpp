@@ -366,22 +366,10 @@ void MainController::audioDeviceIOCallbackWithContext(
             buffers[i].setSize(2, numSamples, false, false, true);
     }
 
-    // if (buffers[0].getNumSamples() != numSamples)
-    // {
-    //     for (auto& b : buffers)
-    //         b.setSize(2, numSamples, false, false, true);
-    // }
+    // for (int i = 0; i < (int)buffers.size(); ++i)
+    //     DBG("Buffer " << i << " channels = " << buffers[i].getNumChannels());
 
-    // else
-    // {
-    //     for (auto& b : buffers)
-    //         b.clear();
-    // }
-
-    for (int i = 0; i < (int)buffers.size(); ++i)
-        DBG("Buffer " << i << " channels = " << buffers[i].getNumChannels());
-
-    float trackGain = 1.0f / std::sqrt((float)numTracks);
+    float trackGain = 1.0f / std::sqrt((float)numTracks); // maybe add gain knobs per track later
 
     for (int ch = 0; ch < numTracks; ch++)
     {

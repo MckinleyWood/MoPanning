@@ -1,5 +1,6 @@
 #pragma once
 #include <JuceHeader.h>
+#include <atomic>
 
 class GridComponent;
 
@@ -40,7 +41,6 @@ public:
     //=========================================================================
     void setSampleRate(double newSampleRate);
     void setDimension(Dimension newDimension);
-    // void setColourScheme(ColourScheme newColourScheme);
     void setTrackColourScheme(ColourScheme newColourScheme, int trackIndex);
     void setShowGrid(bool shouldShow);
     void setMinFrequency(float newMinFrequency);
@@ -80,6 +80,7 @@ private:
     juce::Image gridImage; 
     juce::OpenGLTexture gridGLTex; 
     std::atomic<bool> gridTextureDirty{false};
+    std::atomic<bool> newTextureRequested { false };
     bool gridTextureReady = false;
 
     juce::Vector3D<float> cameraPosition { 0.0f, 0.0f, -2.0f };
@@ -87,7 +88,6 @@ private:
     juce::Matrix3D<float> projection; // Projection matrix
 
     std::vector<GLuint> trackColourTextures;
-    bool newTextureRequsted = true; // Flag to rebuild texture
 
     float startTime; // App-launch time in seconds
     float lastFrameTime; // Time of last frame in seconds
