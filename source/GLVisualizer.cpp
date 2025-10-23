@@ -2,7 +2,6 @@
 #include "MainController.h"
 #include "GridComponent.h"
 
-
 //=============================================================================
 GLVisualizer::GLVisualizer(MainController& c) : controller(c) 
 {
@@ -26,8 +25,8 @@ GLVisualizer::~GLVisualizer()
 }
 
 //=============================================================================
-/*  This function builds the 1D texture that is used to convert look up 
-    colour for amplitude value.
+/*  This function builds the 1D texture that is used to look up the
+    colour corresponding to an amplitude value.
 */
 void GLVisualizer::buildTexture()
 {
@@ -91,8 +90,7 @@ void GLVisualizer::buildTexture()
 /*  This function is called when the OpenGL context is created. It is
     where we initialize all of our GL resources, including the shaders
     for the main dot cloud and the grid overlay, the colourmap texture,
-    
-
+    and the VAOS and VBOs.
 */
 void GLVisualizer::initialise() 
 {
@@ -115,11 +113,13 @@ void GLVisualizer::initialise()
         void main()
         {
             // Root-scale the amplitude
-            float amp = pow(instanceData.w, 1.0 / uAmpScale);
+            // float amp = pow(instanceData.w, 1.0 / uAmpScale);
+
+            float amp = instanceData.w;
 
             // Depth factor for fading effect
             float depth = -instanceData.z / uFadeEndZ;
-            float alpha = amp * (1.0 - depth);
+            float alpha = (0.5 + amp * 0.5) * (1.0 - depth);
             
             // Look up color from the texture
             vec3 rgb = texture(uColourMap, amp).rgb;
@@ -151,8 +151,16 @@ void GLVisualizer::initialise()
             // Discard fragments outside the circle
             if (dot(p, p) > 1.0) discard;
 
-            // Set the fragment colour!
-            frag = vec4(vColour);
+            // Calculate alpha with soft edge
+            float r2 = dot(p, p);
+            float soft = 1.0 - smoothstep(0.9, 1, r2);
+
+            float fadeFactor = vColour.a;
+
+            vec3 rgb = vColour.rgb * fadeFactor; // PREMULTIPLIED
+            // vec3 rgb = vColour.rgb * a; // NOT
+
+            frag = vec4(rgb, soft);
         }
     )";
     
@@ -287,10 +295,11 @@ void GLVisualizer::render()
     using namespace juce::gl;
     auto& ext = openGLContext.extensions;
 
-    // Enable blending and depth testing
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    // Blending and depth testing
+    glEnable(GL_BLEND); 
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
     glDepthFunc(GL_LEQUAL);
     glEnable(GL_PROGRAM_POINT_SIZE);
 
@@ -306,8 +315,8 @@ void GLVisualizer::render()
     mainShader->use();
 
     float t = (float)(juce::Time::getMillisecondCounterHiRes() * 0.001 - startTime);
-    float dt = t - lastFrameTime;
-    float dz = dt * recedeSpeed;
+    float dt = t - lastFrameTime; // Time since last frame in seconds
+    float dz = dt * recedeSpeed; // Distance receded since last frame (m)
     lastFrameTime = t;
 
     auto results = controller.getLatestResults();
@@ -355,7 +364,7 @@ void GLVisualizer::render()
     std::vector<InstanceData> instances;
     instances.reserve(particles.size());
     for (auto& p : particles)
-        instances.push_back({ p.spawnX, p.spawnY, p.z, p.spawnAlpha });
+        instances.push_back({ p.spawnX, p.spawnY, p.z, p.amplitude });
 
     // Upload instance data to GPU
     ext.glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);

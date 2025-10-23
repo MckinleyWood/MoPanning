@@ -143,7 +143,7 @@ MainController::MainController()
             "peakAmplitude", "Peak Amplitude",
             "The maximum expected amplitude of the input signal.",
             ParameterDescriptor::Type::Float, 1.f,
-            juce::NormalisableRange<float>(0.000001f, 1.f), {}, "",
+            juce::NormalisableRange<float>(0.000001f, 1.f, 0.0f, 0.5f), {}, "",
             [this](float value) 
             {
                 if (analyzer != nullptr)
@@ -244,7 +244,7 @@ MainController::MainController()
             "ampScale", "Amplitude Scale", 
             "Compression/expansion factor applied to the amplitude values.",
             ParameterDescriptor::Type::Float, 1.f,
-            juce::NormalisableRange<float>(0.1f, 10.f), {}, "",
+            juce::NormalisableRange<float>(0.0f, 1.0f), {}, "",
             [this](float value) 
             {
                 if (visualizer != nullptr)

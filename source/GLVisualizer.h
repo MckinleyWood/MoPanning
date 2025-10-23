@@ -50,11 +50,11 @@ private:
         float spawnX;
         float spawnY;
         float z; // Current z position
-        float spawnAlpha;
+        float amplitude;
         float spawnTime = 0.0f; // Time since app start when particle spawned
     };
 
-    struct InstanceData { float x, y, z, spawnAlpha; };
+    struct InstanceData { float x, y, z, amplitude; };
 
     std::deque<Particle> particles; // Queue of particles
     
@@ -96,7 +96,8 @@ private:
     float recedeSpeed; // Speed that objects recede
     float dotSize; // Radius of the dots
     float ampScale; // Amplitude scale factor
-    float fadeEndZ; // Distance at which points are fully faded
+    float fadeEndZ; // Distance at which points are fully faded (m)
+
     float nearZ = 0.1f; // Distance to the start of clip space (m)
     float farZ = 100.f; // Distance to the end of clip space (m)
     float fov = 45.f; // Vertical field of view (degrees)

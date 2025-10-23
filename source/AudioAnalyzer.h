@@ -282,7 +282,7 @@ private:
                 continue; // Re-check condition
             }
 
-            DBG("Worker thread processing block.");
+            // DBG("Worker thread processing block.");
 
             // Check if we are running behind the audio thread
             if (samplesAvailable > windowSize * 8)
@@ -290,7 +290,7 @@ private:
                 // If we are too far behind, skip ahead to the latest data
                 readPosition = (writePosition - windowSize * 2 + N) % N;
                 overloaded = true;
-                DBG("AnalyzerWorker overloaded, skipping ahead.");
+                // DBG("AnalyzerWorker overloaded, skipping ahead.");
             }
 
             // Copy data from the ring buffer to the analysis buffer
