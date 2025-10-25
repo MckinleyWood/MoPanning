@@ -6,10 +6,27 @@ MainController::MainController()
     // Initialize audio analyzer and engine
     analyzer = std::make_unique<AudioAnalyzer>();
     engine = std::make_unique<AudioEngine>();
+    videoWriter = std::make_unique<VideoWriter>();
+
+    // videoWriter->videoSmokeTest();
 
     // Set up parameter descriptors - all parameters should be listed here
     parameterDescriptors =
     {
+        // recording
+        {
+            "recording", "Recording", "Recording on/off", 
+            ParameterDescriptor::Type::Choice, 0, {},
+            {"Off", "On"}, "",
+            [this](float value) 
+            {
+                if (static_cast<int>(value) == 1)
+                    visualizer->startRecording();
+                else
+                    visualizer->stopRecording();
+            },
+            true
+        },
         // inputType
         { 
             "inputType", "Input Type", "Where to receive audio input from.", 
@@ -215,18 +232,6 @@ MainController::MainController()
             },
             false
         },
-        // recedeSpeed
-        {
-            "recedeSpeed", "Recede Speed", 
-            "How fast the particles recede into the distance.",
-            ParameterDescriptor::Type::Float, 5.f,
-            juce::NormalisableRange<float>(0.1f, 20.f), {}, "m/s",
-            [this](float value) 
-            {
-                if (visualizer != nullptr)
-                    visualizer->setRecedeSpeed(value);
-            }
-        },
         // dotSize
         {
             "dotSize", "Particle Size", 
@@ -239,18 +244,17 @@ MainController::MainController()
                     visualizer->setDotSize(value);
             }
         },
-        // ampScale
+        // recedeSpeed
         {
-            "ampScale", "Amplitude Scale", 
-            "Compression/expansion factor applied to the amplitude values.",
-            ParameterDescriptor::Type::Float, 1.f,
-            juce::NormalisableRange<float>(0.0f, 1.0f), {}, "",
+            "recedeSpeed", "Recede Speed", 
+            "How fast the particles recede into the distance.",
+            ParameterDescriptor::Type::Float, 5.f,
+            juce::NormalisableRange<float>(0.1f, 20.f), {}, "m/s",
             [this](float value) 
             {
                 if (visualizer != nullptr)
-                    visualizer->setAmpScale(value);
-            },
-            false
+                    visualizer->setRecedeSpeed(value);
+            }
         },
         // fadeEndZ
         {
@@ -368,6 +372,8 @@ ParamLayout MainController::makeParameterLayout(
 void MainController::registerVisualizer(GLVisualizer* v)
 {
     visualizer = v;
+
+    // visualizer->startRecording();
 }
 
 void MainController::registerGrid(GridComponent* g)

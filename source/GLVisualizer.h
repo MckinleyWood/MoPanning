@@ -1,5 +1,6 @@
 #pragma once
 #include <JuceHeader.h>
+#include "VideoWriter.h"
 
 class GridComponent;
 
@@ -8,6 +9,8 @@ class MainController;
 //=============================================================================
 enum ColourScheme { greyscale, rainbow };
 enum Dimension { dimension2, dimension3 };
+
+using FrameSink = std::function<void (const uint8_t* rgb24, int w, int h)>;
 
 //=============================================================================
 /*  This is the component for the OpenGL canvas. It handles rendering 
@@ -21,8 +24,6 @@ public:
     ~GLVisualizer() override;
 
     //=========================================================================
-    void buildTexture();
-
     void initialise() override;
     void shutdown() override;
     void render() override;
@@ -36,14 +37,25 @@ public:
     void setMinFrequency(float newMinFrequency);
     void setRecedeSpeed(float newRecedeSpeed);
     void setDotSize(float newDotSize);
-    void setAmpScale(float newAmpScale);
     void setFadeEndZ(float newFadeEndZ);
+
+    //=========================================================================
+    void setFrameSink(FrameSink s) { frameSink = std::move(s); }
+    void startRecording();
+    void stopRecording();
 
     void paint(juce::Graphics& g) override;
 
     void createGridImageFromComponent(GridComponent* gridComp);
 
 private:
+    //=========================================================================
+    void drawParticles();
+    void drawGrid();
+
+    void buildTexture();
+    void updateFBOSize();
+    
     //=========================================================================
     struct Particle
     {
@@ -81,6 +93,12 @@ private:
     float startTime; // App-launch time in seconds
     float lastFrameTime; // Time of last frame in seconds
 
+    juce::OpenGLFrameBuffer captureFBO;
+    int captureW = 1280, captureH = 720;
+    bool recording = true;
+    std::vector<uint8_t> capturePixels; 
+    FrameSink frameSink = nullptr;
+
     MainController& controller;
 
     //=========================================================================
@@ -95,7 +113,6 @@ private:
     float minFrequency; // Minimum frequency to display (Hz)
     float recedeSpeed; // Speed that objects recede
     float dotSize; // Radius of the dots
-    float ampScale; // Amplitude scale factor
     float fadeEndZ; // Distance at which points are fully faded (m)
 
     float nearZ = 0.1f; // Distance to the start of clip space (m)

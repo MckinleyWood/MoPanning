@@ -12,6 +12,7 @@ communication between parts of the program must run through here.
 #include "GLVisualizer.h"
 #include "MiniAudioProcessor.h"
 #include "GridComponent.h"
+#include "VideoWriter.h"
 
 //=============================================================================
 using ParamLayout = juce::AudioProcessorValueTreeState::ParameterLayout;
@@ -72,9 +73,9 @@ private:
     std::unique_ptr<AudioAnalyzer> analyzer;
     std::unique_ptr<MiniAudioProcessor> processor;
     std::unique_ptr<AudioEngine> engine;
+    std::unique_ptr<VideoWriter> videoWriter;
     GLVisualizer* visualizer = nullptr;
     GridComponent* grid = nullptr;
-    
 
     juce::AudioProcessorValueTreeState* apvts;
 

@@ -25,68 +25,6 @@ GLVisualizer::~GLVisualizer()
 }
 
 //=============================================================================
-/*  This function builds the 1D texture that is used to look up the
-    colour corresponding to an amplitude value.
-*/
-void GLVisualizer::buildTexture()
-{
-    if (newTextureRequsted == false)
-        return;
-    
-    using namespace juce::gl;
-    // auto& ext = openGLContext.extensions;
-
-    if (colourMapTex != 0)
-        glDeleteTextures(1, &colourMapTex);
-
-    // Create a 1D texture for color mapping
-    glGenTextures(1, &colourMapTex);
-    glBindTexture(GL_TEXTURE_1D, colourMapTex);
-
-    // Define the color map data
-    const int numColours = 256;
-    std::vector<juce::Colour> colours(numColours);
-    
-    switch (colourScheme)
-    {
-    case greyscale:
-        for (int i = 0; i < numColours; ++i)
-            colours[i] = juce::Colour((juce::uint8)i, (juce::uint8)i, (juce::uint8)i);
-        break;
-    
-    case rainbow:
-        for (int i = 0; i < numColours; ++i)
-            colours[i] = juce::Colour::fromHSV((float)i / numColours, 
-                                               1.0f, 1.0f, 1.0f);
-        break;
-
-    default:
-        jassertfalse; // Unsupported colour scheme
-        break;
-    }
-
-    std::vector<float> colorData(numColours * 3);
-    
-    for (int i = 0; i < numColours; ++i)
-    {
-        colorData[i * 3 + 0] = colours[i].getFloatRed();
-        colorData[i * 3 + 1] = colours[i].getFloatGreen();
-        colorData[i * 3 + 2] = colours[i].getFloatBlue();
-    }
-
-    // Upload the texture data
-    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, numColours, 0,
-                 GL_RGB, GL_FLOAT, colorData.data());
-
-    // Set texture parameters
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    newTextureRequsted = false;
-}
-
-//=============================================================================
 /*  This function is called when the OpenGL context is created. It is
     where we initialize all of our GL resources, including the shaders
     for the main dot cloud and the grid overlay, the colourmap texture,
@@ -106,15 +44,11 @@ void GLVisualizer::initialise()
         uniform sampler1D uColourMap;
         uniform float uFadeEndZ;
         uniform float uDotSize;
-        uniform float uAmpScale;
 
         out vec4 vColour;
         
         void main()
         {
-            // Root-scale the amplitude
-            // float amp = pow(instanceData.w, 1.0 / uAmpScale);
-
             float amp = instanceData.w;
 
             // Depth factor for fading effect
@@ -295,121 +229,50 @@ void GLVisualizer::render()
     using namespace juce::gl;
     auto& ext = openGLContext.extensions;
 
-    // Blending and depth testing
-    glEnable(GL_BLEND); 
-    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-    glEnable(GL_DEPTH_TEST);
-    glDepthMask(GL_TRUE);
-    glDepthFunc(GL_LEQUAL);
-    glEnable(GL_PROGRAM_POINT_SIZE);
-
     // Check if we need to rebuild the colourmap texture
     buildTexture();
 
-    // Clear to black
-    juce::OpenGLHelpers::clear(juce::Colours::black);
-    glClear(GL_DEPTH_BUFFER_BIT); 
-
-    if (mainShader == nullptr) return; // Early-out on link failure
-
-    mainShader->use();
-
-    float t = (float)(juce::Time::getMillisecondCounterHiRes() * 0.001 - startTime);
-    float dt = t - lastFrameTime; // Time since last frame in seconds
-    float dz = dt * recedeSpeed; // Distance receded since last frame (m)
-    lastFrameTime = t;
-
-    auto results = controller.getLatestResults();
-    // DBG("New results received. Size = " << results.size());
-
-    // Delete old particles
-    while (! particles.empty())
+    if (recording)
     {
-        const float age = t - particles.front().spawnTime;
-        if (age * recedeSpeed < fadeEndZ)
-            break; // If the oldest one is still alive, then we are done
-        particles.pop_front(); // Otherwise, discard it and test the next
+        // Ensure FBO is the right size
+        updateFBOSize();
+
+        // Bind the capture FBO
+        captureFBO.makeCurrentAndClear();
+        glViewport(0, 0, captureW, captureH);
+
+        drawParticles();
+    
+        if (showGrid)
+            drawGrid();
+
+        ext.glBindFramebuffer(GL_READ_FRAMEBUFFER, captureFBO.getFrameBufferID());
+        ext.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+        // Set destination viewport to window size
+        const float scale = openGLContext.getRenderingScale();
+        const int winW = int(std::round(getWidth()  * scale));
+        const int winH = int(std::round(getHeight() * scale));
+        glViewport(0, 0, winW, winH);
+
+        // Copy/scale frame buffer
+        glBlitFramebuffer(
+            0, 0, captureW, captureH,
+            0, 0, winW, winH,
+            GL_COLOR_BUFFER_BIT, GL_LINEAR  
+        );
     }
 
-    // Update z positions of existing particles
-    for (auto& p : particles)
-        p.z -= dz;
-
-    // Add new particles from the latest analysis results
-    if (!results.empty())
+    else
     {
-        float maxFreq = (float)sampleRate * 0.5f;
-        float logMin = std::log(minFrequency);
-        float logMax = std::log(maxFreq);
+        // Render directly to the default framebuffer (the window)
+        juce::OpenGLHelpers::clear(juce::Colours::black);
+        glClear(GL_DEPTH_BUFFER_BIT);
 
-        float aspect = getWidth() * 1.0f / getHeight();
-
-        for (frequency_band band : results)
-        {
-            if (band.frequency < minFrequency || band.frequency > maxFreq) 
-                continue;
-            
-            float x = band.pan_index * aspect;
-            float y = (std::log(band.frequency) - logMin) / (logMax - logMin);
-            y = juce::jmap(y, -1.0f, 1.0f);
-            float z = 0.f;
-            float a = band.amplitude;
-
-            Particle newParticle = { x, y, z, a, t };
-            particles.push_back(newParticle);
-        }
-    }
-
-    // Build instance data array
-    std::vector<InstanceData> instances;
-    instances.reserve(particles.size());
-    for (auto& p : particles)
-        instances.push_back({ p.spawnX, p.spawnY, p.z, p.amplitude });
-
-    // Upload instance data to GPU
-    ext.glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-    jassert((int)instances.size() <= maxParticles);
-    ext.glBufferSubData(GL_ARRAY_BUFFER, 0, instances.size() * sizeof(InstanceData), instances.data());
-
-    // Set uniforms
-    mainShader->setUniformMat4("uProjection", projection.mat, 1, GL_FALSE);
-    mainShader->setUniformMat4("uView", view.mat, 1, GL_FALSE);
-    mainShader->setUniform("uColourMap", 0);
-    mainShader->setUniform("uFadeEndZ", fadeEndZ);
-    mainShader->setUniform("uDotSize", dotSize);
-    mainShader->setUniform("uAmpScale", ampScale);
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_1D, colourMapTex);
-
-    // Draw all particles!!
-    ext.glBindVertexArray(mainVAO);
-    glDrawArraysInstanced(GL_POINTS, 0, 1, (GLsizei)instances.size());
-
-    // Add the grid overlay on top    
-    if (showGrid == true)
-    {
-        // Upload the grid texture if needed
-        if (gridTextureDirty.load() == true)
-        {
-            gridGLTex.release();
-            gridGLTex.loadImage(gridImage);
-            gridTextureDirty.store(false);
-        }
-
-        // Disable depth testing so grid is always on top
-        glDisable(GL_DEPTH_TEST);
-
-        // Set up and bind the grid shader
-        gridShader->use();
-        gridShader->setUniform("uTex", 1);
-        glActiveTexture(GL_TEXTURE1);
-        gridGLTex.bind();
-        
-        // Draw the grid quad
-        ext.glBindVertexArray(gridVAO);
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-        ext.glBindVertexArray(0);
+        drawParticles();
+    
+        if (showGrid)
+            drawGrid();
     }
 
     // Check for OpenGL errors
@@ -420,8 +283,21 @@ void GLVisualizer::render()
 
 void GLVisualizer::resized() 
 {
-    const float w = (float)getWidth();
-    const float h = (float)getHeight();
+    float w;
+    float h;
+
+    if (recording)
+    {
+        w = (float)captureW;
+        h = (float)captureH;
+    }
+    
+    else
+    {
+        w = (float)getWidth();
+        h = (float)getHeight();
+    }
+    
     const float aspect = w / h;
     const float fovRadians = fov * juce::MathConstants<float>::pi / 180;
     const float l = -aspect, r = +aspect;
@@ -512,20 +388,226 @@ void GLVisualizer::setDotSize(float newDotSize)
     dotSize = newDotSize;
 }
 
-void GLVisualizer::setAmpScale(float newAmpScale)
-{
-    ampScale = newAmpScale;
-}
-
 void GLVisualizer::setFadeEndZ(float newFadeEndZ)
 {
     fadeEndZ = newFadeEndZ;
 }
 
+//=============================================================================
+void GLVisualizer::startRecording()
+{
+    recording = true;
+    resized(); // Update projection matrix
+}
+
+void GLVisualizer::stopRecording()
+{
+    recording = false;
+    resized(); // Update projection matrix
+}
+
+
+//=============================================================================
 /*  This is just here to keep juce::Component happy; it wants a paint()
     method because the component is marked as opaque.
 */
 void GLVisualizer::paint(juce::Graphics& g)
 {
     juce::ignoreUnused(g);
+}
+
+//=============================================================================
+void GLVisualizer::drawParticles()
+{
+    using namespace juce::gl;
+    auto& ext = openGLContext.extensions;
+
+    // Set GL blending and depth testing settings
+    glEnable(GL_BLEND); 
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glDepthFunc(GL_LEQUAL);
+    glEnable(GL_PROGRAM_POINT_SIZE);
+
+    mainShader->use();
+
+    float t = (float)(juce::Time::getMillisecondCounterHiRes() * 0.001 - startTime);
+    float dt = t - lastFrameTime; // Time since last frame in seconds
+    float dz = dt * recedeSpeed; // Distance receded since last frame (m)
+    lastFrameTime = t;
+
+    auto results = controller.getLatestResults();
+    // DBG("New results received. Size = " << results.size());
+
+    // Delete old particles
+    while (! particles.empty())
+    {
+        const float age = t - particles.front().spawnTime;
+        if (age * recedeSpeed < fadeEndZ)
+            break; // If the oldest one is still alive, then we are done
+        particles.pop_front(); // Otherwise, discard it and test the next
+    }
+
+    // Update z positions of existing particles
+    for (auto& p : particles)
+        p.z -= dz;
+
+    // Add new particles from the latest analysis results
+    if (!results.empty())
+    {
+        float maxFreq = (float)sampleRate * 0.5f;
+        float logMin = std::log(minFrequency);
+        float logMax = std::log(maxFreq);
+
+        float aspect = getWidth() * 1.0f / getHeight();
+
+        for (frequency_band band : results)
+        {
+            if (band.frequency < minFrequency || band.frequency > maxFreq) 
+                continue;
+            
+            float x = band.pan_index * aspect;
+            float y = (std::log(band.frequency) - logMin) / (logMax - logMin);
+            y = juce::jmap(y, -1.0f, 1.0f);
+            float z = 0.f;
+            float a = band.amplitude;
+
+            Particle newParticle = { x, y, z, a, t };
+            particles.push_back(newParticle);
+        }
+    }
+
+    // Build instance data array
+    std::vector<InstanceData> instances;
+    instances.reserve(particles.size());
+    for (auto& p : particles)
+        instances.push_back({ p.spawnX, p.spawnY, p.z, p.amplitude });
+
+    // Upload instance data to GPU
+    ext.glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+    jassert((int)instances.size() <= maxParticles);
+    ext.glBufferSubData(GL_ARRAY_BUFFER, 0, instances.size() * sizeof(InstanceData), instances.data());
+
+    // Set uniforms
+    mainShader->setUniformMat4("uProjection", projection.mat, 1, GL_FALSE);
+    mainShader->setUniformMat4("uView", view.mat, 1, GL_FALSE);
+    mainShader->setUniform("uColourMap", 0);
+    mainShader->setUniform("uFadeEndZ", fadeEndZ);
+    mainShader->setUniform("uDotSize", dotSize);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_1D, colourMapTex);
+
+    // Draw all particles!!
+    ext.glBindVertexArray(mainVAO);
+    glDrawArraysInstanced(GL_POINTS, 0, 1, (GLsizei)instances.size());
+}
+
+void GLVisualizer::drawGrid()
+{
+    using namespace juce::gl;
+    auto& ext = openGLContext.extensions;
+
+    // Upload the grid texture if needed
+    if (gridTextureDirty.load() == true)
+    {
+        gridGLTex.release();
+        gridGLTex.loadImage(gridImage);
+        gridTextureDirty.store(false);
+    }
+
+    // Disable depth testing so grid is always on top
+    glDisable(GL_DEPTH_TEST);
+
+    // Set up and bind the grid shader
+    gridShader->use();
+    gridShader->setUniform("uTex", 1);
+    glActiveTexture(GL_TEXTURE1);
+    gridGLTex.bind();
+    
+    // Draw the grid quad
+    ext.glBindVertexArray(gridVAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    ext.glBindVertexArray(0);
+}
+
+
+//=============================================================================
+/*  This function builds the 1D texture that is used to look up the
+    colour corresponding to an amplitude value.
+*/
+void GLVisualizer::buildTexture()
+{
+    if (newTextureRequsted == false)
+        return;
+    
+    using namespace juce::gl;
+    // auto& ext = openGLContext.extensions;
+
+    if (colourMapTex != 0)
+        glDeleteTextures(1, &colourMapTex);
+
+    // Create a 1D texture for color mapping
+    glGenTextures(1, &colourMapTex);
+    glBindTexture(GL_TEXTURE_1D, colourMapTex);
+
+    // Define the color map data
+    const int numColours = 256;
+    std::vector<juce::Colour> colours(numColours);
+    
+    switch (colourScheme)
+    {
+    case greyscale:
+        for (int i = 0; i < numColours; ++i)
+            colours[i] = juce::Colour((juce::uint8)i, (juce::uint8)i, (juce::uint8)i);
+        break;
+    
+    case rainbow:
+        for (int i = 0; i < numColours; ++i)
+            colours[i] = juce::Colour::fromHSV((float)i / numColours, 
+                                               1.0f, 1.0f, 1.0f);
+        break;
+
+    default:
+        jassertfalse; // Unsupported colour scheme
+        break;
+    }
+
+    std::vector<float> colorData(numColours * 3);
+    
+    for (int i = 0; i < numColours; ++i)
+    {
+        colorData[i * 3 + 0] = colours[i].getFloatRed();
+        colorData[i * 3 + 1] = colours[i].getFloatGreen();
+        colorData[i * 3 + 2] = colours[i].getFloatBlue();
+    }
+
+    // Upload the texture data
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, numColours, 0,
+                 GL_RGB, GL_FLOAT, colorData.data());
+
+    // Set texture parameters
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    newTextureRequsted = false;
+}
+
+/*  This function ensures that the FBO used for frame capture is the 
+    correct size.
+*/
+void GLVisualizer::updateFBOSize()
+{
+    if (captureFBO.isValid() == false 
+     || captureFBO.getWidth() != captureW 
+     || captureFBO.getHeight() != captureH)
+    {
+        captureFBO.release();
+        captureFBO.initialise(openGLContext, captureW, captureH);
+
+        // Readback buffer for rgb24
+        capturePixels.resize(captureW * captureH * 3);
+    }
 }
