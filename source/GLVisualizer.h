@@ -50,7 +50,7 @@ public:
 
 private:
     //=========================================================================
-    void drawParticles();
+    void drawParticles(float width, float height);
     void drawGrid();
 
     void buildTexture();

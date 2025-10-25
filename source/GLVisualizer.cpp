@@ -68,7 +68,7 @@ void GLVisualizer::initialise()
             gl_Position = uProjection * uView * worldPos;
 
             // Size in pixels
-            gl_PointSize = (50.0 + 50.0 * amp) * uDotSize ;
+            gl_PointSize = (50.0 + 50.0 * amp) * uDotSize;
         }
     )";
 
@@ -92,7 +92,7 @@ void GLVisualizer::initialise()
             float fadeFactor = vColour.a;
 
             vec3 rgb = vColour.rgb * fadeFactor; // PREMULTIPLIED
-            // vec3 rgb = vColour.rgb * a; // NOT
+            // vec3 rgb = vColour.rgb; // NOT
 
             frag = vec4(rgb, soft);
         }
@@ -240,40 +240,30 @@ void GLVisualizer::render()
         // Bind the capture FBO
         captureFBO.makeCurrentAndClear();
         glViewport(0, 0, captureW, captureH);
-
-        drawParticles();
+        
+        const float scale = openGLContext.getRenderingScale();
+        
+        // Render to the capture FBO
+        drawParticles(captureW, captureH);
     
         if (showGrid)
             drawGrid();
 
-        ext.glBindFramebuffer(GL_READ_FRAMEBUFFER, captureFBO.getFrameBufferID());
+        // Set destination viewport back to the window
         ext.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-
-        // Set destination viewport to window size
-        const float scale = openGLContext.getRenderingScale();
         const int winW = int(std::round(getWidth()  * scale));
         const int winH = int(std::round(getHeight() * scale));
         glViewport(0, 0, winW, winH);
-
-        // Copy/scale frame buffer
-        glBlitFramebuffer(
-            0, 0, captureW, captureH,
-            0, 0, winW, winH,
-            GL_COLOR_BUFFER_BIT, GL_LINEAR  
-        );
     }
 
-    else
-    {
-        // Render directly to the default framebuffer (the window)
-        juce::OpenGLHelpers::clear(juce::Colours::black);
-        glClear(GL_DEPTH_BUFFER_BIT);
+    // Render to the default framebuffer (the window)
+    juce::OpenGLHelpers::clear(juce::Colours::black);
+    glClear(GL_DEPTH_BUFFER_BIT);
 
-        drawParticles();
-    
-        if (showGrid)
-            drawGrid();
-    }
+    drawParticles(getWidth(), getHeight());
+
+    if (showGrid)
+        drawGrid();
 
     // Check for OpenGL errors
     GLenum err = glGetError();
@@ -417,7 +407,7 @@ void GLVisualizer::paint(juce::Graphics& g)
 }
 
 //=============================================================================
-void GLVisualizer::drawParticles()
+void GLVisualizer::drawParticles(float width, float height)
 {
     using namespace juce::gl;
     auto& ext = openGLContext.extensions;
@@ -460,7 +450,7 @@ void GLVisualizer::drawParticles()
         float logMin = std::log(minFrequency);
         float logMax = std::log(maxFreq);
 
-        float aspect = getWidth() * 1.0f / getHeight();
+        const float aspect = width / height;
 
         for (frequency_band band : results)
         {
