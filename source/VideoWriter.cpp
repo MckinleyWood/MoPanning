@@ -1,36 +1,89 @@
 #include "VideoWriter.h"
 
-juce::File VideoWriter::locateFFmpeg()
+//=============================================================================
+void VideoWriter::runPipeTest()
 {
-   #if JUCE_MAC
-    // .../MoPanning.app/Contents/MacOS
-    auto exe = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
-    auto ff  = exe.getParentDirectory().getChildFile("ThirdParty").getChildFile("ffmpeg");
-    return ff;
-   #elif JUCE_WINDOWS
-    // next to .exe: .../MoPanning.exe -> same dir
-    auto exeDir = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
-    return exeDir.getChildFile("ffmpeg.exe");
-   #else
-    // Fallback: try PATH
-    return juce::File("ffmpeg");
-   #endif
+    setupPipe();
+
+    launchFFmpeg();
+
+    // Wait a moment so FFmpeg opens pipe
+    juce::Thread::sleep(300);
+
+    int W = 1280;
+    int H = 720;
+    int FPS = 60;
+
+    std::vector<uint8_t> frame(W * H * 3);
+    for (int f = 0; f < 60; ++f)
+    {
+        for (int y = 0; y < H; ++y)
+        {
+            for (int x = 0; x < W; ++x)
+            {
+                int i = (y * W + x) * 3;
+                frame[i + 0] = (x + f) % 256;
+                frame[i + 1] = (y) % 256;
+                frame[i + 2] = 64;
+            }
+        }
+        writeFrame(frame.data(), (int)frame.size());
+        juce::Thread::sleep(1000 / FPS);
+    }
+
+    stop();
+    DBG("Done — video saved to desktop.");
+}
+
+
+void VideoWriter::start()
+{
+    // Set up the pipe
+    setupPipe();
+
+    // Launch an FFmpeg process to read from the pipe
+    launchFFmpeg();
+
+    // Start the worker thread
+    workerThread = std::make_unique<Worker>(*this);
+    workerThread->startThread();
+
+    // Anything else?
+}
+
+void VideoWriter::stop()
+{
+    if (workerThread != nullptr)
+    {
+        workerThread->signalThreadShouldExit();
+        workerThread->stopThread(2000);
+    }
+
+    if (pipe.isOpen())
+    {
+        pipe.close();
+    }
+    
+    if (ffProcess.isRunning())
+    {
+        ffProcess.waitForProcessToFinish(10000);
+    }
 }
 
 void VideoWriter::getFFmpegVersion()
 {
     juce::ChildProcess process;
-    auto ff = locateFFmpeg();
+    juce::File ffExecutable = locateFFmpeg();
 
-    if (!ff.existsAsFile())
+    if (ffExecutable.existsAsFile() == false)
     {
-        DBG("FFmpeg not found at: " + ff.getFullPathName());
+        DBG("FFmpeg not found at: " + ffExecutable.getFullPathName());
         return;
     }
 
     // Run "ffmpeg -version" to test
     juce::StringArray args;
-    args.add(ff.getFullPathName());
+    args.add(ffExecutable.getFullPathName());
     args.add("-version");
 
     if (!process.start(args))
@@ -42,37 +95,103 @@ void VideoWriter::getFFmpegVersion()
     DBG("FFmpeg output:" << process.readAllProcessOutput(););
 }
 
-void VideoWriter::videoSmokeTest()
+//=============================================================================
+void VideoWriter::writeFrame(const uint8_t* rgb, int numBytes)
 {
-    // Generate a 2s 1280x720 color test via lavfi; proves encoding works.
-    juce::ChildProcess process;
-    auto ff = locateFFmpeg();
-
-    if (!ff.existsAsFile())
+    if (pipe.isOpen() == false)
     {
-        DBG("ffmpeg not found at: " + ff.getFullPathName());
-        return;
+        DBG("Pipe not open :(");
     }
 
-    juce::File outFile = juce::File::getSpecialLocation(juce::File::userDesktopDirectory)
-                            .getChildFile("mopanning_ffmpeg_smoke_test.mp4");
+    int bytesWritten = pipe.write(rgb, numBytes, 5000);
+}
+
+void VideoWriter::launchFFmpeg()
+{
+    
+   #if JUCE_WINDOWS
+    juce::String inputPath = pipe.getName();
+   #else
+    juce::String inputPath = pipe.getName() + "_out";
+   #endif
+   
+    juce::String outputPath = juce::File::getSpecialLocation(juce::File::userDesktopDirectory)
+                          .getChildFile("mopanning_pipe_test.mp4").getFullPathName();
+
+    juce::File ffExecutable = locateFFmpeg();
+
+    if (ffExecutable.existsAsFile() == false)
+    {
+        DBG("FFmpeg not found at: " + ffExecutable.getFullPathName());
+        return;
+    }
 
     juce::StringArray args;
-    args.add(ff.getFullPathName());
+    args.add(ffExecutable.getFullPathName());
     args.add("-y");
     args.add("-hide_banner");
-    args.add("-f");         args.add("lavfi");
-    args.add("-i");         args.add("color=c=red:s=1280x720:d=2");
-    args.add("-c:v");       args.add("libx264");
-    args.add("-pix_fmt");   args.add("yuv420p");
-    args.add(outFile.getFullPathName());
 
-    if (!process.start(args))
+    // Input: raw RGB frames via pipe
+    args.add("-f");            args.add("rawvideo");
+    args.add("-pixel_format"); args.add("rgb24");
+    args.add("-video_size");   args.add("1280x720");  // width x height
+    args.add("-framerate");    args.add("60");
+    args.add("-i");            args.add(inputPath); 
+
+    // Output: H.264 MP4
+    args.add("-c:v");          args.add("libx264");
+    args.add("-preset");       args.add("veryfast"); // tune as you like
+    args.add("-crf");          args.add("18");       // 0–51 (lower = better)
+    args.add("-pix_fmt");      args.add("yuv420p");  // for wide player compatibility
+    args.add(outputPath);
+
+    const int flags = juce::ChildProcess::wantStdErr;       // capture ffmpeg logs
+
+    if (!ffProcess.start(args, flags))
     {
-        DBG("Failed to start ffmpeg for smoke test.");
+        DBG("Failed to start FFmpeg process.");
         return;
     }
+}
 
-    DBG(process.readAllProcessOutput());
-    process.waitForProcessToFinish(15000);
+juce::File VideoWriter::locateFFmpeg()
+{
+   #if JUCE_MAC
+    // .../MoPanning.app/Contents/MacOS
+    auto exe = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
+    auto ffExecutable  = exe.getParentDirectory().getChildFile("ThirdParty").getChildFile("ffmpeg");
+    return ffExecutable;
+   #elif JUCE_WINDOWS
+    // next to .exe: .../MoPanning.exe -> same dir
+    auto exeDir = juce::File::getSpecialLocation(juce::File::currentExecutableFile).getParentDirectory();
+    return exeDir.getChildFile("ffmpeg.exe");
+   #else
+    // Fallback: try PATH
+    return juce::File("ffmpeg");
+   #endif
+}
+
+void VideoWriter::setupPipe()
+{
+   #if JUCE_MAC
+    auto tmp = juce::File::getSpecialLocation(juce::File::tempDirectory);
+    auto pipeName = tmp.getChildFile("mopanning_ffmpeg_pipe").getFullPathName();
+   #elif JUCE_WINDOWS
+    auto pipeName = R"(\\.\pipe\mopanning_ffmpeg)";
+   #endif
+
+   if (pipe.createNewPipe(pipeName) == false)
+   {
+       DBG("Failed to create named pipe: " + pipeName);
+   };
+}
+
+//=============================================================================
+void VideoWriter::Worker::run()
+{
+    while (threadShouldExit() == false) 
+    {
+        // Check for new frames to write
+        // Write them to the pipe
+    }
 }

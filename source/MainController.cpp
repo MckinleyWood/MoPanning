@@ -8,7 +8,7 @@ MainController::MainController()
     engine = std::make_unique<AudioEngine>();
     videoWriter = std::make_unique<VideoWriter>();
 
-    // videoWriter->videoSmokeTest();
+    videoWriter->runPipeTest();
 
     // Set up parameter descriptors - all parameters should be listed here
     parameterDescriptors =
