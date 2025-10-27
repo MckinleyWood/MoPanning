@@ -8,8 +8,6 @@ MainController::MainController()
     engine = std::make_unique<AudioEngine>();
     videoWriter = std::make_unique<VideoWriter>();
 
-    videoWriter->runPipeTest();
-
     // Set up parameter descriptors - all parameters should be listed here
     parameterDescriptors =
     {
@@ -21,9 +19,16 @@ MainController::MainController()
             [this](float value) 
             {
                 if (static_cast<int>(value) == 1)
+                {
+                    videoWriter->start();
                     visualizer->startRecording();
+                }
+                    
                 else
+                {
                     visualizer->stopRecording();
+                    videoWriter->stop();
+                }
             },
             true
         },
@@ -403,6 +408,11 @@ void MainController::togglePlayback()
 void MainController::updateGridTexture()
 {
     visualizer->createGridImageFromComponent(grid);
+}
+
+void MainController::giveFrameToVideoWriter(const uint8_t* rgb, int numBytes)
+{
+    videoWriter->enqueFrame(rgb, numBytes);
 }
 
 //=============================================================================

@@ -95,8 +95,9 @@ private:
 
     juce::OpenGLFrameBuffer captureFBO;
     int captureW = 1280, captureH = 720;
-    bool recording = true;
-    std::vector<uint8_t> capturePixels; 
+    bool recording;
+    std::vector<uint8_t> capturePixels;
+    std::vector<uint8_t> flippedPixels; 
     FrameSink frameSink = nullptr;
 
     MainController& controller;

@@ -1,43 +1,13 @@
 #include "VideoWriter.h"
 
 //=============================================================================
-void VideoWriter::runPipeTest()
-{
-    setupPipe();
-
-    launchFFmpeg();
-
-    // Wait a moment so FFmpeg opens pipe
-    juce::Thread::sleep(300);
-
-    int W = 1280;
-    int H = 720;
-    int FPS = 60;
-
-    std::vector<uint8_t> frame(W * H * 3);
-    for (int f = 0; f < 60; ++f)
-    {
-        for (int y = 0; y < H; ++y)
-        {
-            for (int x = 0; x < W; ++x)
-            {
-                int i = (y * W + x) * 3;
-                frame[i + 0] = (x + f) % 256;
-                frame[i + 1] = (y) % 256;
-                frame[i + 2] = 64;
-            }
-        }
-        writeFrame(frame.data(), (int)frame.size());
-        juce::Thread::sleep(1000 / FPS);
-    }
-
-    stop();
-    DBG("Done — video saved to desktop.");
-}
-
-
 void VideoWriter::start()
 {
+    // Initialize FIFO storage
+    fifoStorage.resize(numSlots);
+    for (int i = 0; i < numSlots; ++i)
+        fifoStorage[i].reset(new uint8_t[frameBytes]);
+    
     // Set up the pipe
     setupPipe();
 
@@ -47,8 +17,6 @@ void VideoWriter::start()
     // Start the worker thread
     workerThread = std::make_unique<Worker>(*this);
     workerThread->startThread();
-
-    // Anything else?
 }
 
 void VideoWriter::stop()
@@ -70,6 +38,17 @@ void VideoWriter::stop()
     }
 }
 
+void VideoWriter::enqueFrame(const uint8_t* rgb, int numBytes)
+{
+    // Get the next write position and advance the write pointer
+    const auto scope = frameFifo.write(1);
+
+    // Copy the frame data into the FIFO storage
+    if (scope.blockSize1 > 0)
+        std::memcpy(fifoStorage[scope.startIndex1].get(), rgb, (size_t)numBytes);
+}
+
+//=============================================================================
 void VideoWriter::getFFmpegVersion()
 {
     juce::ChildProcess process;
@@ -95,15 +74,62 @@ void VideoWriter::getFFmpegVersion()
     DBG("FFmpeg output:" << process.readAllProcessOutput(););
 }
 
+void VideoWriter::runPipeTest()
+{
+    setupPipe();
+
+    launchFFmpeg();
+
+    // Wait a moment so FFmpeg opens pipe
+    juce::Thread::sleep(300);
+
+    std::vector<uint8_t> frame(W * H * 3);
+    for (int f = 0; f < 60; ++f)
+    {
+        for (int y = 0; y < H; ++y)
+        {
+            for (int x = 0; x < W; ++x)
+            {
+                int i = (y * W + x) * 3;
+                frame[i + 0] = (x + f) % 256;
+                frame[i + 1] = (y) % 256;
+                frame[i + 2] = 64;
+            }
+        }
+        writeFrame(frame.data(), (int)frame.size());
+        juce::Thread::sleep(1000 / FPS);
+    }
+
+    stop();
+    DBG("Done — video saved to desktop.");
+}
+
 //=============================================================================
-void VideoWriter::writeFrame(const uint8_t* rgb, int numBytes)
+bool VideoWriter::dequeueFrame()
+{
+    // Get the next read position and advance the read pointer
+    const auto scope = frameFifo.read(1);
+
+    // Copy the frame data into the FIFO storage
+    if (scope.blockSize1 > 0)
+    {
+        return writeFrame(fifoStorage[scope.startIndex1].get(), frameBytes);
+    }
+
+    // No frame to dequeue
+    return false;
+}
+
+bool VideoWriter::writeFrame(const uint8_t* rgb, int numBytes)
 {
     if (pipe.isOpen() == false)
     {
         DBG("Pipe not open :(");
+        return false;
     }
 
     int bytesWritten = pipe.write(rgb, numBytes, 5000);
+    return bytesWritten == numBytes;
 }
 
 void VideoWriter::launchFFmpeg()
@@ -116,7 +142,7 @@ void VideoWriter::launchFFmpeg()
    #endif
    
     juce::String outputPath = juce::File::getSpecialLocation(juce::File::userDesktopDirectory)
-                          .getChildFile("mopanning_pipe_test.mp4").getFullPathName();
+                          .getChildFile("mopanning_output.mp4").getFullPathName();
 
     juce::File ffExecutable = locateFFmpeg();
 
@@ -191,7 +217,12 @@ void VideoWriter::Worker::run()
 {
     while (threadShouldExit() == false) 
     {
-        // Check for new frames to write
-        // Write them to the pipe
+        bool frameWritten = parent.dequeueFrame();
+
+        if (!frameWritten)
+        {
+            // No frame to write, sleep briefly
+            juce::Thread::sleep(1);
+        }
     }
 }

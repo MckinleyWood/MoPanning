@@ -35,6 +35,9 @@ void GLVisualizer::initialise()
     using namespace juce::gl;
     auto& ext = openGLContext.extensions;
 
+    capturePixels.resize(captureW * captureH * 3);
+    flippedPixels.resize(captureW * captureH * 3);
+
     // GLSL vertex shader initialization code for the dot cloud
     static const char* mainVertSrc = R"(#version 150
         in vec4 instanceData;
@@ -110,7 +113,7 @@ void GLVisualizer::initialise()
     juce::ignoreUnused(shaderLinked);
 
     buildTexture();
-
+    
     // Generate and bind the main vertex-array object
     ext.glGenVertexArrays(1, &mainVAO);
     ext.glBindVertexArray(mainVAO);
@@ -248,6 +251,23 @@ void GLVisualizer::render()
     
         if (showGrid)
             drawGrid();
+
+        // Read pixels from the FBO to CPU memory
+        glReadPixels(0, 0, captureW, captureH, 
+                     GL_RGB, GL_UNSIGNED_BYTE, 
+                     capturePixels.data());
+
+        // Flip the image vertically
+        const int rowBytes = captureW * 3;
+        for (int y = 0; y < captureH; ++y)
+        {
+            const uint8_t* src = capturePixels.data() + (size_t)(captureH - 1 - y) * rowBytes;
+            uint8_t* dst = flippedPixels.data() + (size_t)y * rowBytes;
+            std::memcpy(dst, src, (size_t)rowBytes);
+        }
+
+        // Enque the frame to the VideoWriter
+        controller.giveFrameToVideoWriter(flippedPixels.data(), (int)flippedPixels.size());
 
         // Set destination viewport back to the window
         ext.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
