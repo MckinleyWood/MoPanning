@@ -60,6 +60,7 @@ public:
 
     void updateGridTexture();
     void giveFrameToVideoWriter(const uint8_t* rgb, int numBytes);
+    void stopRecording();
 
     std::vector<ParameterDescriptor> getParameterDescriptors() const;
     juce::AudioProcessorValueTreeState& getAPVTS() noexcept;

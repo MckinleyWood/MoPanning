@@ -1,13 +1,6 @@
 #include "VideoWriter.h"
 
 //=============================================================================
-VideoWriter::~VideoWriter()
-{
-    // Stop the worker thread and clean up resources
-    stop();
-}
-
-//=============================================================================
 void VideoWriter::start()
 {
     // Initialize FIFO storage
@@ -24,6 +17,8 @@ void VideoWriter::start()
     // Start the worker thread
     workerThread = std::make_unique<Worker>(*this);
     workerThread->startThread();
+
+    recording = true;
 }
 
 void VideoWriter::stop()
@@ -34,6 +29,15 @@ void VideoWriter::stop()
     // This will also signal FFmpeg that we are done giving it frames
     if (pipe.isOpen())
         pipe.close();
+    
+    // Wait for FFmpeg to finish writing the file
+    if (ffProcess.isRunning())
+        ffProcess.waitForProcessToFinish(5000);
+
+    if (recording == true)
+        saveVideo();
+
+    recording = false;
 }
 
 //=============================================================================
@@ -45,6 +49,12 @@ void VideoWriter::enqueFrame(const uint8_t* rgb, int numBytes)
     // Copy the frame data into the FIFO storage
     if (scope.blockSize1 > 0)
         std::memcpy(fifoStorage[scope.startIndex1].get(), rgb, (size_t)numBytes);
+}
+
+//=============================================================================
+bool VideoWriter::isRecording()
+{
+    return recording;
 }
 
 //=============================================================================
@@ -143,8 +153,7 @@ void VideoWriter::launchFFmpeg()
     juce::String inputPath = pipe.getName() + "_out";
    #endif
    
-    juce::String outputPath = juce::File::getSpecialLocation(juce::File::userDesktopDirectory)
-                          .getChildFile("mopanning_output.mp4").getFullPathName();
+    juce::String outputPath = tempVideo.getFullPathName();
 
     juce::File ffExecutable = locateFFmpeg();
 
@@ -209,6 +218,51 @@ bool VideoWriter::setupPipe()
    #endif
 
    return pipe.createNewPipe(pipeName);
+}
+
+void VideoWriter::saveVideo()
+{
+    auto chooser = std::make_shared<juce::FileChooser>(
+        "Save Video As...",
+        juce::File::getSpecialLocation(juce::File::userDesktopDirectory)
+            .getChildFile("mopanning_output.mp4"),
+        "*.mp4");
+
+    // auto flags = juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles;
+
+    // // Launch an asynchronous dialog window
+    // chooser->launchAsync(flags, [this, chooser](const juce::FileChooser& fc)
+    // {
+    //     juce::ignoreUnused(chooser);
+    //     auto choice = fc.getResult();
+
+    //     // Move the temp video file to the user-selected location
+    //     if (tempVideo.existsAsFile())
+    //     {
+    //         bool result = tempVideo.moveFileTo(choice);
+    //         if (result == true)
+    //             DBG("Video saved to: " + choice.getFullPathName());
+    //         else
+    //             DBG("Failed to save video :(");
+    //     }
+
+    //     recording = false;
+    // });
+
+    if (chooser->browseForFileToSave(true) == true)
+    {
+        auto choice = chooser->getResult();
+
+        // Move the temp video file to the user-selected location
+        if (tempVideo.existsAsFile())
+        {
+            bool result = tempVideo.moveFileTo(choice);
+            if (result == true)
+                DBG("Video saved to: " + choice.getFullPathName());
+            else
+                DBG("Failed to save video :(");
+        }
+    }
 }
 
 //=============================================================================

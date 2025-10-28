@@ -415,6 +415,12 @@ void MainController::giveFrameToVideoWriter(const uint8_t* rgb, int numBytes)
     videoWriter->enqueFrame(rgb, numBytes);
 }
 
+void MainController::stopRecording()
+{
+    // Stop the video writer and finalize the recording
+    videoWriter->stop();
+}
+
 //=============================================================================
 std::vector<ParameterDescriptor> MainController::getParameterDescriptors() const
 {

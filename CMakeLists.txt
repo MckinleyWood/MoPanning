@@ -47,6 +47,7 @@ target_compile_definitions(MoPanning
         JUCE_USE_CURL=0
         JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:MoPanning,JUCE_PRODUCT_NAME>"
         JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:MoPanning,JUCE_VERSION>"
+        JUCE_MODAL_LOOPS_PERMITTED=1
 )
 
 target_include_directories(MoPanning 

@@ -72,6 +72,7 @@ public:
     /*  This is called when the app is being asked to quit. */
     void systemRequestedQuit() override
     {
+        controller->stopRecording();
         quit();
     }
 

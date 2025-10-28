@@ -15,7 +15,7 @@ class VideoWriter
 public:
     //=========================================================================
     VideoWriter() = default;
-    ~VideoWriter();
+    ~VideoWriter() = default;
 
     //=========================================================================
     /*  Starts the video writing process. 
@@ -43,6 +43,11 @@ public:
         into the FIFO buffer for the worker thread to process.
     */
     void enqueFrame(const uint8_t* rgb, int numBytes);
+
+    //=========================================================================
+    /*  Returns true if recording or writing is in progress. 
+    */
+    bool isRecording();
 
     //=========================================================================
     /*  Runs an FFmpeg version check.
@@ -103,19 +108,27 @@ private:
     
         This function creates a named pipe that FFmpeg will
         read raw RGB frame data from and returns true is successful. 
-        The pipe is used for nter-process communication between this 
+        The pipe is used for inter-process communication between this 
         application and the spawned FFmpeg process.
     */
     bool setupPipe();
+
+    /*  Moves the completed video to a location of the user's choice. 
+    */
+    void saveVideo();
 
     //=========================================================================
     static constexpr int W = 1280;
     static constexpr int H = 720;
     static constexpr int FPS = 60;
+
+    juce::File tempVideo = juce::File::getSpecialLocation(juce::File::tempDirectory)
+                                    .getChildFile("mopanning_temp_video.mp4");
     
     juce::NamedPipe pipe;
     juce::ChildProcess ffProcess;
     std::unique_ptr<Worker> workerThread;
+    bool recording = false;
 
     static constexpr int numSlots = 8;
     static constexpr int frameBytes = W * H * 3;
