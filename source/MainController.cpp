@@ -355,17 +355,6 @@ void MainController::audioDeviceIOCallbackWithContext(
 {
     int numTracks = numInputChannels / 2;
 
-    // Ensure buffers vector matches number of stereo tracks
-    if ((int)buffers.size() != numTracks)
-    {
-        const int oldSize = (int)buffers.size();
-        buffers.resize(numTracks);
-
-        // Initialize any newly added buffers right away
-        for (int i = oldSize; i < numTracks; ++i)
-            buffers[i].setSize(2, numSamples, false, false, true);
-    }
-
     // for (int i = 0; i < (int)buffers.size(); ++i)
     //     DBG("Buffer " << i << " channels = " << buffers[i].getNumChannels());
 
@@ -386,7 +375,7 @@ void MainController::audioDeviceIOCallbackWithContext(
                                 numSamples, buffers[ch], isFirstTrack, trackGain);
 
         // Pass the buffer to the analyzer
-        analyzer->enqueueBlock(&buffers[ch], ch, numTracks);
+        analyzer->enqueueBlock(&buffers[ch], ch);
     }
     
     juce::ignoreUnused(context);
@@ -396,11 +385,24 @@ void MainController::audioDeviceAboutToStart(juce::AudioIODevice* device)
 {
     double sampleRate = device->getCurrentSampleRate();
     int samplesPerBlock = device->getCurrentBufferSizeSamples();
+    int numInputChannels = device->getActiveInputChannels().countNumberOfSetBits();
+    int numTracks = (numInputChannels > 0) ? numInputChannels / 2 : 1;  // Fallback to 1 if no inputs
+
+    // Ensure buffers vector matches number of stereo tracks
+    if ((int)buffers.size() != numTracks)
+    {
+        const int oldSize = (int)buffers.size();
+        buffers.resize(numTracks);
+
+        // Initialize any newly added buffers right away
+        for (int i = oldSize; i < numTracks; ++i)
+            buffers[i].setSize(2, samplesPerBlock, false, false, true);
+    }
     
     // engine->setInputType(static_cast<InputType>(getInputType()));
     engine->prepareToPlay(samplesPerBlock, sampleRate);
     analyzer->setPrepared(false);
-    analyzer->prepare(sampleRate);
+    analyzer->prepare(sampleRate, numTracks);
     visualizer->setSampleRate(sampleRate);
     grid->setSampleRate(sampleRate);
 }

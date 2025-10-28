@@ -39,7 +39,7 @@ public:
     void prepare(); // Uses current sampleRate
 
     // Called by audio thread
-    void enqueueBlock(const juce::AudioBuffer<float>* buffer, int trackIndex, int numTracks);
+    void enqueueBlock(const juce::AudioBuffer<float>* buffer, int trackIndex);
 
     // Called by GUI thread to get latest results
     std::vector<frequency_band> getLatestResults();
@@ -236,7 +236,7 @@ public:
     /*  This function is called on audio thread to enqueue a copy of 
         the incoming audio block into the ring buffer. 
     */
-    void pushBlock(const juce::AudioBuffer<float>& newBlock)
+    void pushBlock(const juce::AudioBuffer<float>& newBlock) // multiple ring buffers??
     {
         int n = newBlock.getNumSamples();
         int N = ringBuffer.getNumSamples();
@@ -269,7 +269,7 @@ public:
         // DBG("Enqueued block on audio thread.");
     }
 
-    void flushRingBuffer()
+    void flushRingBuffer() // might not need
     {
         std::lock_guard<std::mutex> lock(mutex);
         readPosition = writePosition; // effectively drop any unprocessed data

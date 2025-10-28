@@ -1,7 +1,7 @@
 #include "AudioAnalyzer.h"
 
 //=============================================================================
-AudioAnalyzer::AudioAnalyzer() : pendingNumTracks(-1) {}
+AudioAnalyzer::AudioAnalyzer() {}
 AudioAnalyzer::~AudioAnalyzer()
 {
     // Destroy worker, which joins the thread
@@ -15,10 +15,8 @@ AudioAnalyzer::~AudioAnalyzer()
 /*  Prepares the audio analyzer. */
 void AudioAnalyzer::prepare(double newSampleRate, int numTracks)
 {
-    if (isPrepared.load() || isPreparing.load())
-        return; // Avoids re-prepare during prepare
-
-    isPreparing.store(true);
+    if (isPrepared.load())
+        return;
 
     for (auto& worker : workers)
     {
@@ -94,7 +92,6 @@ void AudioAnalyzer::prepare(double newSampleRate, int numTracks)
     }
 
     isPrepared.store(true);
-    isPreparing.store(false);
 }
 
 void AudioAnalyzer::prepare()
@@ -103,20 +100,18 @@ void AudioAnalyzer::prepare()
     prepare(sampleRate);
 }
 
-void AudioAnalyzer::enqueueBlock(const juce::AudioBuffer<float>* buffer, int trackIndex, int numTracks)
+void AudioAnalyzer::enqueueBlock(const juce::AudioBuffer<float>* buffer, int trackIndex)
 {
     DBG("Enqueueing block for track " << trackIndex);
     if (!buffer) return;
 
-    if (numTracks != (int)workers.size() && !isPreparing.load())
-    {
-        DBG("AudioAnalyzer: Number of tracks changed from " << workers.size() << " to " << numTracks << ", preparing now.");
-        isPreparing.store(true); // Prevent reentrant prepares
-        prepare(sampleRate, numTracks); // Prepare immediately
-        pendingNumTracks.store(-1); // Clear pending
-        isPreparing.store(false);
-        flushAnalysisQueue(); // Clear stale data
-    }
+    // if (numTracks != (int)workers.size() && !isPreparing.load())
+    // {
+    //     DBG("AudioAnalyzer: Number of tracks changed from " << workers.size() << " to " << numTracks << ", preparing now.");
+    //     prepare(sampleRate, numTracks); // Prepare immediately
+    //     pendingNumTracks.store(-1); // Clear pending
+    //     flushAnalysisQueue(); // Clear stale data
+    // }
 
     // If trackIndex is greater than current number of workers, ignore until re-prepared
     if (trackIndex >= (int)workers.size() || workers[trackIndex] == nullptr)
@@ -139,7 +134,7 @@ void AudioAnalyzer::stopWorker(std::unique_ptr<AnalyzerWorker>& worker)
     }
 }
 
-void AudioAnalyzer::flushAnalysisQueue()
+void AudioAnalyzer::flushAnalysisQueue() // might not need
 {
     for (auto& worker : workers)
     {
@@ -435,13 +430,7 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer, int tra
 {
     int newNumTracksLocal = pendingNumTracks.load();
     if (newNumTracksLocal > 0)
-    {
-        // isPrepared.store(false);
-        // DBG("AudioAnalyzer: Re-preparing for " << newNumTracks << " tracks.");
-        // prepare(sampleRate, newNumTracks);
-        // DBG("AudioAnalyzer: Re-preparation complete.");
         pendingNumTracks.store(-1);
-    }
 
     if (!isPrepared.load())
         return; // Not prepared yet

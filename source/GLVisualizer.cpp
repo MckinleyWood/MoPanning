@@ -206,7 +206,7 @@ void GLVisualizer::initialise()
     trackParticleOffsets.clear();
 
     trackColourTextures.push_back (0);
-    trackColourSchemes .push_back (greyscale);   // default scheme
+    trackColourSchemes .push_back (rainbow);   // default scheme
     trackParticleCounts.push_back (0);
     trackParticleOffsets.push_back (0);
 
