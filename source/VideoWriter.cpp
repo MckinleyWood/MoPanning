@@ -1,6 +1,13 @@
 #include "VideoWriter.h"
 
 //=============================================================================
+VideoWriter::~VideoWriter()
+{
+    // Stop the worker thread and clean up resources
+    stop();
+}
+
+//=============================================================================
 void VideoWriter::start()
 {
     // Initialize FIFO storage
@@ -22,26 +29,18 @@ void VideoWriter::start()
 void VideoWriter::stop()
 {
     if (workerThread != nullptr)
-    {
-        workerThread->signalThreadShouldExit();
         workerThread->stopThread(2000);
-    }
 
+    // This will also signal FFmpeg that we are done giving it frames
     if (pipe.isOpen())
-    {
         pipe.close();
-    }
-    
-    if (ffProcess.isRunning())
-    {
-        ffProcess.waitForProcessToFinish(10000);
-    }
 }
 
+//=============================================================================
 void VideoWriter::enqueFrame(const uint8_t* rgb, int numBytes)
 {
     // Get the next write position and advance the write pointer
-    const auto scope = frameFifo.write(1);
+    const auto scope = fifoManager.write(1);
 
     // Copy the frame data into the FIFO storage
     if (scope.blockSize1 > 0)
@@ -108,7 +107,7 @@ void VideoWriter::runPipeTest()
 bool VideoWriter::dequeueFrame()
 {
     // Get the next read position and advance the read pointer
-    const auto scope = frameFifo.read(1);
+    const auto scope = fifoManager.read(1);
 
     // Copy the frame data into the FIFO storage
     if (scope.blockSize1 > 0)
@@ -116,8 +115,11 @@ bool VideoWriter::dequeueFrame()
         return writeFrame(fifoStorage[scope.startIndex1].get(), frameBytes);
     }
 
-    // No frame to dequeue
-    return false;
+    else
+    {
+        // No frame to dequeue
+        return false;
+    }
 }
 
 bool VideoWriter::writeFrame(const uint8_t* rgb, int numBytes)
@@ -132,9 +134,9 @@ bool VideoWriter::writeFrame(const uint8_t* rgb, int numBytes)
     return bytesWritten == numBytes;
 }
 
+//=============================================================================
 void VideoWriter::launchFFmpeg()
 {
-    
    #if JUCE_WINDOWS
     juce::String inputPath = pipe.getName();
    #else
@@ -197,7 +199,7 @@ juce::File VideoWriter::locateFFmpeg()
    #endif
 }
 
-void VideoWriter::setupPipe()
+bool VideoWriter::setupPipe()
 {
    #if JUCE_MAC
     auto tmp = juce::File::getSpecialLocation(juce::File::tempDirectory);
@@ -206,10 +208,7 @@ void VideoWriter::setupPipe()
     auto pipeName = R"(\\.\pipe\mopanning_ffmpeg)";
    #endif
 
-   if (pipe.createNewPipe(pipeName) == false)
-   {
-       DBG("Failed to create named pipe: " + pipeName);
-   };
+   return pipe.createNewPipe(pipeName);
 }
 
 //=============================================================================
