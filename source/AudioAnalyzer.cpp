@@ -51,7 +51,8 @@ void AudioAnalyzer::prepare(double newSampleRate, int numTracks)
     ilds.resize(numBands);
     itds.resize(numBands);
     panIndices.resize(numBands);
-    newResults.reserve(numBands);
+    results.resize(numTracks);
+    // results[i].reserve(numBands) done in worker constructor
 
     // Initialize members needed for the selected frequency transform
     if (transform == FFT)
@@ -86,7 +87,7 @@ void AudioAnalyzer::prepare(double newSampleRate, int numTracks)
     DBG("numTracks: " << numTracks << ", numBands: " << numBands);
     for (int i = 0; i < numTracks; ++i)
     {
-        workers[i] = std::make_unique<AnalyzerWorker>(windowSize, hopSize, sampleRate, i, *this);
+        workers[i] = std::make_unique<AnalyzerWorker>(windowSize, hopSize, numBands, sampleRate, i, *this);
         workers[i]->start();
         DBG("Started AnalyzerWorker for track " << i);
     }
@@ -102,7 +103,7 @@ void AudioAnalyzer::prepare()
 
 void AudioAnalyzer::enqueueBlock(const juce::AudioBuffer<float>* buffer, int trackIndex)
 {
-    DBG("Enqueueing block for track " << trackIndex);
+    // DBG("Enqueueing block for track " << trackIndex);
     if (!buffer) return;
 
     // if (numTracks != (int)workers.size() && !isPreparing.load())
@@ -121,7 +122,7 @@ void AudioAnalyzer::enqueueBlock(const juce::AudioBuffer<float>* buffer, int tra
     }
 
     workers[trackIndex]->pushBlock(*buffer);
-    DBG("Block enqueued for track " << trackIndex);
+    // DBG("Block enqueued for track " << trackIndex);
 }
 
 
@@ -143,13 +144,9 @@ void AudioAnalyzer::flushAnalysisQueue() // might not need
     }
 }
 
-std::vector<frequency_band> AudioAnalyzer::getLatestResults()
+std::vector<std::vector<frequency_band>>& AudioAnalyzer::getLatestResults()
 {
     std::lock_guard<std::mutex> lock(resultsMutex);
-    std::set<int> trackIndices;
-    for (const auto& band : results)
-        trackIndices.insert(band.trackIndex);
-    DBG("getLatestResults: results.size=" << results.size() << ", tracks=" << trackIndices.size());
     return results;
 }
 
@@ -426,12 +423,8 @@ void AudioAnalyzer::setupPanWeights()
     panning method, and stores the results in the 'results' member 
     variable for the GUI thread to access.
 */
-void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer, int trackIndex)
+void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer, int trackIndex, std::vector<frequency_band>& outResults)
 {
-    int newNumTracksLocal = pendingNumTracks.load();
-    if (newNumTracksLocal > 0)
-        pendingNumTracks.store(-1);
-
     if (!isPrepared.load())
         return; // Not prepared yet
     
@@ -494,7 +487,7 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer, int tra
     }
     
     // Compute (estimated) perceived amplitudes and build results vector
-    newResults.clear();
+    outResults.clear();
 
     for (int b = 0; b < numBands; ++b)
     {
@@ -518,27 +511,17 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer, int tra
         float amp = (dBrel - threshold) / -threshold; // Scale to [0, 1]
         amp = juce::jlimit(0.0f, 1.0f, amp); // Clamp
 
-        newResults.push_back({ binFrequencies[b], amp, panIndices[b], trackIndex });
+        outResults.push_back({ binFrequencies[b], amp, panIndices[b], trackIndex });
     }
 
-    // Set trackIndex on each new band
-    for (auto& band : newResults)
-    {
-        band.trackIndex = trackIndex;
-    }
-
-    // Merge into global results
+    // Store per-track results
     {
         std::lock_guard<std::mutex> lock(resultsMutex);
         // Remove old bands for this track
-        results.erase(std::remove_if(results.begin(), results.end(),
-                                    [trackIndex](const frequency_band& b) { return b.trackIndex == trackIndex; }),
-                    results.end());
-        // Append new ones
-        results.insert(results.end(), newResults.begin(), newResults.end());
+        results[trackIndex] = outResults;
     }
 
-    DBG("After merge: trackIndex=" << trackIndex << ", newResults.size=" << newResults.size() << ", results.size=" << results.size());
+    DBG("After merge: trackIndex=" << trackIndex << ", newResults.size=" << outResults.size() << ", results.size=" << results.size());
 }
 
 /*  Computes the FFT of each channel of the input buffer and stores the

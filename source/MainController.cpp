@@ -482,7 +482,7 @@ juce::AudioProcessorValueTreeState& MainController::getAPVTS() noexcept
     return processor->getValueTreeState();;
 }
 
-std::vector<frequency_band> MainController::getLatestResults() const
+std::vector<std::vector<frequency_band>>& MainController::getLatestResults() const
 {
     return analyzer->getLatestResults();
 }

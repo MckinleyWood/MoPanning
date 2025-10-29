@@ -61,7 +61,7 @@ public:
     std::vector<ParameterDescriptor> getParameterDescriptors() const;
     juce::AudioProcessorValueTreeState& getAPVTS() noexcept;
 
-    std::vector<frequency_band> getLatestResults() const;
+    std::vector<std::vector<frequency_band>>& getLatestResults() const;
     juce::AudioDeviceManager& getDeviceManager();
 
     void valueTreePropertyChanged(juce::ValueTree&, 

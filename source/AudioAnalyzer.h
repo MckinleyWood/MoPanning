@@ -42,7 +42,7 @@ public:
     void enqueueBlock(const juce::AudioBuffer<float>* buffer, int trackIndex);
 
     // Called by GUI thread to get latest results
-    std::vector<frequency_band> getLatestResults();
+    std::vector<std::vector<frequency_band>>& getLatestResults();
 
     void setWindowSize(int newWindowSize);
     void setHopSize(int newHopSize);
@@ -78,7 +78,7 @@ private:
     
     /* Analysis functions */
 
-    void analyzeBlock(const juce::AudioBuffer<float>& buffer, int trackIndex);
+    void analyzeBlock(const juce::AudioBuffer<float>& buffer, int trackIndex, std::vector<frequency_band>& outResults);
 
     void computeFFT(const juce::AudioBuffer<float>& buffer,
                     const std::vector<float>& windowIn,
@@ -138,7 +138,7 @@ private:
     std::vector<float> frequencyWeights; // Weighting factors for each freq bin
     std::vector<float> itdPerBin;
     std::vector<float> maxITD; // Max ITD per frequency band
-    std::vector<frequency_band> newResults; // For storage before writing to the mutex-protected vector
+    // std::vector<frequency_band> newResults; // For storage before writing to the mutex-protected vector
 
     // Each filter is a complex-valued kernel vector (frequency domain)
     std::vector<std::vector<Complex>> cqtKernels;
@@ -149,7 +149,7 @@ private:
     std::vector<float> ildWeights;
 
     //=========================================================================
-    std::vector<frequency_band> results; // Must be sorted by frequency!!!
+    std::vector<std::vector<frequency_band>> results; // Must be sorted by frequency!!!
     mutable std::mutex resultsMutex;
 
     std::vector<std::unique_ptr<AnalyzerWorker>> workers; // One worker per track
@@ -183,16 +183,19 @@ private:
 class AudioAnalyzer::AnalyzerWorker
 {
 public:
-    AnalyzerWorker(int windowSizeIn, int hopSizeIn, double sampleRateIn, int trackIndexIn, AudioAnalyzer& parent) 
+    AnalyzerWorker(int windowSizeIn, int hopSizeIn, double sampleRateIn, int numBandsIn, int trackIndexIn, AudioAnalyzer& parent) 
         : windowSize(windowSizeIn),
           hopSize(hopSizeIn),
           sampleRate(sampleRateIn),
+          numBands(numBandsIn),
           trackIndex(trackIndexIn),
           parentAnalyzer(parent)
     {
         // Pre-allocate ring buffer - large enough for 16 windows or 2 seconds
         int bufferSize = std::max((int)sampleRate * 2, windowSize * 16);
         ringBuffer.setSize(2, bufferSize);
+
+        newResults.reserve(numBands);
         
         // Pre-allocate analysis buffer
         analysisBuffer.setSize(2, windowSize);
@@ -212,7 +215,7 @@ public:
     void start()
     {
         thread = std::thread([this] { run(); });
-        DBG("Started AnalyzerWorker thread for track " << trackIndex);
+        // DBG("Started AnalyzerWorker thread for track " << trackIndex);
     }
 
     void stop()
@@ -236,7 +239,7 @@ public:
     /*  This function is called on audio thread to enqueue a copy of 
         the incoming audio block into the ring buffer. 
     */
-    void pushBlock(const juce::AudioBuffer<float>& newBlock) // multiple ring buffers??
+    void pushBlock(const juce::AudioBuffer<float>& newBlock)
     {
         int n = newBlock.getNumSamples();
         int N = ringBuffer.getNumSamples();
@@ -299,7 +302,7 @@ private:
                 continue; // Re-check condition
             }
 
-            DBG("Worker thread processing block.");
+            // DBG("Worker thread processing block.");
 
             // Check if we are running behind the audio thread
             if (samplesAvailable > windowSize * 8)
@@ -333,7 +336,7 @@ private:
             readPosition = (readPosition + hopSize) % N;
 
             // Pass the analysis buffer to the audio analyzer
-            parentAnalyzer.analyzeBlock(analysisBuffer, trackIndex);
+            parentAnalyzer.analyzeBlock(analysisBuffer, trackIndex, newResults);
         }
     }
 
@@ -345,6 +348,7 @@ private:
     int windowSize;
     int hopSize; 
     double sampleRate;
+    int numBands;
 
     bool overloaded = false;
 
@@ -354,6 +358,8 @@ private:
     std::atomic<bool> shouldExit {false};
     std::condition_variable cv;
     std::mutex mutex;
+
+    std::vector<frequency_band> newResults;
 
     AudioAnalyzer& parentAnalyzer;
 };
