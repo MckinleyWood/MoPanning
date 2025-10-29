@@ -52,7 +52,6 @@ void AudioAnalyzer::prepare(double newSampleRate, int numTracks)
     itds.resize(numBands);
     panIndices.resize(numBands);
     results.resize(numTracks);
-    // results[i].reserve(numBands) done in worker constructor
 
     // Initialize members needed for the selected frequency transform
     if (transform == FFT)
@@ -75,13 +74,6 @@ void AudioAnalyzer::prepare(double newSampleRate, int numTracks)
     // Compute frequency-dependent ITD/ILD weights
     if (panMethod == both || panMethod == time_pan)
         setupPanWeights();
-
-    // Clean up and reserve results for new numBands * numTracks
-    {
-        std::lock_guard<std::mutex> lock(resultsMutex);
-        results.clear(); // Clear old bands (handles windowSize or numTracks changes)
-        results.reserve(numBands * numTracks); // Preallocate for new size
-    }
 
     // Start the worker threads
     DBG("numTracks: " << numTracks << ", numBands: " << numBands);
@@ -521,7 +513,7 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer, int tra
         results[trackIndex] = outResults;
     }
 
-    DBG("After merge: trackIndex=" << trackIndex << ", newResults.size=" << outResults.size() << ", results.size=" << results.size());
+    // DBG("After merge: trackIndex=" << trackIndex << ", newResults.size=" << outResults.size() << ", results.size=" << results.size());
 }
 
 /*  Computes the FFT of each channel of the input buffer and stores the

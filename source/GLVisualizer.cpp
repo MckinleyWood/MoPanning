@@ -152,7 +152,20 @@ void GLVisualizer::initialise()
             float amp   = pow(instanceData.w, 1.0 / uAmpScale);
             float depth = -instanceData.z / uFadeEndZ;
             float alpha = amp * (1.0 - depth);
-            vec3  rgb   = texture(uColourMap, amp).rgb;
+
+            vec3 rgb;
+
+            if (instanceTrackIndex == 0)
+            {
+                rgb = vec3(1.0, 0.0, 0.0);
+            }
+
+            else if (instanceTrackIndex == 1)
+            {
+                rgb = vec3(0.0, 1.0, 0.0);
+            }
+
+            // vec3  rgb   = texture(uColourMap, amp).rgb;
             vColour     = vec4(rgb, alpha);
 
             vec4 worldPos = vec4(instanceData.xyz, 1.0);
@@ -313,9 +326,9 @@ void GLVisualizer::render()
 
     // Get per-track analysis results
     auto& results = controller.getLatestResults();
-    DBG("Results vector size in GLVis: " << results.size());
-    for (int i=0; i< results.size(); i++)
-        DBG("Track " << i << ": " << results[i].size());
+    // DBG("Results vector size in GLVis: " << results.size());
+    // for (int i=0; i< results.size(); i++)
+    //     DBG("Track " << i << ": " << results[i].size());
 
     // ---- 1. Prune old particles ---------------------------
     while (!particles.empty())

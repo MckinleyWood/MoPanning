@@ -159,10 +159,6 @@ private:
     std::atomic<bool> isPreparing { false };
     mutable std::mutex prepareMutex;
 
-    // For handling dynamic number of tracks
-    std::atomic<int> pendingNumTracks { -1 }; // -1 means no update
-    int newNumTracks = 0;
-
     //=========================================================================
     /* Compile-time constants */
 
