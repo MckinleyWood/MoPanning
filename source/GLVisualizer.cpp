@@ -37,6 +37,8 @@ void GLVisualizer::initialise()
 
     capturePixels.resize(captureW * captureH * 3);
     flippedPixels.resize(captureW * captureH * 3);
+    captureProj = buildProjectionMatrix(captureW, captureH);
+    view = juce::Matrix3D<float>::fromTranslation(cameraPosition);
 
     // GLSL vertex shader initialization code for the dot cloud
     static const char* mainVertSrc = R"(#version 150
@@ -45,6 +47,7 @@ void GLVisualizer::initialise()
         uniform mat4 uProjection;
         uniform mat4 uView;
         uniform sampler1D uColourMap;
+        uniform float uAspect;
         uniform float uFadeEndZ;
         uniform float uDotSize;
 
@@ -65,7 +68,8 @@ void GLVisualizer::initialise()
             vColour = vec4(rgb, alpha);
 
             // Build world position
-            vec4 worldPos = vec4(instanceData.xyz, 1.0);
+            float x = instanceData.x * uAspect;
+            vec4 worldPos = vec4(x, instanceData.yz, 1.0);
 
             // Compute clip-space coordinate
             gl_Position = uProjection * uView * worldPos;
@@ -89,15 +93,15 @@ void GLVisualizer::initialise()
             if (dot(p, p) > 1.0) discard;
 
             // Calculate alpha with soft edge
-            float r2 = dot(p, p);
-            float soft = 1.0 - smoothstep(0.9, 1, r2);
+            // float r2 = dot(p, p);
+            // float soft = 1.0 - smoothstep(0.9, 1, r2);
 
             float fadeFactor = vColour.a;
 
             vec3 rgb = vColour.rgb * fadeFactor; // PREMULTIPLIED
             // vec3 rgb = vColour.rgb; // NOT
 
-            frag = vec4(rgb, soft);
+            frag = vec4(rgb, 1.0);
         }
     )";
     
@@ -235,6 +239,9 @@ void GLVisualizer::render()
     // Check if we need to rebuild the colourmap texture
     buildTexture();
 
+    // Update the particle vector
+    updateParticles();
+
     if (recording)
     {
         // Ensure FBO is the right size
@@ -247,7 +254,7 @@ void GLVisualizer::render()
         const float scale = openGLContext.getRenderingScale();
         
         // Render to the capture FBO
-        drawParticles(captureW, captureH);
+        drawParticles(captureW, captureH, captureProj);
     
         if (showGrid)
             drawGrid();
@@ -280,7 +287,7 @@ void GLVisualizer::render()
     juce::OpenGLHelpers::clear(juce::Colours::black);
     glClear(GL_DEPTH_BUFFER_BIT);
 
-    drawParticles(getWidth(), getHeight());
+    drawParticles(getWidth(), getHeight(), projection);
 
     if (showGrid)
         drawGrid();
@@ -293,54 +300,7 @@ void GLVisualizer::render()
 
 void GLVisualizer::resized() 
 {
-    float w;
-    float h;
-
-    if (recording)
-    {
-        w = (float)captureW;
-        h = (float)captureH;
-    }
-    
-    else
-    {
-        w = (float)getWidth();
-        h = (float)getHeight();
-    }
-    
-    const float aspect = w / h;
-    const float fovRadians = fov * juce::MathConstants<float>::pi / 180;
-    const float l = -aspect, r = +aspect;
-    const float b = -1.0f, t = +1.0f;
-    const float n = nearZ, f = farZ;
-    
-    view = juce::Matrix3D<float>::fromTranslation(cameraPosition);
-
-    switch (dimension)
-    {
-    case dimension2:
-        // Orthographic projection for 2D
-        projection = juce::Matrix3D<float>(
-            2.0f / (r - l), 0, 0, 0,
-            0, 2.0f / (t - b), 0, 0,
-            0, 0, -2.0f / (f - n), 0,
-           -(r + l) / (r - l), -(t + b) / (t-b), -(f + n) / (f - n), 1.0f);
-        break;
-    
-    case dimension3:
-        // Perspective projection for 3D
-        projection = juce::Matrix3D<float>::fromFrustum(
-              -nearZ * std::tan(fovRadians * 0.5f) * aspect,   // left
-               nearZ * std::tan(fovRadians * 0.5f) * aspect,   // right
-              -nearZ * std::tan(fovRadians * 0.5f),            // bottom
-               nearZ * std::tan(fovRadians * 0.5f),            // top
-               nearZ, farZ);
-        break;
-    
-    default:
-        jassertfalse; // Unknown dimension
-    }
-    
+    projection = buildProjectionMatrix(getWidth(), getHeight());
 }
 
 void GLVisualizer::createGridImageFromComponent(GridComponent* gridComp)
@@ -427,21 +387,8 @@ void GLVisualizer::paint(juce::Graphics& g)
 }
 
 //=============================================================================
-void GLVisualizer::drawParticles(float width, float height)
+void GLVisualizer::updateParticles()
 {
-    using namespace juce::gl;
-    auto& ext = openGLContext.extensions;
-
-    // Set GL blending and depth testing settings
-    glEnable(GL_BLEND); 
-    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-    glEnable(GL_DEPTH_TEST);
-    glDepthMask(GL_TRUE);
-    glDepthFunc(GL_LEQUAL);
-    glEnable(GL_PROGRAM_POINT_SIZE);
-
-    mainShader->use();
-
     float t = (float)(juce::Time::getMillisecondCounterHiRes() * 0.001 - startTime);
     float dt = t - lastFrameTime; // Time since last frame in seconds
     float dz = dt * recedeSpeed; // Distance receded since last frame (m)
@@ -470,14 +417,12 @@ void GLVisualizer::drawParticles(float width, float height)
         float logMin = std::log(minFrequency);
         float logMax = std::log(maxFreq);
 
-        const float aspect = width / height;
-
         for (frequency_band band : results)
         {
             if (band.frequency < minFrequency || band.frequency > maxFreq) 
                 continue;
             
-            float x = band.pan_index * aspect;
+            float x = band.pan_index;
             float y = (std::log(band.frequency) - logMin) / (logMax - logMin);
             y = juce::jmap(y, -1.0f, 1.0f);
             float z = 0.f;
@@ -487,6 +432,23 @@ void GLVisualizer::drawParticles(float width, float height)
             particles.push_back(newParticle);
         }
     }
+}
+
+void GLVisualizer::drawParticles(float width, float height, 
+                                 juce::Matrix3D<float>& proj)
+{
+    using namespace juce::gl;
+    auto& ext = openGLContext.extensions;
+
+    // Set GL blending and depth testing settings
+    glEnable(GL_BLEND); 
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glDepthFunc(GL_LEQUAL);
+    glEnable(GL_PROGRAM_POINT_SIZE);
+
+    mainShader->use();
 
     // Build instance data array
     std::vector<InstanceData> instances;
@@ -500,9 +462,10 @@ void GLVisualizer::drawParticles(float width, float height)
     ext.glBufferSubData(GL_ARRAY_BUFFER, 0, instances.size() * sizeof(InstanceData), instances.data());
 
     // Set uniforms
-    mainShader->setUniformMat4("uProjection", projection.mat, 1, GL_FALSE);
+    mainShader->setUniformMat4("uProjection", proj.mat, 1, GL_FALSE);
     mainShader->setUniformMat4("uView", view.mat, 1, GL_FALSE);
     mainShader->setUniform("uColourMap", 0);
+    mainShader->setUniform("uAspect", width / height);
     mainShader->setUniform("uFadeEndZ", fadeEndZ);
     mainShader->setUniform("uDotSize", dotSize);
 
@@ -603,6 +566,44 @@ void GLVisualizer::buildTexture()
     glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     newTextureRequsted = false;
+}
+
+juce::Matrix3D<float> GLVisualizer::buildProjectionMatrix(float width, float height)
+{
+    const float aspect = width / height;
+    const float fovRadians = fov * juce::MathConstants<float>::pi / 180;
+    const float l = -aspect, r = +aspect;
+    const float b = -1.0f, t = +1.0f;
+    const float n = nearZ, f = farZ;
+
+    juce::Matrix3D<float> proj;
+
+    switch (dimension)
+    {
+    case dimension2:
+        // Orthographic projection for 2D
+        proj = juce::Matrix3D<float>(
+            2.0f / (r - l), 0, 0, 0,
+            0, 2.0f / (t - b), 0, 0,
+            0, 0, -2.0f / (f - n), 0,
+           -(r + l) / (r - l), -(t + b) / (t-b), -(f + n) / (f - n), 1.0f);
+        break;
+    
+    case dimension3:
+        // Perspective projection for 3D
+        proj = juce::Matrix3D<float>::fromFrustum(
+              -nearZ * std::tan(fovRadians * 0.5f) * aspect,   // left
+               nearZ * std::tan(fovRadians * 0.5f) * aspect,   // right
+              -nearZ * std::tan(fovRadians * 0.5f),            // bottom
+               nearZ * std::tan(fovRadians * 0.5f),            // top
+               nearZ, farZ);
+        break;
+    
+    default:
+        jassertfalse; // Unknown dimension
+    }
+
+    return proj;
 }
 
 /*  This function ensures that the FBO used for frame capture is the 

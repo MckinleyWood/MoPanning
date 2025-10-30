@@ -2,14 +2,11 @@
 #include <JuceHeader.h>
 
 class GridComponent;
-
 class MainController;
 
 //=============================================================================
 enum ColourScheme { greyscale, rainbow };
 enum Dimension { dimension2, dimension3 };
-
-using FrameSink = std::function<void (const uint8_t* rgb24, int w, int h)>;
 
 //=============================================================================
 /*  This is the component for the OpenGL canvas. It handles rendering 
@@ -39,7 +36,6 @@ public:
     void setFadeEndZ(float newFadeEndZ);
 
     //=========================================================================
-    void setFrameSink(FrameSink s) { frameSink = std::move(s); }
     void startRecording();
     void stopRecording();
 
@@ -49,10 +45,12 @@ public:
 
 private:
     //=========================================================================
-    void drawParticles(float width, float height);
+    void updateParticles();
+    void drawParticles(float width, float height, juce::Matrix3D<float>& proj);
     void drawGrid();
 
     void buildTexture();
+    juce::Matrix3D<float> buildProjectionMatrix(float width, float height);
     void updateFBOSize();
     
     //=========================================================================
@@ -85,6 +83,7 @@ private:
     juce::Vector3D<float> cameraPosition { 0.0f, 0.0f, -2.0f };
     juce::Matrix3D<float> view; // View matrix
     juce::Matrix3D<float> projection; // Projection matrix
+    juce::Matrix3D<float> captureProj;
 
     GLuint colourMapTex = 0;
     bool newTextureRequsted = true; // Flag to rebuild texture
@@ -97,7 +96,6 @@ private:
     bool recording;
     std::vector<uint8_t> capturePixels;
     std::vector<uint8_t> flippedPixels; 
-    FrameSink frameSink = nullptr;
 
     MainController& controller;
 
