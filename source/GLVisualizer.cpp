@@ -47,7 +47,8 @@ void GLVisualizer::initialise()
         uniform mat4 uProjection;
         uniform mat4 uView;
         uniform sampler1D uColourMap;
-        uniform float uAspect;
+        uniform float uWidth;
+        uniform float uHeight;
         uniform float uFadeEndZ;
         uniform float uDotSize;
 
@@ -68,14 +69,15 @@ void GLVisualizer::initialise()
             vColour = vec4(rgb, alpha);
 
             // Build world position
-            float x = instanceData.x * uAspect;
+            float aspect = uWidth / uHeight;
+            float x = instanceData.x * aspect;
             vec4 worldPos = vec4(x, instanceData.yz, 1.0);
 
             // Compute clip-space coordinate
             gl_Position = uProjection * uView * worldPos;
 
             // Size in pixels
-            gl_PointSize = (50.0 + 50.0 * amp) * uDotSize;
+            gl_PointSize = (0.5 + amp) * uDotSize * uHeight * 0.008;
         }
     )";
 
@@ -465,7 +467,8 @@ void GLVisualizer::drawParticles(float width, float height,
     mainShader->setUniformMat4("uProjection", proj.mat, 1, GL_FALSE);
     mainShader->setUniformMat4("uView", view.mat, 1, GL_FALSE);
     mainShader->setUniform("uColourMap", 0);
-    mainShader->setUniform("uAspect", width / height);
+    mainShader->setUniform("uWidth", width);
+    mainShader->setUniform("uHeight", height);
     mainShader->setUniform("uFadeEndZ", fadeEndZ);
     mainShader->setUniform("uDotSize", dotSize);
 

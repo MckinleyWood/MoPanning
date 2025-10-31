@@ -241,8 +241,8 @@ MainController::MainController()
         {
             "dotSize", "Particle Size", 
             "Size of each particle in the visualization.",
-            ParameterDescriptor::Type::Float, 0.1f,
-            juce::NormalisableRange<float>(0.01f, 1.f), {}, "",
+            ParameterDescriptor::Type::Float, 1.0f,
+            juce::NormalisableRange<float>(0.001f, 10.0, 0.0f, 0.5f), {}, "",
             [this](float value) 
             {
                 if (visualizer != nullptr)
