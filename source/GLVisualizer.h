@@ -1,6 +1,5 @@
 #pragma once
 #include <JuceHeader.h>
-#include <atomic>
 
 class GridComponent;
 
@@ -60,12 +59,12 @@ private:
         float spawnX;
         float spawnY;
         float z; // Current z position
-        float spawnAlpha;
+        float amplitude;
         float spawnTime = 0.0f; // Time since app start when particle spawned
         float trackIndex;
     };
 
-    struct InstanceData { float x, y, z, spawnAlpha, trackIndex; };
+    struct InstanceData { float x, y, z, amplitude; };
 
     std::deque<Particle> particles; // Queue of particles
     
@@ -80,14 +79,14 @@ private:
     juce::Image gridImage; 
     juce::OpenGLTexture gridGLTex; 
     std::atomic<bool> gridTextureDirty{false};
-    std::atomic<bool> newTextureRequested { false };
     bool gridTextureReady = false;
 
     juce::Vector3D<float> cameraPosition { 0.0f, 0.0f, -2.0f };
     juce::Matrix3D<float> view; // View matrix
     juce::Matrix3D<float> projection; // Projection matrix
 
-    std::vector<GLuint> trackColourTextures;
+    // GLuint colourMapTex = 0;
+    bool newTextureRequested = true; // Flag to rebuild texture
 
     float startTime; // App-launch time in seconds
     float lastFrameTime; // Time of last frame in seconds
@@ -101,16 +100,16 @@ private:
 
     Dimension dimension;
     std::vector<ColourScheme> trackColourSchemes;
-
-    std::vector<size_t> trackParticleCounts;
-    std::vector<size_t> trackParticleOffsets;
+    std::vector<GLuint> trackColourTextures;
     
     bool showGrid;
+    int numTracks = 1; // Number of tracks in the results vector
     float minFrequency; // Minimum frequency to display (Hz)
     float recedeSpeed; // Speed that objects recede
     float dotSize; // Radius of the dots
     float ampScale; // Amplitude scale factor
-    float fadeEndZ; // Distance at which points are fully faded
+    float fadeEndZ; // Distance at which points are fully faded (m)
+
     float nearZ = 0.1f; // Distance to the start of clip space (m)
     float farZ = 100.f; // Distance to the end of clip space (m)
     float fov = 45.f; // Vertical field of view (degrees)

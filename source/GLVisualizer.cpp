@@ -2,7 +2,6 @@
 #include "MainController.h"
 #include "GridComponent.h"
 
-
 //=============================================================================
 GLVisualizer::GLVisualizer(MainController& c) : controller(c) 
 {
@@ -26,117 +25,112 @@ GLVisualizer::~GLVisualizer()
 }
 
 //=============================================================================
-/*  This function builds the 1D texture that is used to convert look up 
-    colour for amplitude value.
+/*  This function builds the 1D texture that is used to look up the
+    colour corresponding to an amplitude value.
 */
 void GLVisualizer::buildTexture()
 {
-    if (!newTextureRequested.load())
+    if (newTextureRequested == false)
         return;
-
+    
     using namespace juce::gl;
+    // auto& ext = openGLContext.extensions;
 
-    // Delete any old textures that are no longer needed
-    for (GLuint& tex : trackColourTextures)
+    // Define the color map data
+    const int numColours = 256;
+    std::vector<juce::Colour> colours(numColours);
+    std::vector<float> colorData(numColours * 3);
+    
+    for (int i = 0; i < numTracks; ++i)
     {
+        // Per-track texture 
+        GLuint& tex = trackColourTextures[i];
+        
+        // Delete old texture
         if (tex != 0)
         {
-            glDeleteTextures (1, &tex);
+            glDeleteTextures(1, &tex);
             tex = 0;
         }
-    }
-
-    const int numColours = 256;
-    std::vector<float> colorData (numColours * 3);
-
-    // Build a texture for **every** track that currently exists
-    for (size_t track = 0; track < trackColourSchemes.size(); ++track)
-    {
-        const ColourScheme scheme = trackColourSchemes[track];
-
-        // ----- fill colour array ------------------------------------------------
-        std::vector<juce::Colour> colours (numColours);
-        switch (scheme)
+        
+        // Create a 1D texture for color mapping
+        glGenTextures(1, &tex);
+        glBindTexture(GL_TEXTURE_1D, tex);
+        
+        // Fill color data based on scheme
+        ColourScheme colourScheme = trackColourSchemes[i];
+        for (int j = 0; j < numColours; ++j)
         {
+            float t = j / 255.0f;
+
+            switch (colourScheme)
+            {
             case greyscale:
-                for (int i = 0; i < numColours; ++i)
-                    colours[i] = juce::Colour((juce::uint8)i, (juce::uint8)i, (juce::uint8)i);
+                    colours[j] = juce::Colour((juce::uint8)j, (juce::uint8)j, (juce::uint8)j);
                 break;
+            
             case rainbow:
-                for (int i = 0; i < numColours; ++i)
-                    colours[i] = juce::Colour::fromHSV((float)i / numColours, 
-                                                       1.0f, 1.0f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(t, 1.0f, 1.0f, 1.0f);
                 break;
+            
             case red:
-                for (int i = 0; i < numColours; ++i)
-                    colours[i] = juce::Colour::fromFloatRGBA((float)i/numColours, 0.0f, 0.0f, 1.0f);
+                    colours[j] = juce::Colour::fromFloatRGBA(t, 0.0f, 0.0f, 1.0f);
                 break;
 
             case green:
-                for (int i = 0; i < numColours; ++i)
-                    colours[i] = juce::Colour::fromFloatRGBA(0.0f, (float)i/numColours, 0.0f, 1.0f);
+                    colours[j] = juce::Colour::fromFloatRGBA(0.0f, t, 0.0f, 1.0f);
                 break;
 
             case blue:
-                for (int i = 0; i < numColours; ++i)
-                    colours[i] = juce::Colour::fromFloatRGBA(0.0f, 0.0f, (float)i/numColours, 1.0f);
+                    colours[j] = juce::Colour::fromFloatRGBA(0.0f, 0.0f, t, 1.0f);
                 break;
 
             case warm:
-                for (int i = 0; i < numColours; ++i)
-                    colours[i] = juce::Colour::fromHSV(0.05f + 0.1f * (float)i / numColours, 1.0f, 1.0f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(0.05f + 0.1f * t, 1.0f, 1.0f, 1.0f);
                 break;
 
             case cool:
-                for (int i = 0; i < numColours; ++i)
-                    colours[i] = juce::Colour::fromHSV(0.6f + 0.1f * (float)i / numColours, 1.0f, 1.0f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(0.6f + 0.1f * t, 1.0f, 1.0f, 1.0f);
                 break;
 
             default:
-                jassertfalse;
+                jassertfalse; // Unsupported colour scheme
                 break;
+            }
+
+            colorData[j * 3 + 0] = colours[j].getFloatRed();
+            colorData[j * 3 + 1] = colours[j].getFloatGreen();
+            colorData[j * 3 + 2] = colours[j].getFloatBlue();
         }
 
-        for (int i = 0; i < numColours; ++i)
-        {
-            colorData[i * 3 + 0] = colours[i].getFloatRed();
-            colorData[i * 3 + 1] = colours[i].getFloatGreen();
-            colorData[i * 3 + 2] = colours[i].getFloatBlue();
-        }
-
-        // ----- create GL texture ------------------------------------------------
-        GLuint tex = 0;
-        glGenTextures (1, &tex);
-        glBindTexture (GL_TEXTURE_1D, tex);
-        glTexImage1D (GL_TEXTURE_1D, 0, GL_RGB, numColours, 0,
-                      GL_RGB, GL_FLOAT, colorData.data());
-
-        glTexParameteri (GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri (GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri (GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-        trackColourTextures[track] = tex;
+        // Upload the texture data
+        glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, numColours, 0,
+                     GL_RGB, GL_FLOAT, colorData.data());
+    
+        // Set texture parameters
+        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
 
-    newTextureRequested.store (false);
+    newTextureRequested = false;
 }
 
 //=============================================================================
 /*  This function is called when the OpenGL context is created. It is
     where we initialize all of our GL resources, including the shaders
     for the main dot cloud and the grid overlay, the colourmap texture,
-    
-
+    and the VAOS and VBOs.
 */
-void GLVisualizer::initialise()
+void GLVisualizer::initialise() 
 {
     using namespace juce::gl;
     auto& ext = openGLContext.extensions;
 
-    // 1. Shaders
+    // GLSL vertex shader initialization code for the dot cloud
     static const char* mainVertSrc = R"(#version 150
         in vec4 instanceData;
-        in float instanceTrackIndex;
+        // in float instanceTrackIndex;
 
         uniform mat4 uProjection;
         uniform mat4 uView;
@@ -145,151 +139,195 @@ void GLVisualizer::initialise()
         uniform float uDotSize;
         uniform float uAmpScale;
 
-        out vec4 vColour;
+        // vec3 rgb;
 
+        // if (instanceTrackIndex == 0)
+        // {
+        //     rgb = vec3(1.0, 0.0, 0.0);
+        // }
+
+        // else if (instanceTrackIndex == 1)
+        // {
+        //     rgb = vec3(0.0, 1.0, 0.0);
+        // }
+
+        out vec4 vColour;
+        
         void main()
         {
-            float amp   = pow(instanceData.w, 1.0 / uAmpScale);
+            // Root-scale the amplitude
+            // float amp = pow(instanceData.w, 1.0 / uAmpScale);
+
+            float amp = instanceData.w;
+
+            // Depth factor for fading effect
             float depth = -instanceData.z / uFadeEndZ;
-            float alpha = amp * (1.0 - depth);
+            float alpha = (0.5 + amp * 0.5) * (1.0 - depth);
+            
+            // Look up color from the texture
+            vec3 rgb = texture(uColourMap, amp).rgb;
 
-            vec3 rgb;
+            // Set the color with alpha
+            vColour = vec4(rgb, alpha);
 
-            if (instanceTrackIndex == 0)
-            {
-                rgb = vec3(1.0, 0.0, 0.0);
-            }
-
-            else if (instanceTrackIndex == 1)
-            {
-                rgb = vec3(0.0, 1.0, 0.0);
-            }
-
-            // vec3  rgb   = texture(uColourMap, amp).rgb;
-            vColour     = vec4(rgb, alpha);
-
+            // Build world position
             vec4 worldPos = vec4(instanceData.xyz, 1.0);
-            gl_Position   = uProjection * uView * worldPos;
-            gl_PointSize  = (50.0 + 50.0 * amp) * uDotSize;
+
+            // Compute clip-space coordinate
+            gl_Position = uProjection * uView * worldPos;
+
+            // Size in pixels
+            gl_PointSize = (50.0 + 50.0 * amp) * uDotSize ;
         }
     )";
 
+    // GLSL fragment shader initialization code for the dot cloud
     static const char* mainFragSrc = R"(#version 150
         in vec4 vColour;
         out vec4 frag;
+
         void main()
         {
+            // Remap coordinates to [-1, +1]
             vec2 p = gl_PointCoord * 2.0 - 1.0;
+
+            // Discard fragments outside the circle
             if (dot(p, p) > 1.0) discard;
-            frag = vColour;
+
+            // Calculate alpha with soft edge
+            float r2 = dot(p, p);
+            float soft = 1.0 - smoothstep(0.9, 1, r2);
+
+            float fadeFactor = vColour.a;
+
+            vec3 rgb = vColour.rgb * fadeFactor; // PREMULTIPLIED
+            // vec3 rgb = vColour.rgb * a; // NOT
+
+            frag = vec4(rgb, soft);
         }
     )";
+    
+    // Compile and link the main shaders
+    mainShader.reset(new juce::OpenGLShaderProgram(openGLContext));
+    mainShader->addVertexShader(mainVertSrc);
+    mainShader->addFragmentShader(mainFragSrc);
 
-    mainShader.reset (new juce::OpenGLShaderProgram (openGLContext));
-    mainShader->addVertexShader   (mainVertSrc);
-    mainShader->addFragmentShader (mainFragSrc);
-    ext.glBindAttribLocation (mainShader->getProgramID(), 0, "instanceData");
-    ext.glBindAttribLocation (mainShader->getProgramID(), 1, "instanceTrackIndex");
-    jassert (mainShader->link());
+    ext.glBindAttribLocation(mainShader->getProgramID(), 0, "instanceData");
+    // ext.glBindAttribLocation (mainShader->getProgramID(), 1, "instanceTrackIndex");
 
-    // 2. Initialise per-track containers (start with 1 track)
-    trackColourTextures.clear();
-    trackColourSchemes.clear();
-    trackParticleCounts.clear();
-    trackParticleOffsets.clear();
+    bool shaderLinked = mainShader->link();
+    jassert(shaderLinked);
+    juce::ignoreUnused(shaderLinked);
 
-    trackColourTextures.push_back (0);
-    trackColourSchemes .push_back (rainbow);   // default scheme
-    trackParticleCounts.push_back (0);
-    trackParticleOffsets.push_back (0);
+    buildTexture();
 
-    newTextureRequested.store (true);   // force first texture build
+    // Generate and bind the main vertex-array object
+    ext.glGenVertexArrays(1, &mainVAO);
+    ext.glBindVertexArray(mainVAO);
 
-    // 3. VAO / VBO for the dot cloud
-    ext.glGenVertexArrays (1, &mainVAO);
-    ext.glBindVertexArray (mainVAO);
+    // Create instance buffer
+    ext.glGenBuffers(1, &instanceVBO);
 
-    ext.glGenBuffers (1, &instanceVBO);
-    ext.glBindBuffer (GL_ARRAY_BUFFER, instanceVBO);
-    ext.glBufferData (GL_ARRAY_BUFFER,
-                      maxParticles * sizeof (InstanceData),
-                      nullptr,
-                      GL_DYNAMIC_DRAW);
+    // Bind the instanceVBO to set up the attribute pointer for instancing
+    ext.glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+    ext.glBufferData(GL_ARRAY_BUFFER,
+                     maxParticles * sizeof(InstanceData),
+                     nullptr,
+                     GL_DYNAMIC_DRAW);
+    ext.glEnableVertexAttribArray(0);
+    ext.glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 
+                              sizeof(InstanceData), nullptr);
+    glVertexAttribDivisor(0, 1); // This attribute advances once per instance
+    
+    // Unbind VAO to avoid accidental state leakage
+    ext.glBindVertexArray(0);
 
-    // attribute 0 = vec4 (x, y, z, alpha)
-    ext.glEnableVertexAttribArray (0);
-    ext.glVertexAttribPointer (0, 4, GL_FLOAT, GL_FALSE,
-                               sizeof (InstanceData), (void*)0);
-    glVertexAttribDivisor (0, 1);
-
-    // attribute 1 = float trackIndex (offset = 4 * sizeof(float))
-    ext.glEnableVertexAttribArray (1);
-    ext.glVertexAttribPointer (1, 1, GL_FLOAT, GL_FALSE,
-                               sizeof (InstanceData),
-                               (void*)(4 * sizeof (float)));
-    glVertexAttribDivisor (1, 1);
-
-    ext.glBindVertexArray (0);
-
-    // 4. Grid shader / VAO / VBO (unchanged)
+    // Shader code for rendering the grid
     static const char* gridVertSrc = R"(#version 150
         in vec2 aPos;
         in vec2 aUV;
         out vec2 vUV;
-        void main() { vUV = aUV; gl_Position = vec4(aPos,0.0,1.0); }
+        void main() 
+        {
+            vUV = aUV;
+            gl_Position = vec4(aPos, 0.0, 1.0);
+        }
     )";
 
     static const char* gridFragSrc = R"(#version 150
         uniform sampler2D uTex;
         in vec2 vUV;
         out vec4 fragColor;
-        void main() { fragColor = texture(uTex, vUV); }
+        void main() 
+        {
+            fragColor = texture(uTex, vUV);
+        }
     )";
 
-    gridShader.reset (new juce::OpenGLShaderProgram (openGLContext));
-    gridShader->addVertexShader   (gridVertSrc);
-    gridShader->addFragmentShader (gridFragSrc);
-    jassert (gridShader->link());
+    // Complile and link the grid shaders
+    gridShader.reset(new juce::OpenGLShaderProgram(openGLContext));
+    gridShader->addVertexShader(gridVertSrc);
+    gridShader->addFragmentShader(gridFragSrc);
 
-    ext.glGenVertexArrays (1, &gridVAO);
-    ext.glBindVertexArray (gridVAO);
-    ext.glGenBuffers (1, &gridVBO);
-    ext.glBindBuffer (GL_ARRAY_BUFFER, gridVBO);
+    shaderLinked = gridShader->link();
+    jassert(shaderLinked);
 
+    // Create VAO/VBO
+    ext.glGenVertexArrays(1, &gridVAO);
+    ext.glBindVertexArray(gridVAO);
+
+    ext.glGenBuffers(1, &gridVBO);
+    ext.glBindBuffer(GL_ARRAY_BUFFER, gridVBO);
+
+    // Interleaved pos(x,y), uv(u,v)
     static const float quadData[] = {
-        -1.f, -1.f, 0.f, 1.f,
-         1.f, -1.f, 1.f, 1.f,
-        -1.f,  1.f, 0.f, 0.f,
-         1.f,  1.f, 1.f, 0.f
+        -1.f, -1.f,  0.f, 1.f,
+        1.f, -1.f,  1.f, 1.f,
+        -1.f,  1.f,  0.f, 0.f,
+        1.f,  1.f,  1.f, 0.f
     };
-    glBufferData (GL_ARRAY_BUFFER, sizeof (quadData), quadData, GL_STATIC_DRAW);
 
-    GLint posLoc = ext.glGetAttribLocation (gridShader->getProgramID(), "aPos");
-    GLint uvLoc  = ext.glGetAttribLocation (gridShader->getProgramID(), "aUV");
-    glEnableVertexAttribArray ((GLuint)posLoc);
-    glEnableVertexAttribArray ((GLuint)uvLoc);
-    glVertexAttribPointer ((GLuint)posLoc, 2, GL_FLOAT, GL_FALSE, 4*sizeof(float), (void*)0);
-    glVertexAttribPointer ((GLuint)uvLoc,  2, GL_FLOAT, GL_FALSE, 4*sizeof(float), (void*)(2*sizeof(float)));
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadData), quadData, GL_STATIC_DRAW);
 
-    ext.glBindVertexArray (0);
-    ext.glBindBuffer (GL_ARRAY_BUFFER, 0);
+    // Attribute locations
+    GLint posLoc = ext.glGetAttribLocation(gridShader->getProgramID(), "aPos");
+    GLint uvLoc  = ext.glGetAttribLocation(gridShader->getProgramID(), "aUV");
+    glEnableVertexAttribArray((GLuint)posLoc);
+    glEnableVertexAttribArray((GLuint)uvLoc);
+    glVertexAttribPointer((GLuint)posLoc, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glVertexAttribPointer((GLuint)uvLoc,  2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+
+    ext.glBindVertexArray(0);
+    ext.glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void GLVisualizer::shutdown()
 {
     auto& ext = openGLContext.extensions;
+    
+    // Delete VAO and VBOs
+    if (mainVAO != 0) 
+    { 
+        ext.glDeleteVertexArrays(1, &mainVAO); 
+        mainVAO = 0; 
+    }
+    if (instanceVBO != 0) 
+    {
+        ext.glDeleteBuffers(1, &instanceVBO);
+        instanceVBO = 0;
+    }
+    if (gridVBO != 0) 
+    { 
+        ext.glDeleteBuffers(1, &gridVBO); 
+        gridVBO = 0; 
+    }
+    if (gridVAO) 
+    { 
+        ext.glDeleteVertexArrays(1, &gridVAO); 
+        gridVAO = 0; 
+    }
 
-    // ---- delete per-track colour-map textures ----
-    for (GLuint tex : trackColourTextures)
-        if (tex != 0) juce::gl::glDeleteTextures(1, &tex);
-    trackColourTextures.clear();
-
-    // ---- VAOs / VBOs ----
-    if (mainVAO)    { ext.glDeleteVertexArrays (1, &mainVAO);   mainVAO = 0; }
-    if (instanceVBO){ ext.glDeleteBuffers (1, &instanceVBO);    instanceVBO = 0; }
-    if (gridVBO)    { ext.glDeleteBuffers (1, &gridVBO);        gridVBO = 0; }
-    if (gridVAO)    { ext.glDeleteVertexArrays (1, &gridVAO);   gridVAO = 0; }
-
+    // Delete the grid texture
     gridGLTex.release();
 
     mainShader.reset();
@@ -301,178 +339,163 @@ void GLVisualizer::render()
     using namespace juce::gl;
     auto& ext = openGLContext.extensions;
 
-    glEnable (GL_BLEND);
-    glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glEnable (GL_DEPTH_TEST);
-    glDepthFunc (GL_LEQUAL);
-    glEnable (GL_PROGRAM_POINT_SIZE);
+    // Blending and depth testing
+    glEnable(GL_BLEND); 
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glDepthFunc(GL_LEQUAL);
+    glEnable(GL_PROGRAM_POINT_SIZE);
 
-    // Re-build colour-map textures if a new track appeared
-    buildTexture();      // <-- handles newTextureRequsted
+    // Check if we need to rebuild the colourmap texture
+    buildTexture();
 
-    // Clear
-    juce::OpenGLHelpers::clear (juce::Colours::black);
-    glClear (GL_DEPTH_BUFFER_BIT);
+    // Clear to black
+    juce::OpenGLHelpers::clear(juce::Colours::black);
+    glClear(GL_DEPTH_BUFFER_BIT); 
 
-    if (mainShader == nullptr) return;   // shader link failed
+    if (mainShader == nullptr) return; // Early-out on link failure
 
     mainShader->use();
 
-    // Time handling
-    float t  = (float)(juce::Time::getMillisecondCounterHiRes() * 0.001 - startTime);
-    float dt = t - lastFrameTime;
-    float dz = dt * recedeSpeed;
+    float t = (float)(juce::Time::getMillisecondCounterHiRes() * 0.001 - startTime);
+    float dt = t - lastFrameTime; // Time since last frame in seconds
+    float dz = dt * recedeSpeed; // Distance receded since last frame (m)
     lastFrameTime = t;
 
-    // Get per-track analysis results
     auto& results = controller.getLatestResults();
-    // DBG("Results vector size in GLVis: " << results.size());
-    // for (int i=0; i< results.size(); i++)
-    //     DBG("Track " << i << ": " << results[i].size());
+    numTracks = results.size();
+    // DBG("GLVis: new results received. Size = " << numTracks);
 
-    // ---- 1. Prune old particles ---------------------------
-    while (!particles.empty())
+    // Per-track particles - one vector per track
+    // std::vector<std::vector<Particle>> perTrackParticles(results.size());
+
+    // Delete old particles
+    while (! particles.empty())
     {
         const float age = t - particles.front().spawnTime;
         if (age * recedeSpeed < fadeEndZ)
-            break;
-        particles.pop_front();
+            break; // If the oldest one is still alive, then we are done
+        particles.pop_front(); // Otherwise, discard it and test the next
     }
 
-    // ---- 2. Move existing particles back in Z -------------------------
+    // Update z positions of existing particles
     for (auto& p : particles)
         p.z -= dz;
 
-    // ---- 3. Spawn new particles from the latest results ---------------
+    // Add new particles from the latest analysis results
     if (!results.empty())
     {
-        const float maxFreq = (float)sampleRate * 0.5f;
-        const float logMin  = std::log (minFrequency);
-        const float logMax  = std::log (maxFreq);
-        const float aspect  = getWidth() * 1.0f / getHeight();
+        float maxFreq = (float)sampleRate * 0.5f;
+        float logMin = std::log(minFrequency);
+        float logMax = std::log(maxFreq);
 
-        for (int track = 0; track < results.size(); ++track)
+        float aspect = getWidth() * 1.0f / getHeight();
+
+        // Resize per-track containers if needed
+        if (numTracks >= 0 && (trackColourTextures.size() <= (size_t)numTracks ||
+                              trackColourSchemes.size()  <= (size_t)numTracks))
         {
-            const auto trackResults = results[track];
+            trackColourTextures.resize (numTracks + 1, 0);
+            trackColourSchemes .resize (numTracks + 1, rainbow);
+            newTextureRequested = true;          // forces buildTexture() next frame
+            // DBG ("Resized track containers to " << numTracks + 1);
+        }
 
-            for (const frequency_band& band : trackResults)
+        for (int i = 0; i < numTracks; i++)
+        {
+            const auto result = results[i];
+            if (result.empty()) continue;
+
+            for (frequency_band band : result)
             {
-                if (band.frequency < minFrequency || band.frequency > maxFreq)
+                if (band.frequency < minFrequency || band.frequency > maxFreq) 
                     continue;
+                
+                float x = band.pan_index * aspect;
+                float y = (std::log(band.frequency) - logMin) / (logMax - logMin);
+                y = juce::jmap(y, -1.0f, 1.0f);
+                float z = 0.f;
+                float a = band.amplitude;
 
-                const float x = band.pan_index * aspect;
-                const float y = juce::jmap ((std::log (band.frequency) - logMin) / (logMax - logMin),
-                                        -1.0f, 1.0f);
-                const float a = band.amplitude;
-
-                Particle p{ x, y, 0.0f, a, t, float(band.trackIndex) };
-                particles.push_back (p);
+                Particle newParticle = { x, y, z, a, t, (float)i };
+                particles.push_back(newParticle);
             }
         }
     }
-
-    // ---- 4. Determine highest track index in the current particle set
-    int maxTrack = results.size();
-
-    // ---- 5. Resize per-track containers if needed --------------------
-    if (maxTrack >= 0 && (trackColourTextures.size() <= (size_t)maxTrack ||
-                          trackColourSchemes.size()  <= (size_t)maxTrack))
-    {
-        const size_t newSize = maxTrack + 1;
-        trackColourTextures.resize (newSize, 0);
-        trackColourSchemes .resize (newSize, greyscale);
-        trackParticleCounts.resize (newSize, 0);
-        trackParticleOffsets.resize (newSize, 0);
-        newTextureRequested = true;          // forces buildTexture() next frame
-        DBG ("Resized track containers to " << newSize);
-    }
-
-    // ---- 6. Count particles per track --------------------------------
-    std::fill (trackParticleCounts.begin(), trackParticleCounts.end(), 0);
-    for (const auto& p : particles)
-    {
-        const int trk = (int)p.trackIndex;
-        if (trk >= 0 && trk < (int)trackParticleCounts.size())
-            ++trackParticleCounts[trk];
-    }
-
-    // ---- 7. Compute offsets (so we can draw each track in one call) --
+    
     size_t offset = 0;
-    for (size_t i = 0; i < trackParticleCounts.size(); ++i)
-    {
-        trackParticleOffsets[i] = offset;
-        offset += trackParticleCounts[i];
+    
+    ext.glBindVertexArray(mainVAO);
+        
+    for (int i = 0; i < numTracks; i++)
+    {        
+        // Build instance data array
+        std::vector<InstanceData> instances;
+        instances.reserve(particles.size());
+        
+        // Fill instances with this track's particle data
+        for (auto& p : particles)
+        {
+            if ((int)p.trackIndex == i)
+            instances.push_back({ p.spawnX, p.spawnY, p.z, p.amplitude });
+        }
+        
+        // Upload instance data to GPU
+        ext.glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+        jassert((int)instances.size() <= maxParticles);
+        ext.glBufferSubData(GL_ARRAY_BUFFER, 0, instances.size() * sizeof(InstanceData), instances.data());
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_1D, trackColourTextures[i]);
+
+        // Draw all particles!!
+        glDrawArraysInstanced(GL_POINTS, 0, 1, (GLsizei)instances.size());
+
+        // Advance offset for the next track
+        offset += instances.size();
     }
 
-    // ---- 8. Build instance data ----------------------
-    std::vector<InstanceData> instances;
-    instances.reserve (particles.size());
-    for (const auto& p : particles)
-        instances.push_back ({ p.spawnX, p.spawnY, p.z, p.spawnAlpha, p.trackIndex });
+    ext.glBindVertexArray(0);
 
-    // ---- 9. Upload instance VBO ---------------------------------------
-    ext.glBindBuffer (GL_ARRAY_BUFFER, instanceVBO);
-    jassert ((int)instances.size() <= maxParticles);
-    ext.glBufferSubData (GL_ARRAY_BUFFER, 0,
-                         instances.size() * sizeof (InstanceData),
-                         instances.data());
+    // Set uniforms
+    mainShader->setUniformMat4("uProjection", projection.mat, 1, GL_FALSE);
+    mainShader->setUniformMat4("uView", view.mat, 1, GL_FALSE);
+    mainShader->setUniform("uColourMap", 0);
+    mainShader->setUniform("uFadeEndZ", fadeEndZ);
+    mainShader->setUniform("uDotSize", dotSize);
+    mainShader->setUniform("uAmpScale", ampScale);
 
-    // ---- 10. Uniforms (unchanged) ------------------------------------
-    mainShader->setUniformMat4 ("uProjection", projection.mat, 1, GL_FALSE);
-    mainShader->setUniformMat4 ("uView",      view.mat,      1, GL_FALSE);
-    mainShader->setUniform ("uColourMap", 0);
-    mainShader->setUniform ("uFadeEndZ", fadeEndZ);
-    mainShader->setUniform ("uDotSize",  dotSize);
-    mainShader->setUniform ("uAmpScale", ampScale);
-
-    // 11. Draw ONE CALL PER TRACK (replace the old single draw)
-    ext.glBindVertexArray (mainVAO);
-
-    for (size_t track = 0; track < trackColourTextures.size(); ++track)
+    // Add the grid overlay on top    
+    if (showGrid == true)
     {
-        if (trackParticleCounts[track] == 0)
-            continue;
-
-        // Safety – texture may still be 0 on the very first frame after resize
-        if (trackColourTextures[track] == 0)
-            continue;
-
-        glActiveTexture (GL_TEXTURE0);
-        glBindTexture (GL_TEXTURE_1D, trackColourTextures[track]);
-
-        glDrawArraysInstanced (GL_POINTS,
-                            (GLsizei)trackParticleOffsets[track],
-                            1,
-                            (GLsizei)trackParticleCounts[track]);
-    }
-    ext.glBindVertexArray (0);
-
-    // ---- 12. Grid overlay --------------------------------
-    if (showGrid)
-    {
-        if (gridTextureDirty.load())
+        // Upload the grid texture if needed
+        if (gridTextureDirty.load() == true)
         {
             gridGLTex.release();
-            gridGLTex.loadImage (gridImage);
-            gridTextureDirty.store (false);
+            gridGLTex.loadImage(gridImage);
+            gridTextureDirty.store(false);
         }
 
-        glDisable (GL_DEPTH_TEST);
+        // Disable depth testing so grid is always on top
+        glDisable(GL_DEPTH_TEST);
 
+        // Set up and bind the grid shader
         gridShader->use();
-        gridShader->setUniform ("uTex", 1);
-        glActiveTexture (GL_TEXTURE1);
+        gridShader->setUniform("uTex", 1);
+        glActiveTexture(GL_TEXTURE1);
         gridGLTex.bind();
-
-        ext.glBindVertexArray (gridVAO);
-        glDrawArrays (GL_TRIANGLE_STRIP, 0, 4);
-        ext.glBindVertexArray (0);
+        
+        // Draw the grid quad
+        ext.glBindVertexArray(gridVAO);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        ext.glBindVertexArray(0);
     }
 
-    // ---- 13. OpenGL error check -------------------------
+    // Check for OpenGL errors
     GLenum err = glGetError();
     if (err != GL_NO_ERROR)
-        DBG ("OpenGL error: " << juce::String::toHexString ((int)err));
+        DBG("OpenGL error: " << juce::String::toHexString((int)err));
 }
 
 void GLVisualizer::resized() 
@@ -543,22 +566,17 @@ void GLVisualizer::setDimension(Dimension newDimension)
     resized(); // Force a resize to update the projection matrix
 }
 
-void GLVisualizer::setTrackColourScheme (ColourScheme newScheme, int trackIndex)
+void GLVisualizer::setTrackColourScheme(ColourScheme newColourScheme, int trackIndex)
 {
-    if (trackIndex < 0) return;
-
-    // Grow containers if the UI asks for a track that does not exist yet
-    if ((size_t)trackIndex >= trackColourSchemes.size())
+    // Grow vector if trackIndex is out of range
+    if (trackIndex >= (int)trackColourSchemes.size())
     {
-        size_t newSize = trackIndex + 1;
-        trackColourTextures.resize (newSize, 0);
-        trackColourSchemes .resize (newSize, greyscale);
-        trackParticleCounts.resize (newSize, 0);
-        trackParticleOffsets.resize (newSize, 0);
+        trackColourSchemes.resize(trackIndex + 1, rainbow);  // default to rainbow
+        trackColourTextures.resize(trackIndex + 1, 0);       // matching textures
     }
 
-    trackColourSchemes[trackIndex] = newScheme;
-    newTextureRequested.store (true);   // rebuild textures next frame
+    trackColourSchemes[trackIndex] = newColourScheme;
+    newTextureRequested = true;
 }
 
 void GLVisualizer::setShowGrid(bool shouldShow)
