@@ -33,25 +33,16 @@ void AudioAnalyzer::prepare(double newSampleRate, int numTracks)
     setScaleFactors(windowSize, maxAmplitude, cqtNormalization);
 
     // Initialize FFT engine and storage (if needed)
-    if (fftEngine == nullptr || fftEngine->getSize() != windowSize)
-        fftEngine = std::make_unique<juce::dsp::FFT>((int)std::log2(windowSize));
+    // if (fftEngine == nullptr || fftEngine->getSize() != windowSize)
+    //     fftEngine = std::make_unique<juce::dsp::FFT>((int)std::log2(windowSize));
     
     if (transform == FFT)
         numBands = numFFTBins;
     else if (transform == CQT)
         numBands = numCQTbins;
-
-    // Initialize results storage
-    fftSpectra[0].resize(windowSize);
-    fftSpectra[1].resize(windowSize);
-    fftData.resize(2 * windowSize);
-    magnitudes[0].resize(numBands);
-    magnitudes[1].resize(numBands);
+    
     binFrequencies.resize(numBands);
-    ilds.resize(numBands);
-    itds.resize(numBands);
-    panIndices.resize(numBands);
-    results.resize(numTracks);
+    results.resize(numTracks);   
 
     // Initialize members needed for the selected frequency transform
     if (transform == FFT)
@@ -79,7 +70,12 @@ void AudioAnalyzer::prepare(double newSampleRate, int numTracks)
     DBG("numTracks: " << numTracks << ", numBands: " << numBands);
     for (int i = 0; i < numTracks; ++i)
     {
-        workers[i] = std::make_unique<AnalyzerWorker>(windowSize, hopSize, numBands, sampleRate, i, *this);
+        workers[i] = std::make_unique<AnalyzerWorker>(windowSize, 
+                                                    hopSize, 
+                                                    sampleRate, 
+                                                    numBands, 
+                                                    i, 
+                                                    *this);
         workers[i]->start();
         DBG("Started AnalyzerWorker for track " << i);
     }
@@ -98,14 +94,6 @@ void AudioAnalyzer::enqueueBlock(const juce::AudioBuffer<float>* buffer, int tra
     // DBG("Enqueueing block for track " << trackIndex);
     if (!buffer) return;
 
-    // if (numTracks != (int)workers.size() && !isPreparing.load())
-    // {
-    //     DBG("AudioAnalyzer: Number of tracks changed from " << workers.size() << " to " << numTracks << ", preparing now.");
-    //     prepare(sampleRate, numTracks); // Prepare immediately
-    //     pendingNumTracks.store(-1); // Clear pending
-    //     flushAnalysisQueue(); // Clear stale data
-    // }
-
     // If trackIndex is greater than current number of workers, ignore until re-prepared
     if (trackIndex >= (int)workers.size() || workers[trackIndex] == nullptr)
     {
@@ -114,7 +102,7 @@ void AudioAnalyzer::enqueueBlock(const juce::AudioBuffer<float>* buffer, int tra
     }
 
     workers[trackIndex]->pushBlock(*buffer);
-    // DBG("Block enqueued for track " << trackIndex);
+    DBG("Block enqueued for track " << trackIndex);
 }
 
 
@@ -127,18 +115,32 @@ void AudioAnalyzer::stopWorker(std::unique_ptr<AnalyzerWorker>& worker)
     }
 }
 
-void AudioAnalyzer::flushAnalysisQueue() // might not need
-{
-    for (auto& worker : workers)
-    {
-        if (worker)
-            worker->flushRingBuffer();
-    }
-}
+// void AudioAnalyzer::flushAnalysisQueue() // might not need
+// {
+//     for (auto& worker : workers)
+//     {
+//         if (worker)
+//             worker->flushRingBuffer();
+//     }
+// }
 
 std::vector<std::vector<frequency_band>>& AudioAnalyzer::getLatestResults()
 {
     std::lock_guard<std::mutex> lock(resultsMutex);
+    int trackIndex = 0;  // Initialize outside
+    for (const auto& trackResults : results)  // Reference to avoid copies
+    {
+        ++trackIndex;  // Or start from 1: int trackIndex = 1; then trackIndex++
+
+        for (size_t j = 0; j < trackResults.size(); j += 30)  // Use size_t for indices
+        {
+            const auto& band = trackResults[j];  // Safe reference
+            DBG("Results: Track " << trackIndex 
+                << ": Frequency: " << band.frequency   // .frequency if member; .frequency() if getter
+                << ", Amplitude: " << band.amplitude
+                << ", Panning Index: " << band.pan_index);  // Same here
+        }
+    }
     return results;
 }
 
@@ -284,16 +286,6 @@ void AudioAnalyzer::setupCQT()
 {
     // Prepare CQT kernels
     cqtKernels.resize(numBands);
-    
-    for (int ch = 0; ch < 2; ++ch)
-    {
-        fullCQTspec[ch].resize(numBands); // Resize vector inside array
-
-        for (int bin = 0; bin < numBands; ++bin)
-        {
-            fullCQTspec[ch][bin].resize(windowSize);
-        }
-    }
 
     // Set frequency from min to Nyquist
     const float nyquist = static_cast<float>(sampleRate * 0.5);
@@ -415,13 +407,66 @@ void AudioAnalyzer::setupPanWeights()
     panning method, and stores the results in the 'results' member 
     variable for the GUI thread to access.
 */
-void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer, int trackIndex, std::vector<frequency_band>& outResults)
+void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer, 
+                                int trackIndex, 
+                                std::vector<frequency_band>& outResults,
+                                juce::dsp::FFT& fftEngine,
+                                std::vector<float>& fftDataTemp,
+                                std::array<std::vector<std::complex<float>>, 2>& outSpectra,
+                                std::vector<std::complex<float>>& crossSpectrum,
+                                std::vector<std::complex<float>>& crossCorr,
+                                std::array<std::vector<float>, 2> magnitudes,
+                                std::vector<float> ilds,
+                                std::vector<float> itds,
+                                std::vector<float> panIndices,
+                                std::array<std::vector<std::vector<std::complex<float>>>, 2> fullCQTspec)
 {
     if (!isPrepared.load())
         return; // Not prepared yet
-    
+
     // Compute FFT for the block
-    computeFFT(buffer, window, fftData, fftSpectra);
+    computeFFT(buffer, window, fftDataTemp, outSpectra, fftEngine);
+
+    // After computeFFT(buffer, window, fftDataTemp, outSpectra, fftEngine);
+
+    // Log DC bin (bin 0) and Nyquist (bin windowSize/2 if even)
+    int dcBin = 0;
+    int nyqBin = windowSize / 2;
+
+    DBG("FFT DEBUG Track " << trackIndex 
+        << " bin" << dcBin 
+        << " L: real=" << outSpectra[0][dcBin].real() << " imag=" << outSpectra[0][dcBin].imag()
+        << " mag=" << std::abs(outSpectra[0][dcBin])
+        << " R: real=" << outSpectra[1][dcBin].real() << " imag=" << outSpectra[1][dcBin].imag()
+        << " mag=" << std::abs(outSpectra[1][dcBin]));
+
+    if (nyqBin > dcBin && nyqBin < windowSize)
+    {
+        DBG("FFT DEBUG Track " << trackIndex 
+            << " bin" << nyqBin 
+            << " L: real=" << outSpectra[0][nyqBin].real() << " imag=" << outSpectra[0][nyqBin].imag()
+            << " mag=" << std::abs(outSpectra[0][nyqBin])
+            << " R: real=" << outSpectra[1][nyqBin].real() << " imag=" << outSpectra[1][nyqBin].imag()
+            << " mag=" << std::abs(outSpectra[1][nyqBin]));
+    }
+
+    // Log a mid-low bin (e.g., expected energy from your test tones)
+    int midBin = 10;  // Adjust based on binFrequencies[10]
+    DBG("FFT DEBUG Track " << trackIndex 
+        << " bin" << midBin 
+        << " L mag=" << std::abs(outSpectra[0][midBin])
+        << " R mag=" << std::abs(outSpectra[1][midBin])
+        << " phaseL=" << std::arg(outSpectra[0][midBin])
+        << " phaseR=" << std::arg(outSpectra[1][midBin]));
+
+    // Quick energy check
+    float totalEnergyL = 0.0f, totalEnergyR = 0.0f;
+    for (int b = 0; b < windowSize / 2; ++b)
+    {
+        totalEnergyL += outSpectra[0][b].real()*outSpectra[0][b].real() + outSpectra[0][b].imag()*outSpectra[0][b].imag();
+        totalEnergyR += outSpectra[1][b].real()*outSpectra[1][b].real() + outSpectra[1][b].imag()*outSpectra[1][b].imag();
+    }
+    DBG("FFT ENERGY Track " << trackIndex << " L=" << totalEnergyL << " R=" << totalEnergyR);
 
     // Compute the selected frequency transform for the signal
     if (transform == FFT)
@@ -430,13 +475,13 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer, int tra
         for (int ch = 0; ch < 2; ++ch)
         {
             for (int b = 0; b < numFFTBins; ++b)
-                magnitudes[ch][b] = std::abs(fftSpectra[ch][b]);
+                magnitudes[ch][b] = std::abs(outSpectra[ch][b]);
         }
     }
     else if (transform == CQT)
     {
         // Compute CQT magnitudes
-        computeCQT(fftSpectra, cqtKernels, fullCQTspec, magnitudes);
+        computeCQT(outSpectra, cqtKernels, fullCQTspec, magnitudes);
     }
     else
     {
@@ -453,12 +498,12 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer, int tra
     else if (panMethod == time_pan)
     {
         // Use ITD pan indices
-        computeITDs(fullCQTspec, numBands, panIndices);
+        computeITDs(fullCQTspec, numBands, panIndices, fftEngine, crossSpectrum, crossCorr);
     }
     else if (panMethod == both)
     {
         computeILDs(magnitudes, ilds);
-        computeITDs(fullCQTspec, numBands, itds);
+        computeITDs(fullCQTspec, numBands, itds, fftEngine, crossSpectrum, crossCorr);
 
         for (int b = 0; b < numBands; b++)
         {
@@ -504,6 +549,14 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer, int tra
         amp = juce::jlimit(0.0f, 1.0f, amp); // Clamp
 
         outResults.push_back({ binFrequencies[b], amp, panIndices[b], trackIndex });
+        
+        if (b % 5 == 0 && amp > 0.1f)  // Tune threshold
+        {
+            DBG("RESULTS Track " << trackIndex 
+                << " bin" << b << " freq=" << binFrequencies[b] 
+                << " amp=" << amp << " pan=" << panIndices[b] 
+                << " (magL=" << std::abs(outSpectra[0][b]) << " magR=" << std::abs(outSpectra[1][b]) << ")");
+        }
     }
 
     // Store per-track results
@@ -511,6 +564,26 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer, int tra
         std::lock_guard<std::mutex> lock(resultsMutex);
         // Remove old bands for this track
         results[trackIndex] = outResults;
+
+        DBG("RESULTS DEBUG: results.size() = " << results.size());
+        for (size_t t = 0; t < results.size(); ++t)
+        {
+            DBG("    Track " << (int)t 
+                << " has " << results[t].size() 
+                << " bands stored");
+            if (!results[t].empty())
+            {
+                const auto& last = results[t].back();
+                DBG("        Last bin freq=" << last.frequency 
+                    << " amp=" << last.amplitude 
+                    << " pan=" << last.pan_index
+                    << " track=" << last.trackIndex);
+            }
+            else
+            {
+                DBG("        Track " << (int)t << " is empty");
+            }
+        }
     }
 
     // DBG("After merge: trackIndex=" << trackIndex << ", newResults.size=" << outResults.size() << ", results.size=" << results.size());
@@ -522,7 +595,8 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer, int tra
 void AudioAnalyzer::computeFFT(const juce::AudioBuffer<float>& buffer,
                                const std::vector<float>& windowIn,
                                std::vector<float>& fftDataTemp,
-                               std::array<std::vector<Complex>, 2>& outSpectra)
+                               std::array<std::vector<Complex>, 2>& outSpectra,
+                               juce::dsp::FFT& fftEngine)
 {
     for (int ch = 0; ch < 2; ++ch)
     {
@@ -534,7 +608,7 @@ void AudioAnalyzer::computeFFT(const juce::AudioBuffer<float>& buffer,
         }
             
         // Compute an in-place FFT
-        fftEngine->performRealOnlyForwardTransform(fftDataTemp.data());
+        fftEngine.performRealOnlyForwardTransform(fftDataTemp.data());
 
         // Copy the results to the output 
         for (int b = 0; b < windowSize; ++b)
@@ -560,11 +634,11 @@ void AudioAnalyzer::computeCQT(const std::array<std::vector<Complex>, 2>& ffts,
         // Compute CQT by inner product with each kernel
         for (int bin = 0; bin < magnitudesOut[ch].size(); ++bin)
         {
-            jassert(bin < cqtKernels.size());
+            jassert(bin < cqtKernelsIn.size());
             jassert(spectraOut[ch][bin].size() == windowSize);
 
             std::complex<float> sum = 0.0f;
-            const auto& kernel = cqtKernels[bin];
+            const auto& kernel = cqtKernelsIn[bin];
             for (int i = 0; i < windowSize; ++i)
             {
                 spectraOut[ch][bin][i] = ffts[ch][i] * std::conj(kernel[i]);
@@ -603,10 +677,13 @@ void AudioAnalyzer::computeILDs(const std::array<std::vector<float>, 2>& magnitu
 void AudioAnalyzer::computeITDs(
     const std::array<std::vector<std::vector<std::complex<float>>>, 2>& spec,
     int numBands,
-    std::vector<float>& panIndices)
+    std::vector<float>& panIndices,
+    juce::dsp::FFT& fftEngine,
+    std::vector<std::complex<float>>& crossSpectrum,
+    std::vector<std::complex<float>>& crossCorr)
 {
-    std::vector<std::complex<float>> crossSpectrum(windowSize);
-    std::vector<std::complex<float>> crossCorr(windowSize);
+    // std::vector<std::complex<float>> crossSpectrum(windowSize);
+    // std::vector<std::complex<float>> crossCorr(windowSize);
 
     for (int bin = 0; bin < numBands; ++bin)
     {
@@ -634,7 +711,7 @@ void AudioAnalyzer::computeITDs(
         }
 
         // Inverse FFT to get cross-correlation
-        fftEngine->perform(crossSpectrum.data(), crossCorr.data(), true);
+        fftEngine.perform(crossSpectrum.data(), crossCorr.data(), true);
 
         // Maximum ITD in samples
         int maxLagSamples = int(sampleRate * maxITD[bin]);
