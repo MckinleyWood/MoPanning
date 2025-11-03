@@ -318,6 +318,8 @@ void MainController::audioDeviceIOCallbackWithContext(
     float *const *outputChannelData, int numOutputChannels, int numSamples,
     const juce::AudioIODeviceCallbackContext& context)
 {
+    jassert(numSamples == samplesPerBlock);
+
     juce::AudioBuffer<float> buffer(2, numSamples);
     
     // Delegate to the audio engine
@@ -327,19 +329,23 @@ void MainController::audioDeviceIOCallbackWithContext(
 
     // Pass the buffer to the analyzer
     analyzer->enqueueBlock(&buffer);
+
+    // Give the audio output to the videoWriter
+    if (videoWriter->isRecording())
+        videoWriter->enqueueAudioBlock(outputChannelData);
     
     juce::ignoreUnused(context);
 }
 
 void MainController::audioDeviceAboutToStart(juce::AudioIODevice* device) 
 {
-    double sampleRate = device->getCurrentSampleRate();
-    int samplesPerBlock = device->getCurrentBufferSizeSamples();
+    sampleRate = device->getCurrentSampleRate();
+    samplesPerBlock = device->getCurrentBufferSizeSamples();
     
-    // engine->setInputType(static_cast<InputType>(getInputType()));
     engine->prepareToPlay(samplesPerBlock, sampleRate);
     analyzer->setPrepared(false);
     analyzer->prepare(sampleRate);
+    videoWriter->prepare(sampleRate, samplesPerBlock, 2);
     visualizer->setSampleRate(sampleRate);
     grid->setSampleRate(sampleRate);
 }
@@ -412,7 +418,7 @@ void MainController::updateGridTexture()
 
 void MainController::giveFrameToVideoWriter(const uint8_t* rgb, int numBytes)
 {
-    videoWriter->enqueFrame(rgb, numBytes);
+    videoWriter->enqueueVideoFrame(rgb, numBytes);
 }
 
 void MainController::stopRecording()

@@ -73,6 +73,9 @@ public:
 
 private:
     //=========================================================================
+    double sampleRate;
+    int samplesPerBlock;
+
     std::unique_ptr<AudioAnalyzer> analyzer;
     std::unique_ptr<MiniAudioProcessor> processor;
     std::unique_ptr<AudioEngine> engine;
