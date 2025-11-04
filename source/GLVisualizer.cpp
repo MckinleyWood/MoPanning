@@ -41,7 +41,7 @@ void GLVisualizer::buildTexture()
     std::vector<juce::Colour> colours(numColours);
     std::vector<float> colorData(numColours * 3);
     
-    for (int i = 0; i < numTracks; ++i)
+    for (int i = 0; i < trackColourSchemes.size(); ++i)
     {
         // Per-track texture 
         GLuint& tex = trackColourTextures[i];
@@ -347,6 +347,15 @@ void GLVisualizer::render()
     glDepthFunc(GL_LEQUAL);
     glEnable(GL_PROGRAM_POINT_SIZE);
 
+    // Resize per-track containers if needed
+    if ((int)trackColourTextures.size() <= numTracks)
+    {
+        trackColourTextures.resize (numTracks + 1, 0);
+        trackColourSchemes .resize (numTracks + 1, rainbow);
+        newTextureRequested = true;          // forces buildTexture() next frame
+        // DBG ("Resized track containers to " << numTracks + 1);
+    }
+
     // Check if we need to rebuild the colourmap texture
     buildTexture();
 
@@ -363,9 +372,36 @@ void GLVisualizer::render()
     float dz = dt * recedeSpeed; // Distance receded since last frame (m)
     lastFrameTime = t;
 
-    auto& results = controller.getLatestResults();
+    auto results = controller.getLatestResults();
     numTracks = results.size();
-    // DBG("GLVis: new results received. Size = " << numTracks);
+    // DBG("GLVIS about to read results");
+    // DBG("GLVIS DEBUG: results.size() = " << numTracks);
+    // for (size_t t = 0; t < results.size(); ++t)
+    // {
+    //     DBG("    Track " << (int)t 
+    //         << " has " << results[t].size() 
+    //         << " bands stored");
+
+    //     if (!results[t].empty())
+    //     {
+    //         const auto& first = results[t].front();
+    //         const auto& last  = results[t].back();
+
+    //         DBG("        First bin freq=" << first.frequency
+    //             << " amp=" << first.amplitude
+    //             << " pan=" << first.pan_index
+    //             << " track=" << first.trackIndex);
+
+    //         DBG("        Last  bin freq=" << last.frequency
+    //             << " amp=" << last.amplitude
+    //             << " pan=" << last.pan_index
+    //             << " track=" << last.trackIndex);
+    //     }
+    //     else
+    //     {
+    //         DBG("        Track " << (int)t << " is empty");
+    //     }
+    // }
 
     // Per-track particles - one vector per track
     // std::vector<std::vector<Particle>> perTrackParticles(results.size());
@@ -392,21 +428,12 @@ void GLVisualizer::render()
 
         float aspect = getWidth() * 1.0f / getHeight();
 
-        // Resize per-track containers if needed
-        if (numTracks >= 0 && (trackColourTextures.size() <= (size_t)numTracks ||
-                              trackColourSchemes.size()  <= (size_t)numTracks))
-        {
-            trackColourTextures.resize (numTracks + 1, 0);
-            trackColourSchemes .resize (numTracks + 1, rainbow);
-            newTextureRequested = true;          // forces buildTexture() next frame
-            // DBG ("Resized track containers to " << numTracks + 1);
-        }
-
         for (int i = 0; i < numTracks; i++)
         {
-            const auto result = results[i];
+            const auto& result = results[i];
             if (result.empty()) continue;
 
+            int count = 0;
             for (frequency_band band : result)
             {
                 if (band.frequency < minFrequency || band.frequency > maxFreq) 
@@ -420,7 +447,9 @@ void GLVisualizer::render()
 
                 Particle newParticle = { x, y, z, a, t, (float)i };
                 particles.push_back(newParticle);
+                ++count;
             }
+            // DBG("Track " << i << " added " << count << " new particles this frame");
         }
     }
     
@@ -440,6 +469,8 @@ void GLVisualizer::render()
             if ((int)p.trackIndex == i)
             instances.push_back({ p.spawnX, p.spawnY, p.z, p.amplitude });
         }
+
+        // DBG("Track " << i << " will render " << instances.size() << " particles");
         
         // Upload instance data to GPU
         ext.glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);

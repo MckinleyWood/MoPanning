@@ -102,7 +102,7 @@ void AudioAnalyzer::enqueueBlock(const juce::AudioBuffer<float>* buffer, int tra
     }
 
     workers[trackIndex]->pushBlock(*buffer);
-    DBG("Block enqueued for track " << trackIndex);
+    // DBG("Block enqueued for track " << trackIndex);
 }
 
 
@@ -126,21 +126,6 @@ void AudioAnalyzer::stopWorker(std::unique_ptr<AnalyzerWorker>& worker)
 
 std::vector<std::vector<frequency_band>>& AudioAnalyzer::getLatestResults()
 {
-    std::lock_guard<std::mutex> lock(resultsMutex);
-    int trackIndex = 0;  // Initialize outside
-    for (const auto& trackResults : results)  // Reference to avoid copies
-    {
-        ++trackIndex;  // Or start from 1: int trackIndex = 1; then trackIndex++
-
-        for (size_t j = 0; j < trackResults.size(); j += 30)  // Use size_t for indices
-        {
-            const auto& band = trackResults[j];  // Safe reference
-            DBG("Results: Track " << trackIndex 
-                << ": Frequency: " << band.frequency   // .frequency if member; .frequency() if getter
-                << ", Amplitude: " << band.amplitude
-                << ", Panning Index: " << band.pan_index);  // Same here
-        }
-    }
     return results;
 }
 
@@ -430,43 +415,43 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer,
     // After computeFFT(buffer, window, fftDataTemp, outSpectra, fftEngine);
 
     // Log DC bin (bin 0) and Nyquist (bin windowSize/2 if even)
-    int dcBin = 0;
-    int nyqBin = windowSize / 2;
+    // int dcBin = 0;
+    // int nyqBin = windowSize / 2;
 
-    DBG("FFT DEBUG Track " << trackIndex 
-        << " bin" << dcBin 
-        << " L: real=" << outSpectra[0][dcBin].real() << " imag=" << outSpectra[0][dcBin].imag()
-        << " mag=" << std::abs(outSpectra[0][dcBin])
-        << " R: real=" << outSpectra[1][dcBin].real() << " imag=" << outSpectra[1][dcBin].imag()
-        << " mag=" << std::abs(outSpectra[1][dcBin]));
+    // DBG("FFT DEBUG Track " << trackIndex 
+    //     << " bin" << dcBin 
+    //     << " L: real=" << outSpectra[0][dcBin].real() << " imag=" << outSpectra[0][dcBin].imag()
+    //     << " mag=" << std::abs(outSpectra[0][dcBin])
+    //     << " R: real=" << outSpectra[1][dcBin].real() << " imag=" << outSpectra[1][dcBin].imag()
+    //     << " mag=" << std::abs(outSpectra[1][dcBin]));
 
-    if (nyqBin > dcBin && nyqBin < windowSize)
-    {
-        DBG("FFT DEBUG Track " << trackIndex 
-            << " bin" << nyqBin 
-            << " L: real=" << outSpectra[0][nyqBin].real() << " imag=" << outSpectra[0][nyqBin].imag()
-            << " mag=" << std::abs(outSpectra[0][nyqBin])
-            << " R: real=" << outSpectra[1][nyqBin].real() << " imag=" << outSpectra[1][nyqBin].imag()
-            << " mag=" << std::abs(outSpectra[1][nyqBin]));
-    }
+    // if (nyqBin > dcBin && nyqBin < windowSize)
+    // {
+    //     DBG("FFT DEBUG Track " << trackIndex 
+    //         << " bin" << nyqBin 
+    //         << " L: real=" << outSpectra[0][nyqBin].real() << " imag=" << outSpectra[0][nyqBin].imag()
+    //         << " mag=" << std::abs(outSpectra[0][nyqBin])
+    //         << " R: real=" << outSpectra[1][nyqBin].real() << " imag=" << outSpectra[1][nyqBin].imag()
+    //         << " mag=" << std::abs(outSpectra[1][nyqBin]));
+    // }
 
-    // Log a mid-low bin (e.g., expected energy from your test tones)
-    int midBin = 10;  // Adjust based on binFrequencies[10]
-    DBG("FFT DEBUG Track " << trackIndex 
-        << " bin" << midBin 
-        << " L mag=" << std::abs(outSpectra[0][midBin])
-        << " R mag=" << std::abs(outSpectra[1][midBin])
-        << " phaseL=" << std::arg(outSpectra[0][midBin])
-        << " phaseR=" << std::arg(outSpectra[1][midBin]));
+    // // Log a mid-low bin (e.g., expected energy from your test tones)
+    // int midBin = 10;  // Adjust based on binFrequencies[10]
+    // DBG("FFT DEBUG Track " << trackIndex 
+    //     << " bin" << midBin 
+    //     << " L mag=" << std::abs(outSpectra[0][midBin])
+    //     << " R mag=" << std::abs(outSpectra[1][midBin])
+    //     << " phaseL=" << std::arg(outSpectra[0][midBin])
+    //     << " phaseR=" << std::arg(outSpectra[1][midBin]));
 
-    // Quick energy check
-    float totalEnergyL = 0.0f, totalEnergyR = 0.0f;
-    for (int b = 0; b < windowSize / 2; ++b)
-    {
-        totalEnergyL += outSpectra[0][b].real()*outSpectra[0][b].real() + outSpectra[0][b].imag()*outSpectra[0][b].imag();
-        totalEnergyR += outSpectra[1][b].real()*outSpectra[1][b].real() + outSpectra[1][b].imag()*outSpectra[1][b].imag();
-    }
-    DBG("FFT ENERGY Track " << trackIndex << " L=" << totalEnergyL << " R=" << totalEnergyR);
+    // // Quick energy check
+    // float totalEnergyL = 0.0f, totalEnergyR = 0.0f;
+    // for (int b = 0; b < windowSize / 2; ++b)
+    // {
+    //     totalEnergyL += outSpectra[0][b].real()*outSpectra[0][b].real() + outSpectra[0][b].imag()*outSpectra[0][b].imag();
+    //     totalEnergyR += outSpectra[1][b].real()*outSpectra[1][b].real() + outSpectra[1][b].imag()*outSpectra[1][b].imag();
+    // }
+    // DBG("FFT ENERGY Track " << trackIndex << " L=" << totalEnergyL << " R=" << totalEnergyR);
 
     // Compute the selected frequency transform for the signal
     if (transform == FFT)
@@ -550,13 +535,13 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer,
 
         outResults.push_back({ binFrequencies[b], amp, panIndices[b], trackIndex });
         
-        if (b % 5 == 0 && amp > 0.1f)  // Tune threshold
-        {
-            DBG("RESULTS Track " << trackIndex 
-                << " bin" << b << " freq=" << binFrequencies[b] 
-                << " amp=" << amp << " pan=" << panIndices[b] 
-                << " (magL=" << std::abs(outSpectra[0][b]) << " magR=" << std::abs(outSpectra[1][b]) << ")");
-        }
+        // if (b % 5 == 0 && amp > 0.1f)  // Tune threshold
+        // {
+        //     DBG("RESULTS Track " << trackIndex 
+        //         << " bin" << b << " freq=" << binFrequencies[b] 
+        //         << " amp=" << amp << " pan=" << panIndices[b] 
+        //         << " (magL=" << std::abs(outSpectra[0][b]) << " magR=" << std::abs(outSpectra[1][b]) << ")");
+        // }
     }
 
     // Store per-track results
@@ -565,28 +550,29 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer,
         // Remove old bands for this track
         results[trackIndex] = outResults;
 
-        DBG("RESULTS DEBUG: results.size() = " << results.size());
-        for (size_t t = 0; t < results.size(); ++t)
-        {
-            DBG("    Track " << (int)t 
-                << " has " << results[t].size() 
-                << " bands stored");
-            if (!results[t].empty())
-            {
-                const auto& last = results[t].back();
-                DBG("        Last bin freq=" << last.frequency 
-                    << " amp=" << last.amplitude 
-                    << " pan=" << last.pan_index
-                    << " track=" << last.trackIndex);
-            }
-            else
-            {
-                DBG("        Track " << (int)t << " is empty");
-            }
-        }
+        // DBG("RESULTS DEBUG: results.size() = " << results.size());
+        // for (size_t t = 0; t < results.size(); ++t)
+        // {
+        //     DBG("    Track " << (int)t 
+        //         << " has " << results[t].size() 
+        //         << " bands stored");
+        //     if (!results[t].empty())
+        //     {
+        //         const auto& last = results[t].back();
+        //         DBG("        Last bin freq=" << last.frequency 
+        //             << " amp=" << last.amplitude 
+        //             << " pan=" << last.pan_index
+        //             << " track=" << last.trackIndex);
+        //     }
+        //     else
+        //     {
+        //         DBG("        Track " << (int)t << " is empty");
+        //     }
+        // }
     }
 
-    // DBG("After merge: trackIndex=" << trackIndex << ", newResults.size=" << outResults.size() << ", results.size=" << results.size());
+    // DBG("STORE COMPLETE: Track " << trackIndex 
+    // << " stored " << results[trackIndex].size() << " bands");
 }
 
 /*  Computes the FFT of each channel of the input buffer and stores the

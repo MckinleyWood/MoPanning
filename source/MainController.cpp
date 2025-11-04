@@ -355,9 +355,6 @@ void MainController::audioDeviceIOCallbackWithContext(
 {
     int numTracks = numInputChannels / 2;
 
-    // for (int i = 0; i < (int)buffers.size(); ++i)
-    //     DBG("Buffer " << i << " channels = " << buffers[i].getNumChannels());
-
     float trackGain = 1.0f / std::sqrt((float)numTracks); // maybe add gain knobs per track later
 
     for (int ch = 0; ch < numTracks; ch++)
@@ -482,8 +479,9 @@ juce::AudioProcessorValueTreeState& MainController::getAPVTS() noexcept
     return processor->getValueTreeState();;
 }
 
-std::vector<std::vector<frequency_band>>& MainController::getLatestResults() const
+std::vector<std::vector<frequency_band>> MainController::getLatestResults() const
 {
+    std::lock_guard<std::mutex> lock(analyzer->getResultsMutex());
     return analyzer->getLatestResults();
 }
 

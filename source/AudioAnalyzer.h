@@ -58,6 +58,8 @@ public:
     void setPrepared(bool prepared) { isPrepared.store(prepared); }
     // void flushAnalysisQueue();
 
+    std::mutex& getResultsMutex() { return resultsMutex; }
+
     //=========================================================================
     class AnalyzerWorker;
 
@@ -297,11 +299,11 @@ public:
         std::lock_guard<std::mutex> lock(mutex);
         cv.notify_one();
 
-        DBG("PUSH Track " << trackIndex 
-            << " L[0]=" << newBlock.getSample(0, 0) 
-            << " R[0]=" << newBlock.getSample(1, 0)
-            << " RMS L=" << newBlock.getRMSLevel(0, 0, n)
-            << " R=" << newBlock.getRMSLevel(1, 0, n));
+        // DBG("PUSH Track " << trackIndex 
+        //     << " L[0]=" << newBlock.getSample(0, 0) 
+        //     << " R[0]=" << newBlock.getSample(1, 0)
+        //     << " RMS L=" << newBlock.getRMSLevel(0, 0, n)
+        //     << " R=" << newBlock.getRMSLevel(1, 0, n));
 
         // DBG("Enqueued block on audio thread.");
     }
@@ -366,11 +368,11 @@ private:
                 }
             }
 
-            DBG("RUN() Track " << trackIndex 
-                << " L[0]=" << analysisBuffer.getSample(0, 0) 
-                << " R[0]=" << analysisBuffer.getSample(1, 0)
-                << " RMS L=" << analysisBuffer.getRMSLevel(0, 0, n)
-                << " R=" << analysisBuffer.getRMSLevel(1, 0, n));
+            // DBG("RUN() Track " << trackIndex 
+            //     << " L[0]=" << analysisBuffer.getSample(0, 0) 
+            //     << " R[0]=" << analysisBuffer.getSample(1, 0)
+            //     << " RMS L=" << analysisBuffer.getRMSLevel(0, 0, n)
+            //     << " R=" << analysisBuffer.getRMSLevel(1, 0, n));
 
             // Update the read position, wrapping around if necessary
             readPosition = (readPosition + hopSize) % N;
