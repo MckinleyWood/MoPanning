@@ -332,7 +332,7 @@ void MainController::audioDeviceIOCallbackWithContext(
 
     // Give the audio output to the videoWriter
     if (videoWriter->isRecording())
-        videoWriter->enqueueAudioBlock(outputChannelData);
+        videoWriter->enqueueAudioBlock(outputChannelData, numSamples);
     
     juce::ignoreUnused(context);
 }

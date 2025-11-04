@@ -3,67 +3,62 @@
 //=============================================================================
 void VideoWriter::prepare(double newSampleRate, int newSamplesPerBlock, int newNumChannels)
 {
-
     sampleRate = (int)newSampleRate;
     samplesPerBlock = newSamplesPerBlock;
     numChannels = newNumChannels;
+    blockBytes = samplesPerBlock * numChannels * sizeof(float);
 }
 
 //=============================================================================
 void VideoWriter::start()
 {
-    // Initialize FIFO storage
+    // Initialize video FIFO storage
     videoFIFOStorage.reserve(numVideoSlots);
     for (int i = 0; i < numVideoSlots; ++i)
         videoFIFOStorage.push_back(std::make_unique<uint8_t[]>(frameBytes));
-
-    audioFIFOStorage.reserve(numAudioSlots);
-    for (int i = 0; i < numAudioSlots; ++i)
-        audioFIFOStorage.push_back(std::make_unique<float[]>(numChannels * samplesPerBlock));
-
-    blockBytes = samplesPerBlock * numChannels * sizeof(float);
     
-    // Set up the pipes
-    setupPipes();
+    // Set up the video output stream
+    framesOut = std::make_unique<juce::FileOutputStream>(rawFrames);
+    jassert(framesOut != nullptr && framesOut->openedOk());
 
-    // Launch an FFmpeg process to read from the pipes
-    launchFFmpeg();
-    juce::Thread::sleep(100);
+    // Initialize the WAV writer for audio capture
+    startWavWriter();
 
-    // Start the worker threads
-    videoWorkerThread = std::make_unique<Worker>(*this, Worker::Format::video);
+    // Start the video worker thread
+    videoWorkerThread = std::make_unique<Worker>(*this);
     videoWorkerThread->startThread();
-
-    audioWorkerThread = std::make_unique<Worker>(*this, Worker::Format::audio);
-    audioWorkerThread->startThread();
 
     recording = true;
 }
 
 void VideoWriter::stop()
 {
-    // This will also signal FFmpeg that we are done giving it frames
-    if (videoPipe.isOpen())
-        videoPipe.close();
-    
-    if (audioPipe.isOpen())
-        audioPipe.close();
-    
-    // Stop the worker threads
+    // Stop the video worker thread
     if (videoWorkerThread != nullptr)
         videoWorkerThread->stopThread(-1);
 
-    if (audioWorkerThread != nullptr)
-        audioWorkerThread->stopThread(-1);
+    if (framesOut != nullptr)
+    {
+        framesOut->flush();
+        framesOut.reset();
+    }
 
-    // Wait for FFmpeg to finish writing the file
-    if (ffProcess.isRunning())
-        ffProcess.waitForProcessToFinish(5000);
+    // Unpublish the WAV writer so the audio thread stops using it
+    auto* tw = wavWriterPtr.exchange(nullptr, std::memory_order_acq_rel);
 
-    DBG("FFmpeg log:\n" << ffProcess.readAllProcessOutput());
+    // Destroy the ThreadedWriter and finalize the .wav header
+    wavWriter.reset();
 
+    // Stop the audio worker thread
+    if (wavThread != nullptr)
+        wavThread->stopThread(-1);
+
+    // Finalize and save the completed video in a user-specified location
     if (recording == true)
+    {
+        runFFmpeg();
         saveVideo();
+    }
 
     recording = false;
 }
@@ -81,22 +76,21 @@ void VideoWriter::enqueueVideoFrame(const uint8_t* rgb, int numBytes)
     videoWorkerThread->notify();
 }
 
-void VideoWriter::enqueueAudioBlock(const float* const* newBlock)
+void VideoWriter::enqueueAudioBlock(const float* const* newBlock, int numSamples)
 {
-    // Get the next write position and advance the write pointer
-    const auto scope = audioFIFOManager.write(1);
+    // Ensure the WAV writer is ready and we have valid data
+    auto* tw = wavWriterPtr.load(std::memory_order_acquire);
+    if (tw == nullptr || numSamples <= 0 || numChannels <= 0) return;
 
-    if (scope.blockSize1 <= 0)
-        return;
+    jassert(audioTmp.getNumChannels() == numChannels || audioTmp.getNumSamples() >= numSamples);
 
-    float* dst = audioFIFOStorage[scope.startIndex1].get();
+    // Copy non-interleaved device data into our stable buffer
+    for (int ch = 0; ch < numChannels; ++ch)
+        juce::FloatVectorOperations::copy(audioTmp.getWritePointer(ch),
+                                          newBlock[ch], numSamples);
 
-    // Interleave and copy data into the FIFO storage
-    for (int i = 0; i < samplesPerBlock; ++i)
-        for (int ch = 0; ch < numChannels; ++ch)
-            *dst++ = newBlock[ch][i];
-
-    audioWorkerThread->notify();
+    // Queue it to the background writer
+    tw->write(audioTmp.getArrayOfReadPointers(), numSamples);
 }
 
 //=============================================================================
@@ -131,115 +125,41 @@ void VideoWriter::getFFmpegVersion()
     DBG("FFmpeg output:" << process.readAllProcessOutput(););
 }
 
-void VideoWriter::runPipeTest()
-{
-    setupPipes();
-
-    launchFFmpeg();
-
-    // Wait a moment so FFmpeg opens pipe
-    juce::Thread::sleep(300);
-
-    std::vector<uint8_t> frame(W * H * 3);
-    for (int f = 0; f < 60; ++f)
-    {
-        for (int y = 0; y < H; ++y)
-        {
-            for (int x = 0; x < W; ++x)
-            {
-                int i = (y * W + x) * 3;
-                frame[i + 0] = (x + f) % 256;
-                frame[i + 1] = (y) % 256;
-                frame[i + 2] = 64;
-            }
-        }
-        writeVideoFrame(frame.data(), (int)frame.size());
-        juce::Thread::sleep(1000 / FPS);
-    }
-
-    stop();
-    DBG("Done — video saved to desktop.");
-}
-
 //=============================================================================
 bool VideoWriter::dequeueVideoFrame()
 {
     // Get the next read position and advance the read pointer
     const auto scope = videoFIFOManager.read(1);
 
-    // Copy the frame data from FIFO storage into the named pipe
-    if (scope.blockSize1 > 0)
-    {
-        return writeVideoFrame(videoFIFOStorage[scope.startIndex1].get(), frameBytes);
-    }
-
-    else
+    // Copy the frame data from FIFO storage to the output stream
+    if (scope.blockSize1 <= 0)
     {
         // No frame to dequeue
         return false;
     }
-}
 
-bool VideoWriter::dequeueAudioBlock()
-{
-    // Get the next read position and advance the read pointer
-    const auto scope = audioFIFOManager.read(1);
+    const uint8_t* data = videoFIFOStorage[scope.startIndex1].get();
 
-    // Copy the frame data into the FIFO storage
-    if (scope.blockSize1 > 0)
+    // Write the RGB24 frame
+    framesOut->write(data, (size_t)frameBytes);
+    if (framesOut->getStatus().failed())
     {
-        return writeAudioBlock(audioFIFOStorage[scope.startIndex1].get(), blockBytes);
-    }
-
-    else
-    {
-        // No frame to dequeue
-        return false;
-    }
-}
-
-bool VideoWriter::writeVideoFrame(const uint8_t* rgb, int numBytes)
-{
-    if (videoPipe.isOpen() == false)
-    {
-        DBG("Pipe not open :(");
+        DBG("framesOut write failed");
         return false;
     }
 
-    int bytesWritten = videoPipe.write(rgb, numBytes, 50000);
-    return bytesWritten == numBytes;
-}
-
-bool VideoWriter::writeAudioBlock(const float* block, int numBytes)
-{
-    if (audioPipe.isOpen() == false)
-    {
-        DBG("Pipe not open :(");
-        return false;
-    }
-
-    int bytesWritten = audioPipe.write(block, numBytes, 50000);
-    if (bytesWritten == -1)
-    DBG("Audio write failed :(");
-    return bytesWritten == numBytes;
+    videoBytesWritten += frameBytes;
+    ++frameCount;
+    return true;
 }
 
 //=============================================================================
-void VideoWriter::launchFFmpeg()
+void VideoWriter::runFFmpeg()
 {
-   #if JUCE_WINDOWS
-    juce::String videoInputPath = videoPipe.getName();
-    juce::String audioInputPath = audioPipe.getName();
-   #else
-    juce::String videoInputPath = videoPipe.getName() + "_out";
-    juce::String audioInputPath = audioPipe.getName() + "_out";
-   #endif
-   
     juce::String outputPath = tempVideo.getFullPathName();
 
     juce::File ffExecutable = locateFFmpeg();
-
-    if (ffExecutable.existsAsFile() == false)
+    if (! ffExecutable.existsAsFile())
     {
         DBG("FFmpeg not found at: " + ffExecutable.getFullPathName());
         return;
@@ -250,39 +170,56 @@ void VideoWriter::launchFFmpeg()
     args.add("-y");
     args.add("-hide_banner");
 
-    // Input: raw RGB frames via pipe
+    // Input 0: raw RGB frames
     args.add("-f");             args.add("rawvideo");
     args.add("-pixel_format");  args.add("rgb24");
-    args.add("-video_size");    args.add("1280x720");  // width x height
-    args.add("-framerate");     args.add("60");
-    args.add("-i");             args.add(videoInputPath); 
+    args.add("-video_size");    args.add(juce::String(W) + "x" + juce::String(H));
+    args.add("-framerate");     args.add(juce::String(FPS));
+    args.add("-i");             args.add(rawFrames.getFullPathName());
 
-    // Input: raw audio via another pipe
-    args.add("-f");             args.add("f32le");      // Raw PCM input
-    args.add("-ar");            args.add(juce::String(sampleRate)); 
-    args.add("-ac");            args.add(juce::String(numChannels));
-    args.add("-i");             args.add(audioInputPath);
+    // Input 1: WAV audio
+    args.add("-i");             args.add(wavAudio.getFullPathName());
 
-    // Output: H.264 MP4
+   #if JUCE_MAC
+    // Hardware encode on macOS (much faster)
+    args.add("-c:v");           args.add("h264_videotoolbox");
+    args.add("-pix_fmt");       args.add("yuv420p");
+    args.add("-b:v");           args.add("8M");
+    args.add("-maxrate");       args.add("10M");
+    args.add("-bufsize");       args.add("20M");
+   #else
+    // CPU x264
     args.add("-c:v");           args.add("libx264");
-    args.add("-preset");        args.add("veryfast"); // tune as you like
-    args.add("-crf");           args.add("18");       // 0–51 (lower = better)
-    args.add("-pix_fmt");       args.add("yuv420p");  // for wide play
+    args.add("-preset");        args.add("veryfast");
+    args.add("-crf");           args.add("18");
+    args.add("-pix_fmt");       args.add("yuv420p");
+   #endif
 
     args.add("-c:a");           args.add("aac");
     args.add("-b:a");           args.add("320k");
 
     args.add("-loglevel");      args.add("info");
 
+    // Output file
     args.add(outputPath);
 
-    const int flags = juce::ChildProcess::wantStdErr;       // capture ffmpeg logs
-
-    if (ffProcess.start(args, flags) == false)
+    const int flags = juce::ChildProcess::wantStdErr; // capture logs
+    if (! ffProcess.start(args, flags))
     {
         DBG("Failed to start FFmpeg process.");
         return;
     }
+
+    // Wait for FFmpeg to finish
+    ffProcess.waitForProcessToFinish(-1);
+    DBG("FFmpeg log:\n" + ffProcess.readAllProcessOutput());
+
+    // Clean up temporary files
+    if (rawFrames.existsAsFile())
+        rawFrames.deleteFile();
+    
+    if (wavAudio.existsAsFile())
+        wavAudio.deleteFile();
 }
 
 juce::File VideoWriter::locateFFmpeg()
@@ -302,18 +239,42 @@ juce::File VideoWriter::locateFFmpeg()
    #endif
 }
 
-bool VideoWriter::setupPipes()
+//=============================================================================
+void VideoWriter::startWavWriter()
 {
-   #if JUCE_MAC
-    auto tmp = juce::File::getSpecialLocation(juce::File::tempDirectory);
-    auto videoPipeName = tmp.getChildFile("mopanning_video_pipe").getFullPathName();
-    auto audioPipeName = tmp.getChildFile("mopanning_audio_pipe").getFullPathName();
-   #elif JUCE_WINDOWS
-    auto videoPipeName = R"(\\.\pipe\mopanning_video_pipe)";
-    auto audioPipeName = R"(\\.\pipe\mopanning_audio_pipe)";
-   #endif
+    const unsigned int bitsPerSample = 24;
 
-   return videoPipe.createNewPipe(videoPipeName) && audioPipe.createNewPipe(audioPipeName);
+    auto options = AudioFormatWriterOptions()
+        .withSampleRate((double)sampleRate)
+        .withNumChannels(numChannels)
+        .withBitsPerSample((int)bitsPerSample);
+
+    auto fileStream = wavAudio.createOutputStream();
+    jassert(fileStream && fileStream->openedOk());
+
+    std::unique_ptr<OutputStream> outStream;
+    outStream.reset(fileStream.release());
+
+    juce::WavAudioFormat wav;
+    auto rawWriter = wav.createWriterFor(outStream, options);
+    jassert(rawWriter != nullptr);
+
+    if (wavThread == nullptr)
+        wavThread = std::make_unique<juce::TimeSliceThread>("WavWriterThread");
+    
+    wavThread->startThread();
+
+    const int fifoSamples = (int)juce::roundToInt(sampleRate * 0.2); // 200 ms
+    wavWriter = std::make_unique<juce::AudioFormatWriter::ThreadedWriter>(
+        rawWriter.release(),
+        *wavThread,
+        fifoSamples);
+
+    // Publish the raw pointer for the audio callback (fast nullptr check)
+    wavWriterPtr.store(wavWriter.get(), std::memory_order_release);
+
+    // Prepare temporary buffer for audio blocks
+    audioTmp.setSize(numChannels, samplesPerBlock);
 }
 
 void VideoWriter::saveVideo()
@@ -324,27 +285,31 @@ void VideoWriter::saveVideo()
             .getChildFile("mopanning_output.mp4"),
         "*.mp4");
 
-    // auto flags = juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles;
+    /*  Asynchronous version - this would be better, but would need more 
+        refactoring to handle the async nature of the callback properly.
+    
+    auto flags = juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles;
 
-    // // Launch an asynchronous dialog window
-    // chooser->launchAsync(flags, [this, chooser](const juce::FileChooser& fc)
-    // {
-    //     juce::ignoreUnused(chooser);
-    //     auto choice = fc.getResult();
+    // Launch an asynchronous dialog window
+    chooser->launchAsync(flags, [this, chooser](const juce::FileChooser& fc)
+    {
+        juce::ignoreUnused(chooser);
+        auto choice = fc.getResult();
 
-    //     // Move the temp video file to the user-selected location
-    //     if (tempVideo.existsAsFile())
-    //     {
-    //         bool result = tempVideo.moveFileTo(choice);
-    //         if (result == true)
-    //             DBG("Video saved to: " + choice.getFullPathName());
-    //         else
-    //             DBG("Failed to save video :(");
-    //     }
+        // Move the temp video file to the user-selected location
+        if (tempVideo.existsAsFile())
+        {
+            bool result = tempVideo.moveFileTo(choice);
+            if (result == true)
+                DBG("Video saved to: " + choice.getFullPathName());
+            else
+                DBG("Failed to save video :(");
+        }
 
-    //     recording = false;
-    // });
+        recording = false;
+    }); */
 
+    // Modal dialog - blocks the message thread until the user makes a choice
     if (chooser->browseForFileToSave(true) == true)
     {
         auto choice = chooser->getResult();
@@ -362,42 +327,19 @@ void VideoWriter::saveVideo()
 }
 
 //=============================================================================
-VideoWriter::Worker::Worker(VideoWriter& vw, Format f)
-    : juce::Thread("VideoWorker"), parent(vw), format(f) {}
+VideoWriter::Worker::Worker(VideoWriter& vw)
+    : juce::Thread("VideoWorker"), parent(vw) {}
 
 void VideoWriter::Worker::run()
 {
-    if (format == video)
+    while (threadShouldExit() == false) 
     {
-        while (threadShouldExit() == false) 
-        {
-            bool frameWritten = parent.dequeueVideoFrame();
+        bool frameWritten = parent.dequeueVideoFrame();
 
-            if (frameWritten == false)
-            {
-                // No frame to write, sleep briefly
-                juce::Thread::wait(1);
-            }
+        if (frameWritten == false)
+        {
+            // No frame to write, sleep briefly
+            juce::Thread::wait(1);
         }
     }
-    
-    else if (format == audio)
-    {
-        while (threadShouldExit() == false) 
-        {
-            bool blockWritten = parent.dequeueAudioBlock();
-
-            if (blockWritten == false)
-            {
-                // No block to write, sleep briefly
-                juce::Thread::wait(1);
-            }
-        }
-    }
-
-    else
-    {
-        jassertfalse;
-    }
-    
 }

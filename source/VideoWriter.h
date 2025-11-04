@@ -27,18 +27,16 @@ public:
     //=========================================================================
     /*  Starts the video writing process. 
     
-        This function initializes the FIFO buffer, sets up the named
-        pipe, launches FFmpeg, and starts the worker thread. It must be 
-        called before attempting to enque frames from another thread.
+        This function initializes the FIFO storage, output streams,
+        and worker threads. It should be called when the user would like
+        to begin recording video.
     */
     void start();
 
     /*  Stops video writing and cleans up resources.
     
-        This function signals the worker thread to exit, waits for it
-        to finish, closes the named pipe, and waits for FFmpeg to
-        complete encoding. It should be called when video writing is
-        no longer needed.
+        This function stops the worker threads, finalizes the video
+        file, and prompts the user to save the completed video.
     */
     void stop();
 
@@ -55,9 +53,9 @@ public:
     
         This function should be called from the audio thread whenever a 
         new block is ready to be written. It copies the provided data
-        into the FIFO buffer for the worker thread to process.
+        to the wav writer to write to disk on a background thread.
     */
-    void enqueueAudioBlock(const float* const* newBlock);
+    void enqueueAudioBlock(const float* const* newBlock, int numSamples);
 
     //=========================================================================
     /*  Returns true if recording or writing is in progress. 
@@ -71,14 +69,6 @@ public:
         argument to retrieve and log the installed FFmpeg version.
     */
     void getFFmpegVersion();
-
-    /*  Runs a pipe test to verify pipe functionality.
-    
-        This function creates a temporary named pipe, writes test data
-        to it. The result should be a funky little video file on the 
-        desktop.
-    */
-    void runPipeTest();
     
     //=========================================================================
     /*  Forward declaration of the worker thread class. */
@@ -86,45 +76,22 @@ public:
 
 private:
     //=========================================================================
-    /*  Dequeues a frame from the FIFO and writes it to the video pipe.
+    /*  Dequeues a frame from the FIFO and writes it to a temp file.
     
         This function is called by the worker thread to retrieve the
-        next available frame from the FIFO buffer and write it to
-        the named pipe for FFmpeg to encode.
+        next available frame from the FIFO buffer and write it to disk
+        for FFmpeg to process later.
     */
     bool dequeueVideoFrame();
-
-    /*  Dequeues a block from the FIFO and writes it to the audio pipe.
-    
-        This function is called by the worker thread to retrieve the
-        next available block from the FIFO buffer and write it to
-        the named pipe for FFmpeg to encode.
-    */
-    bool dequeueAudioBlock();
-
-    /*  Writes a single RGB frame to the named pipe.
-    
-        This function handles the low-level writing of RGB data
-        to the named pipe. It returns true if the write was successful.
-    */
-    bool writeVideoFrame(const uint8_t* rgb, int numBytes);
-
-    /*  Writes a single audio block to the named pipe.
-    
-        This function handles the low-level writing of audio data
-        to the named pipe. It returns true if the write was successful.
-    */
-    bool writeAudioBlock(const float* block, int numBytes);
 
     //=========================================================================
     /*  Launches the FFmpeg process with appropriate arguments.
     
         This function constructs the command-line arguments for
-        FFmpeg to read raw RGB frames from the named pipe and
-        encode them into an MP4 video file. It then starts the
-        FFmpeg process.
+        FFmpeg to mux raw RGB frames and .wav audio into a final .mp4
+        video file, starts the process, and waits for it to finish.
     */
-    void launchFFmpeg();
+    void runFFmpeg();
 
     /*  Locates the FFmpeg executable on the system.
     
@@ -134,73 +101,78 @@ private:
     */
     juce::File locateFFmpeg();
 
-    /*  Sets up the named pipe for communication with FFmpeg.
+    /*  Initializes the WAV audio writer.
     
-        This function creates a named pipe that FFmpeg will
-        read raw RGB frame data from and returns true is successful. 
-        The pipe is used for inter-process communication between this 
-        application and the spawned FFmpeg process.
+        This function sets up the WAV file writer to record
+        audio data to a temporary .wav file.
     */
-    bool setupPipes();
+    void startWavWriter();
 
     /*  Moves the completed video to a location of the user's choice. 
     */
     void saveVideo();
 
     //=========================================================================
+    // Video parameters - fixed for now
     static constexpr int W = 1280;
     static constexpr int H = 720;
     static constexpr int FPS = 60;
+    static constexpr int frameBytes = W * H * 3;
 
+    // Audio parameters - set via prepare()
     int sampleRate;
     int samplesPerBlock;
-    int numChannels = 2;
+    int numChannels;
+    int blockBytes;
 
-    juce::File tempVideo = juce::File::getSpecialLocation(juce::File::tempDirectory)
-                                    .getChildFile("mopanning_temp_video.mp4");
-    
-    juce::NamedPipe videoPipe;
-    juce::NamedPipe audioPipe;
-    juce::ChildProcess ffProcess;
-    std::unique_ptr<Worker> videoWorkerThread;
-    std::unique_ptr<Worker> audioWorkerThread;
     bool recording = false;
 
+    // Temporary file locations
+    juce::File temp = juce::File::getSpecialLocation(juce::File::tempDirectory);
+    juce::File rawFrames = temp.getChildFile("mopanning_frames.rgb");
+    juce::File wavAudio = temp.getChildFile("mopanning_audio.wav");
+    juce::File tempVideo = temp.getChildFile("mopanning_temp_video.mp4");
+    
+    // .wav audio writer
+    std::unique_ptr<juce::AudioFormatWriter::ThreadedWriter> wavWriter;
+    std::atomic<juce::AudioFormatWriter::ThreadedWriter*> wavWriterPtr { nullptr };
+    juce::AudioBuffer<float> audioTmp;
+    std::unique_ptr<juce::TimeSliceThread> wavThread;
+
+    // Video output stream, FIFO, and worker thread
+    std::unique_ptr<juce::FileOutputStream> framesOut;
+    std::atomic<int64_t> videoBytesWritten {0};
+    std::atomic<int> frameCount {0};
+
     static constexpr int numVideoSlots = 8;
-    static constexpr int frameBytes = W * H * 3;
     juce::AbstractFifo videoFIFOManager { numVideoSlots };
     std::vector<std::unique_ptr<uint8_t[]>> videoFIFOStorage;
 
-    static constexpr int numAudioSlots = 16;
-    int blockBytes;
-    juce::AbstractFifo audioFIFOManager { numAudioSlots };
-    std::vector<std::unique_ptr<float[]>> audioFIFOStorage;
+    std::unique_ptr<Worker> videoWorkerThread;
+
+    juce::ChildProcess ffProcess;
 
     //=========================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(VideoWriter)
 };
 
 //=============================================================================
-/*  Runs a loop to dequeue frames/blocks and write them to a pipe.
+/*  Runs a loop to dequeue video frames and write them to a .rgb file.
     
-    This worker thread continuously checks for new frames/blocks in the 
-    FIFO buffer corresponding to its format, dequeues them, and writes
-    them to the named pipe for FFmpeg to encode.
+    This worker thread continuously checks for new frames in the FIFO 
+    buffer, dequeues them, and writes them to disk.
 */
 class VideoWriter::Worker : public juce::Thread
 {
 public:
     //=========================================================================
-    enum Format {audio, video};
-
-    Worker(VideoWriter& vw, Format f);
+    Worker(VideoWriter& vw);
 
     void run() override;
 
 private:
     //=========================================================================
     VideoWriter& parent;
-    Format format;
 
     //=========================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Worker)
