@@ -56,9 +56,19 @@ void VideoWriter::stop()
     // Finalize and save the completed video in a user-specified location
     if (recording == true)
     {
-        runFFmpeg();
-        saveVideo();
+        juce::File outputLocation = promptUserForSaveLocation();
+        if (outputLocation.getFileName().isEmpty() == false)
+        {
+            runFFmpeg(outputLocation);
+        }
     }
+
+    // Clean up temporary files
+    if (rawFrames.existsAsFile())
+        rawFrames.deleteFile();
+    
+    if (wavAudio.existsAsFile())
+        wavAudio.deleteFile();
 
     recording = false;
 }
@@ -154,74 +164,6 @@ bool VideoWriter::dequeueVideoFrame()
 }
 
 //=============================================================================
-void VideoWriter::runFFmpeg()
-{
-    juce::String outputPath = tempVideo.getFullPathName();
-
-    juce::File ffExecutable = locateFFmpeg();
-    if (! ffExecutable.existsAsFile())
-    {
-        DBG("FFmpeg not found at: " + ffExecutable.getFullPathName());
-        return;
-    }
-
-    juce::StringArray args;
-    args.add(ffExecutable.getFullPathName());
-    args.add("-y");
-    args.add("-hide_banner");
-
-    // Input 0: raw RGB frames
-    args.add("-f");             args.add("rawvideo");
-    args.add("-pixel_format");  args.add("rgb24");
-    args.add("-video_size");    args.add(juce::String(W) + "x" + juce::String(H));
-    args.add("-framerate");     args.add(juce::String(FPS));
-    args.add("-i");             args.add(rawFrames.getFullPathName());
-
-    // Input 1: WAV audio
-    args.add("-i");             args.add(wavAudio.getFullPathName());
-
-   #if JUCE_MAC
-    // Hardware encode on macOS (much faster)
-    args.add("-c:v");           args.add("h264_videotoolbox");
-    args.add("-pix_fmt");       args.add("yuv420p");
-    args.add("-b:v");           args.add("8M");
-    args.add("-maxrate");       args.add("10M");
-    args.add("-bufsize");       args.add("20M");
-   #else
-    // CPU x264
-    args.add("-c:v");           args.add("libx264");
-    args.add("-preset");        args.add("veryfast");
-    args.add("-crf");           args.add("18");
-    args.add("-pix_fmt");       args.add("yuv420p");
-   #endif
-
-    args.add("-c:a");           args.add("aac");
-    args.add("-b:a");           args.add("320k");
-
-    args.add("-loglevel");      args.add("info");
-
-    // Output file
-    args.add(outputPath);
-
-    const int flags = juce::ChildProcess::wantStdErr; // capture logs
-    if (! ffProcess.start(args, flags))
-    {
-        DBG("Failed to start FFmpeg process.");
-        return;
-    }
-
-    // Wait for FFmpeg to finish
-    ffProcess.waitForProcessToFinish(-1);
-    DBG("FFmpeg log:\n" + ffProcess.readAllProcessOutput());
-
-    // Clean up temporary files
-    if (rawFrames.existsAsFile())
-        rawFrames.deleteFile();
-    
-    if (wavAudio.existsAsFile())
-        wavAudio.deleteFile();
-}
-
 juce::File VideoWriter::locateFFmpeg()
 {
    #if JUCE_MAC
@@ -277,7 +219,8 @@ void VideoWriter::startWavWriter()
     audioTmp.setSize(numChannels, samplesPerBlock);
 }
 
-void VideoWriter::saveVideo()
+//=============================================================================
+juce::File VideoWriter::promptUserForSaveLocation()
 {
     auto chooser = std::make_shared<juce::FileChooser>(
         "Save Video As...",
@@ -296,40 +239,102 @@ void VideoWriter::saveVideo()
         juce::ignoreUnused(chooser);
         auto choice = fc.getResult();
 
-        // Move the temp video file to the user-selected location
-        if (tempVideo.existsAsFile())
-        {
-            bool result = tempVideo.moveFileTo(choice);
-            if (result == true)
-                DBG("Video saved to: " + choice.getFullPathName());
-            else
-                DBG("Failed to save video :(");
-        }
-
         recording = false;
     }); */
 
     // Modal dialog - blocks the message thread until the user makes a choice
     if (chooser->browseForFileToSave(true) == true)
     {
-        auto choice = chooser->getResult();
+        return chooser->getResult();
+    }
+
+    return juce::File();
+}
+
+void VideoWriter::runFFmpeg(juce::File destination)
+{
+    juce::String outputPath = tempVideo.getFullPathName();
+
+    juce::File ffExecutable = locateFFmpeg();
+    if (! ffExecutable.existsAsFile())
+    {
+        DBG("FFmpeg not found at: " + ffExecutable.getFullPathName());
+        return;
+    }
+
+    juce::StringArray args;
+    args.add(ffExecutable.getFullPathName());
+    args.add("-y");
+    args.add("-hide_banner");
+
+    // Input 0: raw RGB frames
+    args.add("-f");             args.add("rawvideo");
+    args.add("-pixel_format");  args.add("rgb24");
+    args.add("-video_size");    args.add(juce::String(W) + "x" + juce::String(H));
+    args.add("-framerate");     args.add(juce::String(FPS));
+    args.add("-i");             args.add(rawFrames.getFullPathName());
+
+    // Input 1: WAV audio
+    args.add("-i");             args.add(wavAudio.getFullPathName());
+
+   #if JUCE_MAC
+    // Hardware encode on macOS (much faster)
+    args.add("-c:v");           args.add("h264_videotoolbox");
+    args.add("-pix_fmt");       args.add("yuv420p");
+    args.add("-b:v");           args.add("8M");
+    args.add("-maxrate");       args.add("10M");
+    args.add("-bufsize");       args.add("20M");
+   #else
+    // CPU x264
+    args.add("-c:v");           args.add("libx264");
+    args.add("-preset");        args.add("veryfast");
+    args.add("-crf");           args.add("18");
+    args.add("-pix_fmt");       args.add("yuv420p");
+   #endif
+
+    args.add("-c:a");           args.add("aac");
+    args.add("-b:a");           args.add("320k");
+
+    args.add("-loglevel");      args.add("info");
+
+    // Output file
+    args.add(outputPath);
+
+    const int flags = juce::ChildProcess::wantStdErr; // capture logs
+    if (! ffProcess.start(args, flags))
+    {
+        DBG("Failed to start FFmpeg process.");
+        return;
+    }
+
+    // Launch rendering window thread
+    RenderingWindow renderingWindow(*this);
+    if (renderingWindow.runThread())
+    {
+        // Process completed successfully
+        DBG("FFmpeg rendering completed.");
 
         // Move the temp video file to the user-selected location
-        if (tempVideo.existsAsFile())
+        if (tempVideo.existsAsFile() && tempVideo.moveFileTo(destination))
         {
-            bool result = tempVideo.moveFileTo(choice);
-            if (result == true)
-                DBG("Video saved to: " + choice.getFullPathName());
-            else
-                DBG("Failed to save video :(");
+            DBG("Video saved to: " + destination.getFullPathName());
+            return;
         }
+
+        DBG("Failed to save video :(");
+    }
+    else
+    {
+        // User cancelled the operation
+        DBG("FFmpeg rendering cancelled by user.");
+
+        ffProcess.kill();
+        if (tempVideo.existsAsFile())
+            tempVideo.deleteFile();
     }
 }
 
 //=============================================================================
-VideoWriter::Worker::Worker(VideoWriter& vw)
-    : juce::Thread("VideoWorker"), parent(vw) {}
-
 void VideoWriter::Worker::run()
 {
     while (threadShouldExit() == false) 
@@ -341,5 +346,21 @@ void VideoWriter::Worker::run()
             // No frame to write, sleep briefly
             juce::Thread::wait(1);
         }
+    }
+}
+
+void VideoWriter::RenderingWindow::run()
+{
+    while (threadShouldExit() == false)
+    {
+        if (parent.ffProcess.isRunning() == false)
+        {
+            // getAlertWindow()->getButton("Cancel")->setVisible(false);
+            // setStatusMessage("Complete!");
+            // juce::Thread::sleep(500);
+            break;
+        }
+
+        juce::Thread::sleep(1);
     }
 }

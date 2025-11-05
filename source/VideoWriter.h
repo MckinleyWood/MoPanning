@@ -73,6 +73,7 @@ public:
     //=========================================================================
     /*  Forward declaration of the worker thread class. */
     class Worker;
+    class RenderingWindow;
 
 private:
     //=========================================================================
@@ -85,14 +86,6 @@ private:
     bool dequeueVideoFrame();
 
     //=========================================================================
-    /*  Launches the FFmpeg process with appropriate arguments.
-    
-        This function constructs the command-line arguments for
-        FFmpeg to mux raw RGB frames and .wav audio into a final .mp4
-        video file, starts the process, and waits for it to finish.
-    */
-    void runFFmpeg();
-
     /*  Locates the FFmpeg executable on the system.
     
         This function attempts to find the FFmpeg binary based
@@ -108,9 +101,20 @@ private:
     */
     void startWavWriter();
 
-    /*  Moves the completed video to a location of the user's choice. 
+    //=========================================================================
+    /*  Prompts the user to select a save location for the completed video. 
     */
-    void saveVideo();
+    juce::File promptUserForSaveLocation();
+
+    /*  Runs an FFmpeg process to finalize the video.
+    
+        This function constructs the command-line arguments for
+        FFmpeg to mux raw RGB frames and .wav audio into a final .mp4
+        video file, starts the process, and launches a dialog box 
+        propting the user to wait for it to finish or cancel the 
+        operation.
+    */
+    void runFFmpeg(juce::File destination);
 
     //=========================================================================
     // Video parameters - fixed for now
@@ -156,6 +160,7 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(VideoWriter)
 };
 
+
 //=============================================================================
 /*  Runs a loop to dequeue video frames and write them to a .rgb file.
     
@@ -166,7 +171,9 @@ class VideoWriter::Worker : public juce::Thread
 {
 public:
     //=========================================================================
-    Worker(VideoWriter& vw);
+    Worker(VideoWriter& vw)  : juce::Thread("VideoWorker"), parent(vw) 
+    {
+    }
 
     void run() override;
 
@@ -177,3 +184,32 @@ private:
     //=========================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Worker)
 };
+
+
+//=============================================================================
+/*  Shows a window with a cancel button while processing video.
+    
+    This class creates a modal progress window that repeatedly checks
+    the FFmpeg process status and allows the user to cancel the 
+    operation.
+*/
+class VideoWriter::RenderingWindow : public juce::ThreadWithProgressWindow
+{
+public:
+    //=========================================================================
+    RenderingWindow(VideoWriter& vw) 
+        : ThreadWithProgressWindow("Writng the video file...", false, true), parent(vw)
+    {
+    }
+
+    void run() override;
+
+private:
+    //=========================================================================
+    VideoWriter& parent;
+
+    //=========================================================================
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(RenderingWindow)
+};
+
+
