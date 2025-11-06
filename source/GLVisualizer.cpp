@@ -65,37 +65,71 @@ void GLVisualizer::buildTexture()
 
             switch (colourScheme)
             {
-            case greyscale:
-                    colours[j] = juce::Colour((juce::uint8)j, (juce::uint8)j, (juce::uint8)j);
-                break;
-            
-            case rainbow:
+                case greyscale:
+                    colours[j] = juce::Colour::fromFloatRGBA(t, t, t, 1.0f);
+                    break;
+
+                case rainbow:
                     colours[j] = juce::Colour::fromHSV(t, 1.0f, 1.0f, 1.0f);
-                break;
-            
-            case red:
-                    colours[j] = juce::Colour::fromFloatRGBA(t, 0.0f, 0.0f, 1.0f);
-                break;
+                    break;
 
-            case green:
-                    colours[j] = juce::Colour::fromFloatRGBA(0.0f, t, 0.0f, 1.0f);
-                break;
+                case red:
+                {
+                    // Hue ≈ 0.0 (red), deeper reds at low t → more orange near bright
+                    float hue = 0.0f + 0.03f * t;              // slight shift toward orange
+                    float sat = juce::jmap(t, 0.0f, 1.0f, 1.0f, 0.6f); // high amp = less saturation
+                    float val = juce::jmap(t, 0.0f, 1.0f, 0.3f, 1.0f); // high amp = brighter
+                    colours[j] = juce::Colour::fromHSV(hue, sat, val, 1.0f);
+                    break;
+                }
 
-            case blue:
-                    colours[j] = juce::Colour::fromFloatRGBA(0.0f, 0.0f, t, 1.0f);
-                break;
+                case green:
+                {
+                    // Hue ≈ 0.33, deep forest → bright lime
+                    float hue = 0.33f - 0.05f * (1.0f - t);
+                    float sat = juce::jmap(t, 0.0f, 1.0f, 1.0f, 0.7f);
+                    float val = juce::jmap(t, 0.0f, 1.0f, 0.25f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(hue, sat, val, 1.0f);
+                    break;
+                }
 
-            case warm:
-                    colours[j] = juce::Colour::fromHSV(0.05f + 0.1f * t, 1.0f, 1.0f, 1.0f);
-                break;
+                case blue:
+                {
+                    // Hue ≈ 0.6, dark navy → light cyan
+                    float hue = juce::jmap(t, 0.0f, 1.0f, 0.63f, 0.52f);
+                    float sat = juce::jmap(t, 0.0f, 1.0f, 1.0f, 0.6f);
+                    float val = juce::jmap(t, 0.0f, 1.0f, 0.25f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(hue, sat, val, 1.0f);
+                    break;
+                }
 
-            case cool:
-                    colours[j] = juce::Colour::fromHSV(0.6f + 0.1f * t, 1.0f, 1.0f, 1.0f);
-                break;
+                case warm:
+                {
+                    // Orange → yellow → pale gold
+                    float hue = juce::jmap(t, 0.0f, 1.0f, 0.05f, 0.13f);
+                    float sat = juce::jmap(t, 0.0f, 1.0f, 1.0f, 0.7f);
+                    float val = juce::jmap(t, 0.0f, 1.0f, 0.4f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(hue, sat, val, 1.0f);
+                    break;
+                }
 
-            default:
-                jassertfalse; // Unsupported colour scheme
-                break;
+                case cool:
+                {
+                    // Purple → indigo → cyan
+                    float hue = juce::jmap(t, 0.0f, 1.0f, 0.75f, 0.50f);
+                    float sat = juce::jmap(t, 0.0f, 1.0f, 1.0f, 0.7f);
+                    float val = juce::jmap(t, 0.0f, 1.0f, 0.35f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(hue, sat, val, 1.0f);
+                    break;
+                }
+                
+                case orange:
+                    colours[j] = juce::Colour::fromHSV(0.04f + 0.1f * t, 1.0f, 1.0f, 1.0f);
+                    break;
+
+                default:
+                    jassertfalse;
+                    break;
             }
 
             colorData[j * 3 + 0] = colours[j].getFloatRed();
@@ -130,7 +164,6 @@ void GLVisualizer::initialise()
     // GLSL vertex shader initialization code for the dot cloud
     static const char* mainVertSrc = R"(#version 150
         in vec4 instanceData;
-        // in float instanceTrackIndex;
 
         uniform mat4 uProjection;
         uniform mat4 uView;
@@ -138,18 +171,6 @@ void GLVisualizer::initialise()
         uniform float uFadeEndZ;
         uniform float uDotSize;
         uniform float uAmpScale;
-
-        // vec3 rgb;
-
-        // if (instanceTrackIndex == 0)
-        // {
-        //     rgb = vec3(1.0, 0.0, 0.0);
-        // }
-
-        // else if (instanceTrackIndex == 1)
-        // {
-        //     rgb = vec3(0.0, 1.0, 0.0);
-        // }
 
         out vec4 vColour;
         
@@ -166,6 +187,14 @@ void GLVisualizer::initialise()
             
             // Look up color from the texture
             vec3 rgb = texture(uColourMap, amp).rgb;
+
+            // Dynamic brightness scaling
+            // Higher amplitudes -> brighter + lighter
+            // float brightness = clamp(pow(amp * uAmpScale, 0.5), 0.2, 1.0);
+            // rgb *= brightness;
+
+            // Gently blend toward white at high brightness
+            // rgb = mix(rgb, vec3(1.0), brightness * 0.3);
 
             // Set the color with alpha
             vColour = vec4(rgb, alpha);

@@ -185,6 +185,8 @@ MainController::MainController()
             {
                 if (visualizer != nullptr)
                     visualizer->setDimension(static_cast<Dimension>(value));
+                if (onDimChanged)
+                    onDimChanged(static_cast<int>(value));
             }
         },
         // colourSchemeTrack1
@@ -192,20 +194,21 @@ MainController::MainController()
             "track1ColourScheme", "Track 1 Colour Scheme", 
             "Colour scheme for visualization of track 1.",
             ParameterDescriptor::Type::Choice, 1, {},
-            {"Greyscale", "Rainbow", "Red", "Green", "Blue", "Warm", "Cool"}, "",
+            {"Greyscale", "Rainbow", "Red", "Green", "Blue", "Warm", "Cool", "Orange"}, "",
             [this](float value) 
             {
                 if (visualizer != nullptr)
                     visualizer->setTrackColourScheme(
                         static_cast<ColourScheme>(value), 0);
-            }
+            },
+            true
         },
         // colourSchemeTrack2
         {
             "track2ColourScheme", "Track 2 Colour Scheme", 
             "Colour scheme for visualization of track 2.",
             ParameterDescriptor::Type::Choice, 1, {},
-            {"Greyscale", "Rainbow", "Red", "Green", "Blue", "Warm", "Cool"}, "",
+            {"Greyscale", "Rainbow", "Red", "Green", "Blue", "Warm", "Cool", "Orange"}, "",
             [this](float value) 
             {
                 if (visualizer != nullptr)
@@ -218,7 +221,7 @@ MainController::MainController()
             "track3ColourScheme", "Track 3 Colour Scheme", 
             "Colour scheme for visualization of track 3.",
             ParameterDescriptor::Type::Choice, 1, {},
-            {"Greyscale", "Rainbow", "Red", "Green", "Blue", "Warm", "Cool"}, "",
+            {"Greyscale", "Rainbow", "Red", "Green", "Blue", "Warm", "Cool", "Orange"}, "",
             [this](float value) 
             {
                 if (visualizer != nullptr)
@@ -231,7 +234,7 @@ MainController::MainController()
             "track4ColourScheme", "Track 4 Colour Scheme", 
             "Colour scheme for visualization of track 4.",
             ParameterDescriptor::Type::Choice, 1, {},
-            {"Greyscale", "Rainbow", "Red", "Green", "Blue", "Warm", "Cool"}, "",
+            {"Greyscale", "Rainbow", "Red", "Green", "Blue", "Warm", "Cool", "Orange"}, "",
             [this](float value) 
             {
                 if (visualizer != nullptr)
@@ -353,7 +356,7 @@ void MainController::audioDeviceIOCallbackWithContext(
     float *const *outputChannelData, int numOutputChannels, int numSamples,
     const juce::AudioIODeviceCallbackContext& context)
 {
-    int numTracks = numInputChannels / 2;
+    numTracks = numInputChannels / 2;
 
     float trackGain = 1.0f / std::sqrt((float)numTracks); // maybe add gain knobs per track later
 
@@ -383,7 +386,10 @@ void MainController::audioDeviceAboutToStart(juce::AudioIODevice* device)
     double sampleRate = device->getCurrentSampleRate();
     int samplesPerBlock = device->getCurrentBufferSizeSamples();
     int numInputChannels = device->getActiveInputChannels().countNumberOfSetBits();
-    int numTracks = (numInputChannels > 0) ? numInputChannels / 2 : 1;  // Fallback to 1 if no inputs
+    numTracks = (numInputChannels > 0) ? numInputChannels / 2 : 1;  // Fallback to 1 if no inputs
+
+    if (onNumTracksChanged)
+        onNumTracksChanged(numTracks);
 
     // Ensure buffers vector matches number of stereo tracks
     if ((int)buffers.size() != numTracks)
@@ -396,7 +402,6 @@ void MainController::audioDeviceAboutToStart(juce::AudioIODevice* device)
             buffers[i].setSize(2, samplesPerBlock, false, false, true);
     }
     
-    // engine->setInputType(static_cast<InputType>(getInputType()));
     engine->prepareToPlay(samplesPerBlock, sampleRate);
     analyzer->setPrepared(false);
     analyzer->prepare(sampleRate, numTracks);

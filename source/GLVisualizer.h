@@ -14,7 +14,8 @@ enum ColourScheme
     green,
     blue,
     warm,
-    cool
+    cool,
+    orange
 };
 enum Dimension { dimension2, dimension3 };
 

@@ -22,6 +22,7 @@ public:
 
         if (oldHeight != newHeight && onHeightChanged)
             onHeightChanged();
+        DBG("OldHeight = " << oldHeight << ", NewHeight: " << newHeight);
     }
 };
 
@@ -57,6 +58,8 @@ public:
     
     void resized(void) override;
 
+    int oldDeviceSelectorHeight = 0;
+
 private:
     //=========================================================================
     MainController& controller;
@@ -88,10 +91,16 @@ public:
 
     void resized() override;
     void paint(juce::Graphics& g) override;
+    void updateParamVisibility(int numTracksIn, bool threeDimIn);
 
     // Helpers
     int getDeviceSelectorHeight() const;
     const std::vector<std::unique_ptr<juce::Component>>& getUIObjects() const;
+
+    std::unordered_map<juce::String, juce::Component*> parameterComponentMap;
+    std::unordered_map<juce::String, juce::Label*> parameterLabelMap;
+    int numTracks = 1;
+    int dim = 1;
 
 private:
     //=========================================================================

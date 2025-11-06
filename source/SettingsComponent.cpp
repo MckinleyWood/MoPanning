@@ -7,6 +7,26 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
     content = std::make_unique<SettingsContentComponent>(controller);
     viewport.setViewedComponent(content.get(), false);
     addAndMakeVisible(viewport);
+
+    controller.onNumTracksChanged = [this](int numTracksIn)
+    {
+        if (content)
+        {
+            content->numTracks = numTracksIn;
+            content->updateParamVisibility(content->numTracks,
+                                        content->dim);
+        }
+    };
+
+    controller.onDimChanged = [this](int dimIn)
+    {
+        if (content)
+        {
+            content->dim = dimIn;
+            content->updateParamVisibility(content->numTracks,
+                                        content->dim);
+        }
+    };
 }
 
 //=============================================================================
@@ -16,20 +36,28 @@ SettingsComponent::~SettingsComponent() = default;
 void SettingsComponent::resized() 
 {
     viewport.setBounds(getLocalBounds());
-
-    const int titleHeight = 60;
+    // const int titleHeight = 60;
     const int deviceSelectorHeight = content->getDeviceSelectorHeight();
-    const int rowHeight = 50;
-    const int numSettings = (int)content->getUIObjects().size();
-    const int contentHeight = titleHeight + deviceSelectorHeight
-                            + rowHeight * numSettings + 20;
-    int contentWidth = getWidth();
+    DBG("Device selector height in SC::Resized: " << deviceSelectorHeight);
+    int selectorDiff = deviceSelectorHeight - oldDeviceSelectorHeight;
+    int contentHeight = 0;
+    if (selectorDiff > 1e-6)
+        contentHeight = content ? content->getHeight() + selectorDiff : getHeight();
 
-    // if (contentHeight > getHeight())
-        contentWidth = getWidth() - 8; // Leave some space for scrollbar
+    if (selectorDiff < -1e-6)
+        contentHeight = content ? content->getHeight() - selectorDiff : getHeight();
+
+    oldDeviceSelectorHeight = deviceSelectorHeight;
+    // const int rowHeight = 50;
+    // const int numSettings = (int)content->getUIObjects().size();
+    // const int contentHeight = titleHeight + deviceSelectorHeight
+    //                         + rowHeight * numSettings + 20;
+    int contentWidth = getWidth() - 8; // leave some space for scroll bar
 
     if (content != nullptr)
+    {
         content->setSize(contentWidth, contentHeight);
+    }
 }
 
 //=============================================================================
@@ -110,6 +138,9 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
         label->setFont(normalFont);
         addAndMakeVisible(*label);
         labels.push_back(std::move(label));
+
+        parameterComponentMap[p.id] = uiObjects.back().get();
+        parameterLabelMap[p.id] = labels.back().get();
     }
 
     initialized = true;
@@ -135,20 +166,44 @@ void sc::SettingsContentComponent::resized()
     title.setBounds(titleZone);
 
     // Lay out the device selector below the title
+    auto deviceSelectorHeight = getDeviceSelectorHeight();
     auto deviceSelectorZone = bounds.removeFromTop(
-         getDeviceSelectorHeight());
+         deviceSelectorHeight);
     deviceSelector->setBounds(deviceSelectorZone);
+
+    // Dynamic layout of visible parameter controls
+    int yOffset = bounds.getY() - 30;
+    DBG("Device selector height in SCC::Resized: " << deviceSelectorHeight);
 
     // Lay out the parameter controls in rows below the device selector
     for (int i = 0; i < numSettings; ++i)
     {
-        auto row = bounds.removeFromTop(rowHeight);
+        auto* control = uiObjects[i].get();
+        auto* label = labels[i].get();
 
-        auto labelZone = row.removeFromTop(labelHeight);
-        labels[i]->setBounds(labelZone);
+        if (control->isVisible() && label->isVisible())
+        {
+            auto labelZone = juce::Rectangle<int>(
+                bounds.getX(), yOffset, bounds.getWidth(), labelHeight);
+            label->setBounds(labelZone);
 
-        uiObjects[i]->setBounds(row.reduced(0, 4));
+            yOffset += labelHeight;
+
+            auto controlZone = juce::Rectangle<int>(
+                bounds.getX(), yOffset, bounds.getWidth(), rowHeight - labelHeight);
+            control->setBounds(controlZone.reduced(0, 4));
+
+            yOffset += (rowHeight - labelHeight);
+        }
     }
+
+    // Update total component height to fit all visible elements
+    int totalHeight = yOffset + 20;
+    setSize(getWidth(), totalHeight);
+
+    // Notify parent (viewport) to update scroll area
+    if (auto* parent = findParentComponentOfClass<SettingsContentComponent>())
+        parent->resized();
 }
 
 void sc::SettingsContentComponent::paint(juce::Graphics& g)
@@ -166,10 +221,38 @@ void sc::SettingsContentComponent::paint(juce::Graphics& g)
     // }
 }
 
+void sc::SettingsContentComponent::updateParamVisibility(int numTracksIn, bool threeDimIn)
+{
+    auto show2 = (numTracksIn >= 2);
+    auto show3 = (numTracksIn >= 3);
+    auto show4 = (numTracksIn >= 4);
+
+    bool showGrid = (threeDimIn == 0);
+
+    auto setVisibleIfFound = [this](const juce::String& id, bool visible)
+    {
+        if (auto* comp = parameterComponentMap[id])
+            comp->setVisible(visible);
+        if (auto* label = parameterLabelMap[id])
+            label->setVisible(visible);
+    };
+
+    setVisibleIfFound("track2ColourScheme", show2);
+    setVisibleIfFound("track3ColourScheme", show3);
+    setVisibleIfFound("track4ColourScheme", show4);
+
+    setVisibleIfFound("showGrid", showGrid);
+
+    resized(); // reposition remaining visible controls
+    if (auto* parent = findParentComponentOfClass<SettingsComponent>())
+        parent->resized(); // update viewport size
+    repaint();
+}
+
 //=============================================================================
 int sc::SettingsContentComponent::getDeviceSelectorHeight() const
 {
-    return deviceSelector ? deviceSelector->getHeight() - 30 : 0;
+    return deviceSelector ? deviceSelector->getHeight() : 0;
 }
 
 const std::vector<std::unique_ptr<juce::Component>>& sc::SettingsContentComponent::getUIObjects() const

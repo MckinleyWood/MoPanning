@@ -35,7 +35,7 @@ public:
     ~AudioAnalyzer();
 
     // Must be called before analyzeBlock()
-    void prepare(double newSampleRate, int numTracks = 1);
+    void prepare(double newSampleRate, int newNumTracks);
     void prepare(); // Uses current sampleRate
 
     // Called by audio thread
@@ -56,7 +56,6 @@ public:
 
     bool getPrepared() const { return isPrepared.load(); }
     void setPrepared(bool prepared) { isPrepared.store(prepared); }
-    // void flushAnalysisQueue();
 
     std::mutex& getResultsMutex() { return resultsMutex; }
 
@@ -121,6 +120,8 @@ private:
     int samplesPerBlock;
     double sampleRate;
 
+    int numTracks;
+
     enum Transform transform = CQT;
     enum PanMethod panMethod = level_pan;
     enum FrequencyWeighting freqWeighting = A_weighting;
@@ -164,7 +165,6 @@ private:
 
     // Atomic flag to indicate if the analyzer is prepared or preparing
     std::atomic<bool> isPrepared { false };
-    std::atomic<bool> isPreparing { false };
     mutable std::mutex prepareMutex;
 
     //=========================================================================
@@ -307,13 +307,6 @@ public:
 
         // DBG("Enqueued block on audio thread.");
     }
-
-    // void flushRingBuffer() // might not need
-    // {
-    //     std::lock_guard<std::mutex> lock(mutex);
-    //     readPosition = writePosition; // effectively drop any unprocessed data
-    //     ringBuffer.clear();
-    // }
 
 private:
     /*  This function is run on a background thread to continuously

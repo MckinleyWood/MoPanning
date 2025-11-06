@@ -13,10 +13,13 @@ AudioAnalyzer::~AudioAnalyzer()
 
 //=============================================================================
 /*  Prepares the audio analyzer. */
-void AudioAnalyzer::prepare(double newSampleRate, int numTracks)
+void AudioAnalyzer::prepare(double newSampleRate, int newNumTracks)
 {
     if (isPrepared.load())
         return;
+
+    if (newNumTracks)
+        numTracks = newNumTracks;
 
     for (auto& worker : workers)
     {
@@ -86,7 +89,7 @@ void AudioAnalyzer::prepare(double newSampleRate, int numTracks)
 void AudioAnalyzer::prepare()
 {
     // Use current sampleRate if none specified
-    prepare(sampleRate);
+    prepare(sampleRate, numTracks);
 }
 
 void AudioAnalyzer::enqueueBlock(const juce::AudioBuffer<float>* buffer, int trackIndex)
@@ -115,15 +118,6 @@ void AudioAnalyzer::stopWorker(std::unique_ptr<AnalyzerWorker>& worker)
     }
 }
 
-// void AudioAnalyzer::flushAnalysisQueue() // might not need
-// {
-//     for (auto& worker : workers)
-//     {
-//         if (worker)
-//             worker->flushRingBuffer();
-//     }
-// }
-
 std::vector<std::vector<frequency_band>>& AudioAnalyzer::getLatestResults()
 {
     return results;
@@ -133,11 +127,6 @@ void AudioAnalyzer::setWindowSize(int newWindowSize)
 {
     if (newWindowSize == windowSize) 
         return; // No change
-
-    for (auto& worker : workers)
-    {
-        stopWorker(worker);
-    }
 
     for (auto& worker : workers)
     {
@@ -170,7 +159,8 @@ void AudioAnalyzer::setTransform(Transform newTransform)
     
     for (auto& worker : workers)
     {
-        stopWorker(worker); // Stop worker while we change the parameter
+        if (worker != nullptr) 
+            stopWorker(worker);
     }
 
     transform = newTransform;
@@ -184,7 +174,8 @@ void AudioAnalyzer::setPanMethod(PanMethod newPanMethod)
 
     for (auto& worker : workers)
     {
-        stopWorker(worker); // Stop worker while we change the parameter
+        if (worker != nullptr) 
+            stopWorker(worker);
     }
 
     panMethod = newPanMethod;
@@ -198,7 +189,8 @@ void AudioAnalyzer::setNumCQTBins(int newNumCQTBins)
 
     for (auto& worker : workers)
     {
-        stopWorker(worker); // Stop worker while we change the parameter
+        if (worker != nullptr) 
+            stopWorker(worker);
     }
 
     numCQTbins = newNumCQTBins;
@@ -212,7 +204,8 @@ void AudioAnalyzer::setMinFrequency(float newMinFrequency)
 
     for (auto& worker : workers)
     {
-        stopWorker(worker); // Stop worker while we change the parameter
+        if (worker != nullptr) 
+            stopWorker(worker);
     }
 
     minCQTfreq = newMinFrequency;
@@ -236,7 +229,8 @@ void AudioAnalyzer::setFreqWeighting(FrequencyWeighting newFreqWeighting)
 
     for (auto& worker : workers)
     {
-        stopWorker(worker); // Stop worker while we change the parameter
+        if (worker != nullptr) 
+            stopWorker(worker);
     }
 
     freqWeighting = newFreqWeighting;
