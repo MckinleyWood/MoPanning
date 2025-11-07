@@ -11,11 +11,17 @@ enum ColourScheme
     greyscale, 
     rainbow,
     red,
-    green,
-    blue,
+    orange,
+    yellow,
+    lightGreen,
+    darkGreen,
+    lightBlue,
+    darkBlue,
+    purple,
+    pink,
     warm,
     cool,
-    orange
+    slider
 };
 enum Dimension { dimension2, dimension3 };
 

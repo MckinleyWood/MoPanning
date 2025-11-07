@@ -36,7 +36,6 @@ SettingsComponent::~SettingsComponent() = default;
 void SettingsComponent::resized() 
 {
     viewport.setBounds(getLocalBounds());
-    // const int titleHeight = 60;
     const int deviceSelectorHeight = content->getDeviceSelectorHeight();
     DBG("Device selector height in SC::Resized: " << deviceSelectorHeight);
     int selectorDiff = deviceSelectorHeight - oldDeviceSelectorHeight;
@@ -48,10 +47,6 @@ void SettingsComponent::resized()
         contentHeight = content ? content->getHeight() - selectorDiff : getHeight();
 
     oldDeviceSelectorHeight = deviceSelectorHeight;
-    // const int rowHeight = 50;
-    // const int numSettings = (int)content->getUIObjects().size();
-    // const int contentHeight = titleHeight + deviceSelectorHeight
-    //                         + rowHeight * numSettings + 20;
     int contentWidth = getWidth() - 8; // leave some space for scroll bar
 
     if (content != nullptr)
@@ -210,15 +205,6 @@ void sc::SettingsContentComponent::paint(juce::Graphics& g)
 {
     // Paint the background
     g.fillAll(juce::Colours::darkgrey);
-
-    // Paint boxes around all components (for testing)
-    // g.setColour(juce::Colours::yellow);
-    // g.drawRect(title.getBounds());
-    // g.drawRect(deviceSelector->getBounds());
-    // for (const auto& comp : uiObjects)
-    // {
-    //     g.drawRect(comp->getBounds());
-    // }
 }
 
 void sc::SettingsContentComponent::updateParamVisibility(int numTracksIn, bool threeDimIn)

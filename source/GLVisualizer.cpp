@@ -62,6 +62,7 @@ void GLVisualizer::buildTexture()
         for (int j = 0; j < numColours; ++j)
         {
             float t = j / 255.0f;
+            float sat = 1.0f;
 
             switch (colourScheme)
             {
@@ -70,62 +71,107 @@ void GLVisualizer::buildTexture()
                     break;
 
                 case rainbow:
-                    colours[j] = juce::Colour::fromHSV(t, 1.0f, 1.0f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(t, sat, 1.0f, 1.0f);
                     break;
 
                 case red:
                 {
-                    // Hue ≈ 0.0 (red), deeper reds at low t → more orange near bright
-                    float hue = 0.0f + 0.03f * t;              // slight shift toward orange
-                    float sat = juce::jmap(t, 0.0f, 1.0f, 1.0f, 0.6f); // high amp = less saturation
-                    float val = juce::jmap(t, 0.0f, 1.0f, 0.3f, 1.0f); // high amp = brighter
-                    colours[j] = juce::Colour::fromHSV(hue, sat, val, 1.0f);
+                    float hue = 0.0f; // slight shift toward orange
+                    float brt = juce::jmap(t, 0.0f, 1.0f, 0.6f, 1.0f);  // high amp = brighter
+                    colours[j] = juce::Colour::fromHSV(hue, sat, brt, 1.0f);
                     break;
                 }
 
-                case green:
+                case orange:
                 {
-                    // Hue ≈ 0.33, deep forest → bright lime
-                    float hue = 0.33f - 0.05f * (1.0f - t);
-                    float sat = juce::jmap(t, 0.0f, 1.0f, 1.0f, 0.7f);
-                    float val = juce::jmap(t, 0.0f, 1.0f, 0.25f, 1.0f);
-                    colours[j] = juce::Colour::fromHSV(hue, sat, val, 1.0f);
+                    float hue = 0.06f;
+                    float brt = juce::jmap(t, 0.0f, 1.0f, 0.9f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(hue, sat, brt, 1.0f);
                     break;
                 }
 
-                case blue:
+                case yellow:
                 {
-                    // Hue ≈ 0.6, dark navy → light cyan
-                    float hue = juce::jmap(t, 0.0f, 1.0f, 0.63f, 0.52f);
-                    float sat = juce::jmap(t, 0.0f, 1.0f, 1.0f, 0.6f);
-                    float val = juce::jmap(t, 0.0f, 1.0f, 0.25f, 1.0f);
-                    colours[j] = juce::Colour::fromHSV(hue, sat, val, 1.0f);
+                    float hue = 0.13f;
+                    float brt = juce::jmap(t, 0.0f, 1.0f, 0.95f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(hue, sat, brt, 1.0f);
+                    break;
+                }
+
+                case lightGreen:
+                {
+                    float hue = 0.25f;
+                    float brt = juce::jmap(t, 0.0f, 1.0f, 0.6f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(hue, sat, brt, 1.0f);
+                    break;
+                }
+
+                case darkGreen:
+                {
+                    float hue = 0.35f;
+                    float brt = juce::jmap(t, 0.0f, 1.0f, 0.2f, 0.6f);
+                    colours[j] = juce::Colour::fromHSV(hue, sat, brt, 1.0f);
+                    break;
+                }
+
+                case lightBlue:
+                {
+                    float hue = 0.52;
+                    float brt = juce::jmap(t, 0.0f, 1.0f, 0.8f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(hue, sat, brt, 1.0f);
+                    break;
+                }
+
+                case darkBlue:
+                {
+                    float hue = 0.63;
+                    float brt = juce::jmap(t, 0.0f, 1.0f, 0.8f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(hue, sat, brt, 1.0f);
+                    break;
+                }
+                
+                case purple:
+                {
+                    float hue = 0.8f;
+                    float brt = juce::jmap(t, 0.0f, 1.0f, 0.8f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(hue, sat, brt, 1.0f);
+                    break;
+                }
+
+                case pink:
+                {
+                    float hue = 0.9f;
+                    float brt = juce::jmap(t, 0.0f, 1.0f, 0.8f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(hue, sat, brt, 1.0f);
                     break;
                 }
 
                 case warm:
                 {
-                    // Orange → yellow → pale gold
-                    float hue = juce::jmap(t, 0.0f, 1.0f, 0.05f, 0.13f);
-                    float sat = juce::jmap(t, 0.0f, 1.0f, 1.0f, 0.7f);
-                    float val = juce::jmap(t, 0.0f, 1.0f, 0.4f, 1.0f);
-                    colours[j] = juce::Colour::fromHSV(hue, sat, val, 1.0f);
+                    // Red → oragne → pale gold
+                    float hue = juce::jmap(t, 0.0f, 1.0f, 0.00f, 0.13f);
+                    float brt = juce::jmap(t, 0.0f, 1.0f, 0.8f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(hue, sat, brt, 1.0f);
                     break;
                 }
 
                 case cool:
                 {
-                    // Purple → indigo → cyan
-                    float hue = juce::jmap(t, 0.0f, 1.0f, 0.75f, 0.50f);
-                    float sat = juce::jmap(t, 0.0f, 1.0f, 1.0f, 0.7f);
-                    float val = juce::jmap(t, 0.0f, 1.0f, 0.35f, 1.0f);
-                    colours[j] = juce::Colour::fromHSV(hue, sat, val, 1.0f);
+                    // Purple → blue → green
+                    float hue = juce::jmap(t, 0.0f, 1.0f, 0.85f, 0.38f);
+                    float brt = juce::jmap(t, 0.0f, 1.0f, 0.8f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(hue, sat, brt, 1.0f);
                     break;
                 }
-                
-                case orange:
-                    colours[j] = juce::Colour::fromHSV(0.04f + 0.1f * t, 1.0f, 1.0f, 1.0f);
-                    break;
+
+                case slider:
+                {
+                    float hueMax;
+                    float hueMin;
+                    float hue = juce::jmap(t, 0.0f, 1.0f, hueMin, hueMax);
+                    float brt = juce::jmap(t, 0.0f, 1.0f, 0.8f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(hue, sat, brt, 1.0f);
+                }
 
                 default:
                     jassertfalse;
@@ -188,14 +234,6 @@ void GLVisualizer::initialise()
             // Look up color from the texture
             vec3 rgb = texture(uColourMap, amp).rgb;
 
-            // Dynamic brightness scaling
-            // Higher amplitudes -> brighter + lighter
-            // float brightness = clamp(pow(amp * uAmpScale, 0.5), 0.2, 1.0);
-            // rgb *= brightness;
-
-            // Gently blend toward white at high brightness
-            // rgb = mix(rgb, vec3(1.0), brightness * 0.3);
-
             // Set the color with alpha
             vColour = vec4(rgb, alpha);
 
@@ -242,7 +280,6 @@ void GLVisualizer::initialise()
     mainShader->addFragmentShader(mainFragSrc);
 
     ext.glBindAttribLocation(mainShader->getProgramID(), 0, "instanceData");
-    // ext.glBindAttribLocation (mainShader->getProgramID(), 1, "instanceTrackIndex");
 
     bool shaderLinked = mainShader->link();
     jassert(shaderLinked);
@@ -431,9 +468,6 @@ void GLVisualizer::render()
     //         DBG("        Track " << (int)t << " is empty");
     //     }
     // }
-
-    // Per-track particles - one vector per track
-    // std::vector<std::vector<Particle>> perTrackParticles(results.size());
 
     // Delete old particles
     while (! particles.empty())
@@ -634,6 +668,8 @@ void GLVisualizer::setTrackColourScheme(ColourScheme newColourScheme, int trackI
         trackColourSchemes.resize(trackIndex + 1, rainbow);  // default to rainbow
         trackColourTextures.resize(trackIndex + 1, 0);       // matching textures
     }
+
+    // if
 
     trackColourSchemes[trackIndex] = newColourScheme;
     newTextureRequested = true;

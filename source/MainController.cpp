@@ -194,7 +194,7 @@ MainController::MainController()
             "track1ColourScheme", "Track 1 Colour Scheme", 
             "Colour scheme for visualization of track 1.",
             ParameterDescriptor::Type::Choice, 1, {},
-            {"Greyscale", "Rainbow", "Red", "Green", "Blue", "Warm", "Cool", "Orange"}, "",
+            {"Greyscale", "Rainbow", "Red", "Orange", "Yellow", "Light Green", "Dark Green", "Light Blue", "Dark Blue", "Purple", "Pink", "Warm", "Cool"}, "",
             [this](float value) 
             {
                 if (visualizer != nullptr)
@@ -208,7 +208,7 @@ MainController::MainController()
             "track2ColourScheme", "Track 2 Colour Scheme", 
             "Colour scheme for visualization of track 2.",
             ParameterDescriptor::Type::Choice, 1, {},
-            {"Greyscale", "Rainbow", "Red", "Green", "Blue", "Warm", "Cool", "Orange"}, "",
+            {"Greyscale", "Rainbow", "Red", "Orange", "Yellow", "Light Green", "Dark Green", "Light Blue", "Dark Blue", "Purple", "Pink", "Warm", "Cool"}, "",
             [this](float value) 
             {
                 if (visualizer != nullptr)
@@ -221,7 +221,7 @@ MainController::MainController()
             "track3ColourScheme", "Track 3 Colour Scheme", 
             "Colour scheme for visualization of track 3.",
             ParameterDescriptor::Type::Choice, 1, {},
-            {"Greyscale", "Rainbow", "Red", "Green", "Blue", "Warm", "Cool", "Orange"}, "",
+            {"Greyscale", "Rainbow", "Red", "Orange", "Yellow", "Light Green", "Dark Green", "Light Blue", "Dark Blue", "Purple", "Pink", "Warm", "Cool"}, "",
             [this](float value) 
             {
                 if (visualizer != nullptr)
@@ -234,7 +234,7 @@ MainController::MainController()
             "track4ColourScheme", "Track 4 Colour Scheme", 
             "Colour scheme for visualization of track 4.",
             ParameterDescriptor::Type::Choice, 1, {},
-            {"Greyscale", "Rainbow", "Red", "Green", "Blue", "Warm", "Cool", "Orange"}, "",
+            {"Greyscale", "Rainbow", "Red", "Orange", "Yellow", "Light Green", "Dark Green", "Light Blue", "Dark Blue", "Purple", "Pink", "Warm", "Cool"}, "",
             [this](float value) 
             {
                 if (visualizer != nullptr)
