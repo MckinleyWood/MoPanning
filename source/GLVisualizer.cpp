@@ -669,8 +669,6 @@ void GLVisualizer::setTrackColourScheme(ColourScheme newColourScheme, int trackI
         trackColourTextures.resize(trackIndex + 1, 0);       // matching textures
     }
 
-    // if
-
     trackColourSchemes[trackIndex] = newColourScheme;
     newTextureRequested = true;
 }

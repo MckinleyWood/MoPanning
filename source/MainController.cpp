@@ -242,6 +242,58 @@ MainController::MainController()
                         static_cast<ColourScheme>(value), 3);
             }
         },
+        // colourSchemeTrack5
+        {
+            "track5ColourScheme", "Track 5 Colour Scheme", 
+            "Colour scheme for visualization of track 5.",
+            ParameterDescriptor::Type::Choice, 1, {},
+            {"Greyscale", "Rainbow", "Red", "Orange", "Yellow", "Light Green", "Dark Green", "Light Blue", "Dark Blue", "Purple", "Pink", "Warm", "Cool"}, "",
+            [this](float value) 
+            {
+                if (visualizer != nullptr)
+                    visualizer->setTrackColourScheme(
+                        static_cast<ColourScheme>(value), 4);
+            }
+        },
+        // colourSchemeTrack6
+        {
+            "track6ColourScheme", "Track 6 Colour Scheme", 
+            "Colour scheme for visualization of track 6.",
+            ParameterDescriptor::Type::Choice, 1, {},
+            {"Greyscale", "Rainbow", "Red", "Orange", "Yellow", "Light Green", "Dark Green", "Light Blue", "Dark Blue", "Purple", "Pink", "Warm", "Cool"}, "",
+            [this](float value) 
+            {
+                if (visualizer != nullptr)
+                    visualizer->setTrackColourScheme(
+                        static_cast<ColourScheme>(value), 5);
+            }
+        },
+        // colourSchemeTrack7
+        {
+            "track7ColourScheme", "Track 7 Colour Scheme", 
+            "Colour scheme for visualization of track 7.",
+            ParameterDescriptor::Type::Choice, 1, {},
+            {"Greyscale", "Rainbow", "Red", "Orange", "Yellow", "Light Green", "Dark Green", "Light Blue", "Dark Blue", "Purple", "Pink", "Warm", "Cool"}, "",
+            [this](float value) 
+            {
+                if (visualizer != nullptr)
+                    visualizer->setTrackColourScheme(
+                        static_cast<ColourScheme>(value), 6);
+            }
+        },
+        // colourSchemeTrack8
+        {
+            "track8ColourScheme", "Track 8 Colour Scheme", 
+            "Colour scheme for visualization of track 8.",
+            ParameterDescriptor::Type::Choice, 1, {},
+            {"Greyscale", "Rainbow", "Red", "Orange", "Yellow", "Light Green", "Dark Green", "Light Blue", "Dark Blue", "Purple", "Pink", "Warm", "Cool"}, "",
+            [this](float value) 
+            {
+                if (visualizer != nullptr)
+                    visualizer->setTrackColourScheme(
+                        static_cast<ColourScheme>(value), 7);
+            }
+        },
         // showGrid
         {
             "showGrid", "Show Grid", 

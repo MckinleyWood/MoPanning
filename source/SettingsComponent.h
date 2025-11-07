@@ -22,7 +22,6 @@ public:
 
         if (oldHeight != newHeight && onHeightChanged)
             onHeightChanged();
-        DBG("OldHeight = " << oldHeight << ", NewHeight: " << newHeight);
     }
 };
 

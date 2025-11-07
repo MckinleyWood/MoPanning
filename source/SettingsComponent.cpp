@@ -37,7 +37,6 @@ void SettingsComponent::resized()
 {
     viewport.setBounds(getLocalBounds());
     const int deviceSelectorHeight = content->getDeviceSelectorHeight();
-    DBG("Device selector height in SC::Resized: " << deviceSelectorHeight);
     int selectorDiff = deviceSelectorHeight - oldDeviceSelectorHeight;
     int contentHeight = 0;
     if (selectorDiff > 1e-6)
@@ -168,7 +167,6 @@ void sc::SettingsContentComponent::resized()
 
     // Dynamic layout of visible parameter controls
     int yOffset = bounds.getY() - 30;
-    DBG("Device selector height in SCC::Resized: " << deviceSelectorHeight);
 
     // Lay out the parameter controls in rows below the device selector
     for (int i = 0; i < numSettings; ++i)
@@ -212,6 +210,10 @@ void sc::SettingsContentComponent::updateParamVisibility(int numTracksIn, bool t
     auto show2 = (numTracksIn >= 2);
     auto show3 = (numTracksIn >= 3);
     auto show4 = (numTracksIn >= 4);
+    auto show5 = (numTracksIn >= 5);
+    auto show6 = (numTracksIn >= 6);
+    auto show7 = (numTracksIn >= 7);
+    auto show8 = (numTracksIn >= 8);
 
     bool showGrid = (threeDimIn == 0);
 
@@ -226,6 +228,11 @@ void sc::SettingsContentComponent::updateParamVisibility(int numTracksIn, bool t
     setVisibleIfFound("track2ColourScheme", show2);
     setVisibleIfFound("track3ColourScheme", show3);
     setVisibleIfFound("track4ColourScheme", show4);
+    setVisibleIfFound("track5ColourScheme", show5);
+    setVisibleIfFound("track6ColourScheme", show6);
+    setVisibleIfFound("track7ColourScheme", show7);
+    setVisibleIfFound("track8ColourScheme", show8);
+
 
     setVisibleIfFound("showGrid", showGrid);
 
