@@ -16,7 +16,8 @@ AudioEngine::~AudioEngine()
 //=============================================================================
 void AudioEngine::fillAudioBuffers(const float *const *inputChannelData, int numInputChannels,
                                    float *const *outputChannelData, int numOutputChannels,
-                                   int numSamples, juce::AudioBuffer<float>& buffer, bool isFirstTrack, float trackGainIn)
+                                   int numSamples, juce::AudioBuffer<float>& buffer, 
+                                   bool isFirstTrack, float trackGainIn)
 {
     buffer.clear();
     juce::AudioSourceChannelInfo info(&buffer, 0, numSamples);
@@ -38,9 +39,13 @@ void AudioEngine::fillAudioBuffers(const float *const *inputChannelData, int num
                 // DBG("fillAudioBuffers: buffer channels = " << buffer.getNumChannels()
                 //     << " numSamples = " << numSamples);
                 buffer.copyFrom(0, 0, inputChannelData[0], numSamples);
+                buffer.applyGain(0, 0, numSamples, trackGainIn);
             }
             if (numInputChannels >= 2)
+            {
                 buffer.copyFrom(1, 0, inputChannelData[1], numSamples);
+                buffer.applyGain(1, 0, numSamples, trackGainIn);
+            }
             
             break;
     }

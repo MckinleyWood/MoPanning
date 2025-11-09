@@ -233,6 +233,14 @@ void sc::SettingsContentComponent::updateParamVisibility(int numTracksIn, bool t
     setVisibleIfFound("track7ColourScheme", show7);
     setVisibleIfFound("track8ColourScheme", show8);
 
+    setVisibleIfFound("track2Gain", show2);
+    setVisibleIfFound("track3Gain", show3);
+    setVisibleIfFound("track4Gain", show4);
+    setVisibleIfFound("track5Gain", show5);
+    setVisibleIfFound("track6Gain", show6);
+    setVisibleIfFound("track7Gain", show7);
+    setVisibleIfFound("track8Gain", show8);
+
 
     setVisibleIfFound("showGrid", showGrid);
 

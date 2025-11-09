@@ -71,6 +71,7 @@ public:
 
     juce::AudioBuffer<float> buffer;
     std::vector<juce::AudioBuffer<float>> buffers;
+    std::vector<float> trackGains;
 
     std::function<void(int)> onNumTracksChanged;
     std::function<void(int)> onDimChanged;

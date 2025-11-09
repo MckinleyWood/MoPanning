@@ -23,7 +23,7 @@ public:
                           int numSamples,
                           juce::AudioBuffer<float>& buffer,
                           bool isFirstTrack,
-                          float trackGainIn = 1.0f);
+                          float trackGainIn);
 
     void setInputType(InputType type);
 

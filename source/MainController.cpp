@@ -7,6 +7,8 @@ MainController::MainController()
     analyzer = std::make_unique<AudioAnalyzer>();
     engine = std::make_unique<AudioEngine>();
 
+    trackGains.resize(8, 1.0f);
+
     // Set up parameter descriptors - all parameters should be listed here
     parameterDescriptors =
     {
@@ -203,6 +205,18 @@ MainController::MainController()
             },
             true
         },
+        // gainTrack1
+        {
+            "track1Gain", "Track 1 Gain", 
+            "Gain of track 1.",
+            ParameterDescriptor::Type::Float, 1.0f,
+            juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
+            [this](float value) 
+            {
+                if (trackGains[0])
+                    trackGains[0] = value;
+            }
+        },
         // colourSchemeTrack2
         {
             "track2ColourScheme", "Track 2 Colour Scheme", 
@@ -214,6 +228,18 @@ MainController::MainController()
                 if (visualizer != nullptr)
                     visualizer->setTrackColourScheme(
                         static_cast<ColourScheme>(value), 1);
+            }
+        },
+        // gainTrack2
+        {
+            "track2Gain", "Track 2 Gain", 
+            "Gain of track 2.",
+            ParameterDescriptor::Type::Float, 1.0f,
+            juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
+            [this](float value) 
+            {
+                if (trackGains[1])
+                    trackGains[1] = value;
             }
         },
         // colourSchemeTrack3
@@ -229,6 +255,18 @@ MainController::MainController()
                         static_cast<ColourScheme>(value), 2);
             }
         },
+        // gainTrack3
+        {
+            "track3Gain", "Track 3 Gain", 
+            "Gain of track 3.",
+            ParameterDescriptor::Type::Float, 1.0f,
+            juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
+            [this](float value) 
+            {
+                if (trackGains[2])
+                    trackGains[2] = value;
+            }
+        },
         // colourSchemeTrack4
         {
             "track4ColourScheme", "Track 4 Colour Scheme", 
@@ -240,6 +278,18 @@ MainController::MainController()
                 if (visualizer != nullptr)
                     visualizer->setTrackColourScheme(
                         static_cast<ColourScheme>(value), 3);
+            }
+        },
+        // gainTrack4
+        {
+            "track4Gain", "Track 4 Gain", 
+            "Gain of track 4.",
+            ParameterDescriptor::Type::Float, 1.0f,
+            juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
+            [this](float value) 
+            {
+                if (trackGains[3])
+                    trackGains[3] = value;
             }
         },
         // colourSchemeTrack5
@@ -255,6 +305,18 @@ MainController::MainController()
                         static_cast<ColourScheme>(value), 4);
             }
         },
+        // gainTrack5
+        {
+            "track5Gain", "Track 5 Gain", 
+            "Gain of track 5.",
+            ParameterDescriptor::Type::Float, 1.0f,
+            juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
+            [this](float value) 
+            {
+                if (trackGains[4])
+                    trackGains[4] = value;
+            }
+        },
         // colourSchemeTrack6
         {
             "track6ColourScheme", "Track 6 Colour Scheme", 
@@ -266,6 +328,18 @@ MainController::MainController()
                 if (visualizer != nullptr)
                     visualizer->setTrackColourScheme(
                         static_cast<ColourScheme>(value), 5);
+            }
+        },
+        // gainTrack6
+        {
+            "track6Gain", "Track 6 Gain", 
+            "Gain of track 6.",
+            ParameterDescriptor::Type::Float, 1.0f,
+            juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
+            [this](float value) 
+            {
+                if (trackGains[5])
+                    trackGains[5] = value;
             }
         },
         // colourSchemeTrack7
@@ -281,6 +355,18 @@ MainController::MainController()
                         static_cast<ColourScheme>(value), 6);
             }
         },
+        // gainTrack7
+        {
+            "track7Gain", "Track 7 Gain", 
+            "Gain of track 7.",
+            ParameterDescriptor::Type::Float, 1.0f,
+            juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
+            [this](float value) 
+            {
+                if (trackGains[6])
+                    trackGains[6] = value;
+            }
+        },
         // colourSchemeTrack8
         {
             "track8ColourScheme", "Track 8 Colour Scheme", 
@@ -292,6 +378,18 @@ MainController::MainController()
                 if (visualizer != nullptr)
                     visualizer->setTrackColourScheme(
                         static_cast<ColourScheme>(value), 7);
+            }
+        },
+        // gainTrack8
+        {
+            "track8Gain", "Track 8 Gain", 
+            "Gain of track 8.",
+            ParameterDescriptor::Type::Float, 1.0f,
+            juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
+            [this](float value) 
+            {
+                if (trackGains[7])
+                    trackGains[7] = value;
             }
         },
         // showGrid
@@ -410,24 +508,23 @@ void MainController::audioDeviceIOCallbackWithContext(
 {
     numTracks = numInputChannels / 2;
 
-    float trackGain = 1.0f / std::sqrt((float)numTracks); // maybe add gain knobs per track later
 
-    for (int ch = 0; ch < numTracks; ch++)
+    for (int track = 0; track < numTracks; track++)
     {
         const float* selectedChannels[2] = {
-            inputChannelData[2*ch],
-            inputChannelData[2*ch + 1]
+            inputChannelData[2*track],
+            inputChannelData[2*track + 1]
         };
 
-        bool isFirstTrack = (ch == 0);
+        bool isFirstTrack = (track == 0);
 
         // Delegate to the audio engine
         engine->fillAudioBuffers(selectedChannels, 2,
                                 outputChannelData, numOutputChannels,
-                                numSamples, buffers[ch], isFirstTrack, trackGain);
+                                numSamples, buffers[track], isFirstTrack, trackGains[track]);
 
         // Pass the buffer to the analyzer
-        analyzer->enqueueBlock(&buffers[ch], ch);
+        analyzer->enqueueBlock(&buffers[track], track);
     }
     
     juce::ignoreUnused(context);

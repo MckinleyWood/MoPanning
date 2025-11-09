@@ -45,7 +45,7 @@ void AudioAnalyzer::prepare(double newSampleRate, int newNumTracks)
         numBands = numCQTbins;
     
     binFrequencies.resize(numBands);
-    results.resize(numTracks);   
+    results.resize(numTracks);
 
     // Initialize members needed for the selected frequency transform
     if (transform == FFT)
