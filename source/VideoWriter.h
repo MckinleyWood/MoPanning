@@ -198,7 +198,7 @@ class VideoWriter::RenderingWindow : public juce::ThreadWithProgressWindow
 public:
     //=========================================================================
     RenderingWindow(VideoWriter& vw) 
-        : ThreadWithProgressWindow("Writng the video file...", false, true), parent(vw)
+        : ThreadWithProgressWindow("Writing the video file...", false, true), parent(vw)
     {
     }
 
