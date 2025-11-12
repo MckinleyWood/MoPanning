@@ -8,10 +8,32 @@ MainController::MainController()
     engine = std::make_unique<AudioEngine>();
 
     trackGains.resize(8, 1.0f);
+    videoWriter = std::make_unique<VideoWriter>();
 
     // Set up parameter descriptors - all parameters should be listed here
     parameterDescriptors =
     {
+        // recording
+        {
+            "recording", "Recording", "Recording on/off", 
+            ParameterDescriptor::Type::Choice, 0, {},
+            {"Off", "On"}, "",
+            [this](float value) 
+            {
+                if (static_cast<int>(value) == 1)
+                {
+                    videoWriter->start();
+                    visualizer->startRecording();
+                }
+                    
+                else
+                {
+                    visualizer->stopRecording();
+                    videoWriter->stop();
+                }
+            },
+            true
+        },
         // inputType
         { 
             "inputType", "Input Type", "Where to receive audio input from.", 
@@ -407,6 +429,18 @@ MainController::MainController()
             },
             false
         },
+        // dotSize
+        {
+            "dotSize", "Particle Size", 
+            "Size of each particle in the visualization.",
+            ParameterDescriptor::Type::Float, 1.0f,
+            juce::NormalisableRange<float>(0.001f, 10.0, 0.0f, 0.5f), {}, "",
+            [this](float value) 
+            {
+                if (visualizer != nullptr)
+                    visualizer->setDotSize(value);
+            }
+        },
         // recedeSpeed
         {
             "recedeSpeed", "Recede Speed", 
@@ -418,31 +452,6 @@ MainController::MainController()
                 if (visualizer != nullptr)
                     visualizer->setRecedeSpeed(value);
             }
-        },
-        // dotSize
-        {
-            "dotSize", "Particle Size", 
-            "Size of each particle in the visualization.",
-            ParameterDescriptor::Type::Float, 0.1f,
-            juce::NormalisableRange<float>(0.01f, 1.f), {}, "",
-            [this](float value) 
-            {
-                if (visualizer != nullptr)
-                    visualizer->setDotSize(value);
-            }
-        },
-        // ampScale
-        {
-            "ampScale", "Amplitude Scale", 
-            "Compression/expansion factor applied to the amplitude values.",
-            ParameterDescriptor::Type::Float, 1.f,
-            juce::NormalisableRange<float>(0.0f, 1.0f), {}, "",
-            [this](float value) 
-            {
-                if (visualizer != nullptr)
-                    visualizer->setAmpScale(value);
-            },
-            false
         },
         // fadeEndZ
         {
@@ -506,6 +515,8 @@ void MainController::audioDeviceIOCallbackWithContext(
     float *const *outputChannelData, int numOutputChannels, int numSamples,
     const juce::AudioIODeviceCallbackContext& context)
 {
+    jassert(numSamples == samplesPerBlock);
+
     numTracks = numInputChannels / 2;
 
 
@@ -526,14 +537,18 @@ void MainController::audioDeviceIOCallbackWithContext(
         // Pass the buffer to the analyzer
         analyzer->enqueueBlock(&buffers[track], track);
     }
+
+    // Give the audio output to the videoWriter
+    if (videoWriter->isRecording())
+        videoWriter->enqueueAudioBlock(outputChannelData, numSamples);
     
     juce::ignoreUnused(context);
 }
 
 void MainController::audioDeviceAboutToStart(juce::AudioIODevice* device) 
 {
-    double sampleRate = device->getCurrentSampleRate();
-    int samplesPerBlock = device->getCurrentBufferSizeSamples();
+    sampleRate = device->getCurrentSampleRate();
+    samplesPerBlock = device->getCurrentBufferSizeSamples();
     int numInputChannels = device->getActiveInputChannels().countNumberOfSetBits();
     numTracks = (numInputChannels > 0) ? numInputChannels / 2 : 1;  // Fallback to 1 if no inputs
 
@@ -554,6 +569,7 @@ void MainController::audioDeviceAboutToStart(juce::AudioIODevice* device)
     engine->prepareToPlay(samplesPerBlock, sampleRate);
     analyzer->setPrepared(false);
     analyzer->prepare(sampleRate, numTracks);
+    videoWriter->prepare(sampleRate, samplesPerBlock, 2);
     visualizer->setSampleRate(sampleRate);
     grid->setSampleRate(sampleRate);
 }
@@ -591,6 +607,8 @@ ParamLayout MainController::makeParameterLayout(
 void MainController::registerVisualizer(GLVisualizer* v)
 {
     visualizer = v;
+
+    // visualizer->startRecording();
 }
 
 void MainController::registerGrid(GridComponent* g)
@@ -620,6 +638,17 @@ void MainController::togglePlayback()
 void MainController::updateGridTexture()
 {
     visualizer->createGridImageFromComponent(grid);
+}
+
+void MainController::giveFrameToVideoWriter(const uint8_t* rgb, int numBytes)
+{
+    videoWriter->enqueueVideoFrame(rgb, numBytes);
+}
+
+void MainController::stopRecording()
+{
+    // Stop the video writer and finalize the recording
+    videoWriter->stop();
 }
 
 //=============================================================================

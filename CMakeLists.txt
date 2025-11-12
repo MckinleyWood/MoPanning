@@ -37,6 +37,8 @@ target_sources(MoPanning
         source/MiniAudioProcessor.h
         source/SettingsComponent.cpp
         source/SettingsComponent.h
+        source/VideoWriter.cpp
+        source/VideoWriter.h
 )
 
 target_compile_definitions(MoPanning
@@ -45,6 +47,7 @@ target_compile_definitions(MoPanning
         JUCE_USE_CURL=0
         JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:MoPanning,JUCE_PRODUCT_NAME>"
         JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:MoPanning,JUCE_VERSION>"
+        JUCE_MODAL_LOOPS_PERMITTED=1
 )
 
 target_include_directories(MoPanning 
@@ -115,3 +118,25 @@ target_compile_options(MoPanning
     /utf-8
   >
 )
+
+# Copy ffmpeg binary to output folder after build
+set(FFMPEG_MACOS   "${CMAKE_SOURCE_DIR}/third_party/ffmpeg/macos/ffmpeg")
+set(FFMPEG_WINDOWS "${CMAKE_SOURCE_DIR}/third_party/ffmpeg/windows/ffmpeg.exe")
+
+if (APPLE)
+  add_custom_command(TARGET MoPanning POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_FILE_DIR:MoPanning>/ThirdParty"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${FFMPEG_MACOS}"
+            "$<TARGET_FILE_DIR:MoPanning>/ThirdParty/ffmpeg"
+    COMMENT "Bundling ffmpeg into app (macOS)"
+  )
+elseif (WIN32)
+  add_custom_command(TARGET MoPanning POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${FFMPEG_WINDOWS}"
+            "$<TARGET_FILE_DIR:MoPanning>/ffmpeg.exe"
+    COMMENT "Bundling ffmpeg next to exe (Windows)"
+  )
+endif()

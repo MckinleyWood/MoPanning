@@ -2,7 +2,6 @@
 #include <JuceHeader.h>
 
 
-
 enum InputType { file, streaming };
 
 //=============================================================================

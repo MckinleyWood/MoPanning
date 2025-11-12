@@ -2,7 +2,6 @@
 #include <JuceHeader.h>
 
 class GridComponent;
-
 class MainController;
 
 //=============================================================================
@@ -37,8 +36,6 @@ public:
     ~GLVisualizer() override;
 
     //=========================================================================
-    void buildTexture();
-
     void initialise() override;
     void shutdown() override;
     void render() override;
@@ -52,14 +49,26 @@ public:
     void setMinFrequency(float newMinFrequency);
     void setRecedeSpeed(float newRecedeSpeed);
     void setDotSize(float newDotSize);
-    void setAmpScale(float newAmpScale);
     void setFadeEndZ(float newFadeEndZ);
+
+    //=========================================================================
+    void startRecording();
+    void stopRecording();
 
     void paint(juce::Graphics& g) override;
 
     void createGridImageFromComponent(GridComponent* gridComp);
 
 private:
+    //=========================================================================
+    void updateParticles();
+    void drawParticles(float width, float height, juce::Matrix3D<float>& proj);
+    void drawGrid();
+
+    void buildTexture();
+    juce::Matrix3D<float> buildProjectionMatrix(float width, float height);
+    void updateFBOSize();
+    
     //=========================================================================
     struct Particle
     {
@@ -91,12 +100,19 @@ private:
     juce::Vector3D<float> cameraPosition { 0.0f, 0.0f, -2.0f };
     juce::Matrix3D<float> view; // View matrix
     juce::Matrix3D<float> projection; // Projection matrix
+    juce::Matrix3D<float> captureProj;
 
     // GLuint colourMapTex = 0;
     bool newTextureRequested = true; // Flag to rebuild texture
 
     float startTime; // App-launch time in seconds
     float lastFrameTime; // Time of last frame in seconds
+
+    juce::OpenGLFrameBuffer captureFBO;
+    int captureW = 1280, captureH = 720;
+    bool recording;
+    std::vector<uint8_t> capturePixels;
+    std::vector<uint8_t> flippedPixels; 
 
     MainController& controller;
 
@@ -114,7 +130,6 @@ private:
     float minFrequency; // Minimum frequency to display (Hz)
     float recedeSpeed; // Speed that objects recede
     float dotSize; // Radius of the dots
-    float ampScale; // Amplitude scale factor
     float fadeEndZ; // Distance at which points are fully faded (m)
 
     float nearZ = 0.1f; // Distance to the start of clip space (m)

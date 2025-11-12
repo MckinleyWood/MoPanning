@@ -1,10 +1,3 @@
-#pragma once
-
-#include <JuceHeader.h>
-#include <mutex>
-#include <vector>
-#include <atomic>
-
 /*  AudioAnalyzer.h
 
 This file defines the AudioAnalyzer class, which is responsible for 
@@ -13,6 +6,9 @@ frequency bands, magnitudes, and pan indices based on the audio input.
 The class also manages a worker thread for processing audio blocks 
 asynchronously.
 */
+
+#pragma once
+#include <JuceHeader.h>
 
 struct frequency_band {
     float frequency; // Band frequency in Hertz
