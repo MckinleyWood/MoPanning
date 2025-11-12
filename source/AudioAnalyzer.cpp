@@ -661,9 +661,6 @@ void AudioAnalyzer::computeITDs(
     std::vector<std::complex<float>>& crossSpectrum,
     std::vector<std::complex<float>>& crossCorr)
 {
-    std::vector<Complex> crossSpectrum(windowSize);
-    std::vector<Complex> crossCorr(windowSize);
-
     for (int bin = 0; bin < numBandsIn; ++bin)
     {
         const auto& leftBin = spec[0][bin];
