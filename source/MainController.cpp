@@ -7,6 +7,8 @@ MainController::MainController()
     analyzer = std::make_unique<AudioAnalyzer>();
     engine = std::make_unique<AudioEngine>();
 
+    trackGains.resize(8, 1.0f);
+
     // Set up parameter descriptors - all parameters should be listed here
     parameterDescriptors =
     {
@@ -185,19 +187,209 @@ MainController::MainController()
             {
                 if (visualizer != nullptr)
                     visualizer->setDimension(static_cast<Dimension>(value));
+                if (onDimChanged)
+                    onDimChanged(static_cast<int>(value));
             }
         },
-        // colourScheme
+        // colourSchemeTrack1
         {
-            "colourScheme", "Colour Scheme", 
-            "Colour scheme for visualization.",
+            "track1ColourScheme", "Track 1 Colour Scheme", 
+            "Colour scheme for visualization of track 1.",
             ParameterDescriptor::Type::Choice, 1, {},
-            {"Greyscale", "Rainbow"}, "",
+            {"Greyscale", "Rainbow", "Red", "Orange", "Yellow", "Light Green", "Dark Green", "Light Blue", "Dark Blue", "Purple", "Pink", "Warm", "Cool"}, "",
             [this](float value) 
             {
                 if (visualizer != nullptr)
-                    visualizer->setColourScheme(
-                        static_cast<ColourScheme>(value));
+                    visualizer->setTrackColourScheme(
+                        static_cast<ColourScheme>(value), 0);
+            },
+            true
+        },
+        // gainTrack1
+        {
+            "track1Gain", "Track 1 Gain", 
+            "Gain of track 1.",
+            ParameterDescriptor::Type::Float, 1.0f,
+            juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
+            [this](float value) 
+            {
+                if (trackGains[0])
+                    trackGains[0] = value;
+            }
+        },
+        // colourSchemeTrack2
+        {
+            "track2ColourScheme", "Track 2 Colour Scheme", 
+            "Colour scheme for visualization of track 2.",
+            ParameterDescriptor::Type::Choice, 1, {},
+            {"Greyscale", "Rainbow", "Red", "Orange", "Yellow", "Light Green", "Dark Green", "Light Blue", "Dark Blue", "Purple", "Pink", "Warm", "Cool"}, "",
+            [this](float value) 
+            {
+                if (visualizer != nullptr)
+                    visualizer->setTrackColourScheme(
+                        static_cast<ColourScheme>(value), 1);
+            }
+        },
+        // gainTrack2
+        {
+            "track2Gain", "Track 2 Gain", 
+            "Gain of track 2.",
+            ParameterDescriptor::Type::Float, 1.0f,
+            juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
+            [this](float value) 
+            {
+                if (trackGains[1])
+                    trackGains[1] = value;
+            }
+        },
+        // colourSchemeTrack3
+        {
+            "track3ColourScheme", "Track 3 Colour Scheme", 
+            "Colour scheme for visualization of track 3.",
+            ParameterDescriptor::Type::Choice, 1, {},
+            {"Greyscale", "Rainbow", "Red", "Orange", "Yellow", "Light Green", "Dark Green", "Light Blue", "Dark Blue", "Purple", "Pink", "Warm", "Cool"}, "",
+            [this](float value) 
+            {
+                if (visualizer != nullptr)
+                    visualizer->setTrackColourScheme(
+                        static_cast<ColourScheme>(value), 2);
+            }
+        },
+        // gainTrack3
+        {
+            "track3Gain", "Track 3 Gain", 
+            "Gain of track 3.",
+            ParameterDescriptor::Type::Float, 1.0f,
+            juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
+            [this](float value) 
+            {
+                if (trackGains[2])
+                    trackGains[2] = value;
+            }
+        },
+        // colourSchemeTrack4
+        {
+            "track4ColourScheme", "Track 4 Colour Scheme", 
+            "Colour scheme for visualization of track 4.",
+            ParameterDescriptor::Type::Choice, 1, {},
+            {"Greyscale", "Rainbow", "Red", "Orange", "Yellow", "Light Green", "Dark Green", "Light Blue", "Dark Blue", "Purple", "Pink", "Warm", "Cool"}, "",
+            [this](float value) 
+            {
+                if (visualizer != nullptr)
+                    visualizer->setTrackColourScheme(
+                        static_cast<ColourScheme>(value), 3);
+            }
+        },
+        // gainTrack4
+        {
+            "track4Gain", "Track 4 Gain", 
+            "Gain of track 4.",
+            ParameterDescriptor::Type::Float, 1.0f,
+            juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
+            [this](float value) 
+            {
+                if (trackGains[3])
+                    trackGains[3] = value;
+            }
+        },
+        // colourSchemeTrack5
+        {
+            "track5ColourScheme", "Track 5 Colour Scheme", 
+            "Colour scheme for visualization of track 5.",
+            ParameterDescriptor::Type::Choice, 1, {},
+            {"Greyscale", "Rainbow", "Red", "Orange", "Yellow", "Light Green", "Dark Green", "Light Blue", "Dark Blue", "Purple", "Pink", "Warm", "Cool"}, "",
+            [this](float value) 
+            {
+                if (visualizer != nullptr)
+                    visualizer->setTrackColourScheme(
+                        static_cast<ColourScheme>(value), 4);
+            }
+        },
+        // gainTrack5
+        {
+            "track5Gain", "Track 5 Gain", 
+            "Gain of track 5.",
+            ParameterDescriptor::Type::Float, 1.0f,
+            juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
+            [this](float value) 
+            {
+                if (trackGains[4])
+                    trackGains[4] = value;
+            }
+        },
+        // colourSchemeTrack6
+        {
+            "track6ColourScheme", "Track 6 Colour Scheme", 
+            "Colour scheme for visualization of track 6.",
+            ParameterDescriptor::Type::Choice, 1, {},
+            {"Greyscale", "Rainbow", "Red", "Orange", "Yellow", "Light Green", "Dark Green", "Light Blue", "Dark Blue", "Purple", "Pink", "Warm", "Cool"}, "",
+            [this](float value) 
+            {
+                if (visualizer != nullptr)
+                    visualizer->setTrackColourScheme(
+                        static_cast<ColourScheme>(value), 5);
+            }
+        },
+        // gainTrack6
+        {
+            "track6Gain", "Track 6 Gain", 
+            "Gain of track 6.",
+            ParameterDescriptor::Type::Float, 1.0f,
+            juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
+            [this](float value) 
+            {
+                if (trackGains[5])
+                    trackGains[5] = value;
+            }
+        },
+        // colourSchemeTrack7
+        {
+            "track7ColourScheme", "Track 7 Colour Scheme", 
+            "Colour scheme for visualization of track 7.",
+            ParameterDescriptor::Type::Choice, 1, {},
+            {"Greyscale", "Rainbow", "Red", "Orange", "Yellow", "Light Green", "Dark Green", "Light Blue", "Dark Blue", "Purple", "Pink", "Warm", "Cool"}, "",
+            [this](float value) 
+            {
+                if (visualizer != nullptr)
+                    visualizer->setTrackColourScheme(
+                        static_cast<ColourScheme>(value), 6);
+            }
+        },
+        // gainTrack7
+        {
+            "track7Gain", "Track 7 Gain", 
+            "Gain of track 7.",
+            ParameterDescriptor::Type::Float, 1.0f,
+            juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
+            [this](float value) 
+            {
+                if (trackGains[6])
+                    trackGains[6] = value;
+            }
+        },
+        // colourSchemeTrack8
+        {
+            "track8ColourScheme", "Track 8 Colour Scheme", 
+            "Colour scheme for visualization of track 8.",
+            ParameterDescriptor::Type::Choice, 1, {},
+            {"Greyscale", "Rainbow", "Red", "Orange", "Yellow", "Light Green", "Dark Green", "Light Blue", "Dark Blue", "Purple", "Pink", "Warm", "Cool"}, "",
+            [this](float value) 
+            {
+                if (visualizer != nullptr)
+                    visualizer->setTrackColourScheme(
+                        static_cast<ColourScheme>(value), 7);
+            }
+        },
+        // gainTrack8
+        {
+            "track8Gain", "Track 8 Gain", 
+            "Gain of track 8.",
+            ParameterDescriptor::Type::Float, 1.0f,
+            juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
+            [this](float value) 
+            {
+                if (trackGains[7])
+                    trackGains[7] = value;
             }
         },
         // showGrid
@@ -296,6 +488,11 @@ void MainController::startAudio()
 
     // Register this as an audio callback - audio starts now
     dm.addAudioCallback(this);
+
+    // Prepare internal buffers
+    buffers.resize(2);
+    for (auto& buf : buffers)
+        buf.setSize(2, 512);
 }
 
 /*  The function that is called every time there is a new audio block to
@@ -309,15 +506,26 @@ void MainController::audioDeviceIOCallbackWithContext(
     float *const *outputChannelData, int numOutputChannels, int numSamples,
     const juce::AudioIODeviceCallbackContext& context)
 {
-    juce::AudioBuffer<float> buffer(2, numSamples);
-    
-    // Delegate to the audio engine
-    engine->fillAudioBuffers(inputChannelData, numInputChannels,
-                            outputChannelData, numOutputChannels,
-                            numSamples, buffer);
+    numTracks = numInputChannels / 2;
 
-    // Pass the buffer to the analyzer
-    analyzer->enqueueBlock(&buffer);
+
+    for (int track = 0; track < numTracks; track++)
+    {
+        const float* selectedChannels[2] = {
+            inputChannelData[2*track],
+            inputChannelData[2*track + 1]
+        };
+
+        bool isFirstTrack = (track == 0);
+
+        // Delegate to the audio engine
+        engine->fillAudioBuffers(selectedChannels, 2,
+                                outputChannelData, numOutputChannels,
+                                numSamples, buffers[track], isFirstTrack, trackGains[track]);
+
+        // Pass the buffer to the analyzer
+        analyzer->enqueueBlock(&buffers[track], track);
+    }
     
     juce::ignoreUnused(context);
 }
@@ -326,11 +534,26 @@ void MainController::audioDeviceAboutToStart(juce::AudioIODevice* device)
 {
     double sampleRate = device->getCurrentSampleRate();
     int samplesPerBlock = device->getCurrentBufferSizeSamples();
+    int numInputChannels = device->getActiveInputChannels().countNumberOfSetBits();
+    numTracks = (numInputChannels > 0) ? numInputChannels / 2 : 1;  // Fallback to 1 if no inputs
+
+    if (onNumTracksChanged)
+        onNumTracksChanged(numTracks);
+
+    // Ensure buffers vector matches number of stereo tracks
+    if ((int)buffers.size() != numTracks)
+    {
+        const int oldSize = (int)buffers.size();
+        buffers.resize(numTracks);
+
+        // Initialize any newly added buffers right away
+        for (int i = oldSize; i < numTracks; ++i)
+            buffers[i].setSize(2, samplesPerBlock, false, false, true);
+    }
     
-    // engine->setInputType(static_cast<InputType>(getInputType()));
     engine->prepareToPlay(samplesPerBlock, sampleRate);
     analyzer->setPrepared(false);
-    analyzer->prepare(sampleRate);
+    analyzer->prepare(sampleRate, numTracks);
     visualizer->setSampleRate(sampleRate);
     grid->setSampleRate(sampleRate);
 }
@@ -410,8 +633,9 @@ juce::AudioProcessorValueTreeState& MainController::getAPVTS() noexcept
     return processor->getValueTreeState();;
 }
 
-std::vector<frequency_band> MainController::getLatestResults() const
+std::vector<std::vector<frequency_band>> MainController::getLatestResults() const
 {
+    std::lock_guard<std::mutex> lock(analyzer->getResultsMutex());
     return analyzer->getLatestResults();
 }
 

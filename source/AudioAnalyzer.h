@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 #include <mutex>
 #include <vector>
+#include <atomic>
 
 /*  AudioAnalyzer.h
 
@@ -17,6 +18,7 @@ struct frequency_band {
     float frequency; // Band frequency in Hertz
     float amplitude; // Range 0 - 1 ...?
     float pan_index; // -1 = far left, +1 = far right
+    int trackIndex;
 };
 
 using Complex = juce::dsp::Complex<float>;
@@ -33,14 +35,14 @@ public:
     ~AudioAnalyzer();
 
     // Must be called before analyzeBlock()
-    void prepare(double newSampleRate);
+    void prepare(double newSampleRate, int newNumTracks);
     void prepare(); // Uses current sampleRate
 
     // Called by audio thread
-    void enqueueBlock(const juce::AudioBuffer<float>* buffer);
+    void enqueueBlock(const juce::AudioBuffer<float>* buffer, int trackIndex);
 
     // Called by GUI thread to get latest results
-    std::vector<frequency_band> getLatestResults() const;
+    std::vector<std::vector<frequency_band>>& getLatestResults();
 
     void setWindowSize(int newWindowSize);
     void setHopSize(int newHopSize);
@@ -55,10 +57,12 @@ public:
     bool getPrepared() const { return isPrepared.load(); }
     void setPrepared(bool prepared) { isPrepared.store(prepared); }
 
+    std::mutex& getResultsMutex() { return resultsMutex; }
+
     //=========================================================================
     class AnalyzerWorker;
 
-    void stopWorker();
+    void stopWorker(std::unique_ptr<AnalyzerWorker>& worker);
     
 private:
     //=========================================================================
@@ -75,12 +79,25 @@ private:
     
     /* Analysis functions */
 
-    void analyzeBlock(const juce::AudioBuffer<float>& buffer);
+    void analyzeBlock(const juce::AudioBuffer<float>& buffer, 
+                    int trackIndex, 
+                    std::vector<frequency_band>& outResults,
+                    juce::dsp::FFT& fftEngine,
+                    std::vector<float>& fftDataTemp,
+                    std::array<std::vector<std::complex<float>>, 2>& outSpectra,
+                    std::vector<std::complex<float>>& crossSpectrum,
+                    std::vector<std::complex<float>>& crossCorr,
+                    std::array<std::vector<float>, 2> magnitudes,
+                    std::vector<float> ilds,
+                    std::vector<float> itds,
+                    std::vector<float> panIndices,
+                    std::array<std::vector<std::vector<std::complex<float>>>, 2> fullCQTspec);
 
     void computeFFT(const juce::AudioBuffer<float>& buffer,
                     const std::vector<float>& windowIn,
                     std::vector<float>& fftDataTemp,
-                    std::array<std::vector<Complex>, 2>& spectraOut);
+                    std::array<std::vector<Complex>, 2>& spectraOut,
+                    juce::dsp::FFT& fftEngine);
     void computeCQT(const std::array<std::vector<Complex>, 2>& ffts,
                     const std::vector<std::vector<Complex>>& cqtKernelsIn,
                     std::array<std::vector<std::vector<std::complex<float>>>, 2>& spectraOut,
@@ -89,7 +106,10 @@ private:
                      std::vector<float>& panOut);
     void computeITDs(const std::array<std::vector<std::vector<std::complex<float>>>, 2>& spec,
                      int numBands,
-                     std::vector<float>& panOut);
+                     std::vector<float>& panOut,
+                     juce::dsp::FFT& fftEngine,
+                     std::vector<std::complex<float>>& crossSpectrum,
+                     std::vector<std::complex<float>>& crossCorr);
 
     float alphaForFreq(float f);
     float coherenceThresholdForFreq(float f);
@@ -99,6 +119,8 @@ private:
 
     int samplesPerBlock;
     double sampleRate;
+
+    int numTracks;
 
     enum Transform transform = CQT;
     enum PanMethod panMethod = level_pan;
@@ -122,36 +144,26 @@ private:
     //=========================================================================
     /* Pre-allocated storage, etc. */
 
-    std::unique_ptr<juce::dsp::FFT> fftEngine; // Calculates FFTs of length windowSize
-    
-    std::array<std::vector<Complex>, 2> fftSpectra; // For storing FFT results
-    std::vector<float> fftData; // Temporary storage for in-place real fft
-    std::array<std::vector<float>, 2> magnitudes;
     std::vector<float> binFrequencies; // Center freqs of CQT or FFT bins
-    std::vector<float> ilds;
-    std::vector<float> itds;
-    std::vector<float> panIndices;
     std::vector<float> window; // Hann window of length windowSize
     std::vector<float> frequencyWeights; // Weighting factors for each freq bin
     std::vector<float> itdPerBin;
     std::vector<float> maxITD; // Max ITD per frequency band
-    std::vector<frequency_band> newResults; // For storage before writing to the mutex-protected vector
 
     // Each filter is a complex-valued kernel vector (frequency domain)
     std::vector<std::vector<Complex>> cqtKernels;
-    std::array<std::vector<std::vector<Complex>>, 2> fullCQTspec;
     
     // Frequency-dependent ITD/ILD parameters
     std::vector<float> itdWeights;
     std::vector<float> ildWeights;
 
     //=========================================================================
-    std::vector<frequency_band> results; // Must be sorted by frequency!!!
+    std::vector<std::vector<frequency_band>> results; // Must be sorted by frequency!!!
     mutable std::mutex resultsMutex;
 
-    std::unique_ptr<AnalyzerWorker> worker;
+    std::vector<std::unique_ptr<AnalyzerWorker>> workers; // One worker per track
 
-    // Atomic flag to indicate if the analyzer is prepared
+    // Atomic flag to indicate if the analyzer is prepared or preparing
     std::atomic<bool> isPrepared { false };
     mutable std::mutex prepareMutex;
 
@@ -175,20 +187,50 @@ private:
 class AudioAnalyzer::AnalyzerWorker
 {
 public:
-    AnalyzerWorker(int windowSizeIn, int hopSizeIn, double sampleRateIn, AudioAnalyzer& parent) 
+    AnalyzerWorker(int windowSizeIn, int hopSizeIn, double sampleRateIn, int numBandsIn, int trackIndexIn, AudioAnalyzer& parent) 
         : windowSize(windowSizeIn),
           hopSize(hopSizeIn),
           sampleRate(sampleRateIn),
+          numBands(numBandsIn),
+          trackIndex(trackIndexIn),
           parentAnalyzer(parent)
     {
+        newResults.reserve(numBands);
+
         // Pre-allocate ring buffer - large enough for 16 windows or 2 seconds
         int bufferSize = std::max((int)sampleRate * 2, windowSize * 16);
         ringBuffer.setSize(2, bufferSize);
         
         // Pre-allocate analysis buffer
         analysisBuffer.setSize(2, windowSize);
-
         writePosition = 0;
+
+        // Initialize per-worker FFT
+        int order = static_cast<int>(std::log2(windowSize));
+        fft = std::make_unique<juce::dsp::FFT>(order);
+
+        // Pre-allocate scratch buffers
+        fftDataTemp.assign(windowSize * 2, 0.0f);
+        crossSpectrum.assign(windowSize, std::complex<float>(0.0f, 0.0f));
+        crossCorr.assign(windowSize, std::complex<float>(0.0f, 0.0f));
+        for (auto& spec : outSpectra)
+            spec.assign(windowSize, std::complex<float>(0.0f, 0.0f));
+
+        // Resize per-track analysis arrays
+        magnitudes[0].assign(numBands, 0.0f);
+        magnitudes[1].assign(numBands, 0.0f);
+        ilds.assign(numBands, 0.0f);
+        itds.assign(numBands, 0.0f);
+        panIndices.assign(numBands, 0.0f);
+        for (int ch = 0; ch < 2; ++ch)
+        {
+            fullCQTspec[ch].resize(numBands); // Resize vector inside array
+
+            for (int bin = 0; bin < numBands; ++bin)
+            {
+                fullCQTspec[ch][bin].resize(windowSize);
+            }
+        }
     }
 
     ~AnalyzerWorker()
@@ -203,6 +245,7 @@ public:
     void start()
     {
         thread = std::thread([this] { run(); });
+        // DBG("Started AnalyzerWorker thread for track " << trackIndex);
     }
 
     void stop()
@@ -255,6 +298,12 @@ public:
         // Notify worker thread that new data is available
         std::lock_guard<std::mutex> lock(mutex);
         cv.notify_one();
+
+        // DBG("PUSH Track " << trackIndex 
+        //     << " L[0]=" << newBlock.getSample(0, 0) 
+        //     << " R[0]=" << newBlock.getSample(1, 0)
+        //     << " RMS L=" << newBlock.getRMSLevel(0, 0, n)
+        //     << " R=" << newBlock.getRMSLevel(1, 0, n));
 
         // DBG("Enqueued block on audio thread.");
     }
@@ -312,11 +361,29 @@ private:
                 }
             }
 
+            // DBG("RUN() Track " << trackIndex 
+            //     << " L[0]=" << analysisBuffer.getSample(0, 0) 
+            //     << " R[0]=" << analysisBuffer.getSample(1, 0)
+            //     << " RMS L=" << analysisBuffer.getRMSLevel(0, 0, n)
+            //     << " R=" << analysisBuffer.getRMSLevel(1, 0, n));
+
             // Update the read position, wrapping around if necessary
             readPosition = (readPosition + hopSize) % N;
 
             // Pass the analysis buffer to the audio analyzer
-            parentAnalyzer.analyzeBlock(analysisBuffer);
+            parentAnalyzer.analyzeBlock(analysisBuffer, 
+                                        trackIndex, 
+                                        newResults, 
+                                        *fft,
+                                        fftDataTemp,
+                                        outSpectra,
+                                        crossSpectrum,
+                                        crossCorr,
+                                        magnitudes,
+                                        ilds,
+                                        itds,
+                                        panIndices,
+                                        fullCQTspec);
         }
     }
 
@@ -328,13 +395,27 @@ private:
     int windowSize;
     int hopSize; 
     double sampleRate;
+    int numBands;
 
     bool overloaded = false;
+
+    int trackIndex;
+
+    std::unique_ptr<juce::dsp::FFT> fft;
+    std::vector<float> fftDataTemp;
+    std::vector<std::complex<float>> crossSpectrum;
+    std::vector<std::complex<float>> crossCorr;
+    std::array<std::vector<std::complex<float>>, 2> outSpectra;
+    std::array<std::vector<float>, 2> magnitudes;
+    std::vector<float> ilds, itds, panIndices;
+    std::array<std::vector<std::vector<std::complex<float>>>, 2> fullCQTspec;
 
     std::thread thread;
     std::atomic<bool> shouldExit {false};
     std::condition_variable cv;
     std::mutex mutex;
+
+    std::vector<frequency_band> newResults;
 
     AudioAnalyzer& parentAnalyzer;
 };

@@ -30,60 +30,170 @@ GLVisualizer::~GLVisualizer()
 */
 void GLVisualizer::buildTexture()
 {
-    if (newTextureRequsted == false)
+    if (newTextureRequested == false)
         return;
     
     using namespace juce::gl;
     // auto& ext = openGLContext.extensions;
 
-    if (colourMapTex != 0)
-        glDeleteTextures(1, &colourMapTex);
-
-    // Create a 1D texture for color mapping
-    glGenTextures(1, &colourMapTex);
-    glBindTexture(GL_TEXTURE_1D, colourMapTex);
-
     // Define the color map data
     const int numColours = 256;
     std::vector<juce::Colour> colours(numColours);
-    
-    switch (colourScheme)
-    {
-    case greyscale:
-        for (int i = 0; i < numColours; ++i)
-            colours[i] = juce::Colour((juce::uint8)i, (juce::uint8)i, (juce::uint8)i);
-        break;
-    
-    case rainbow:
-        for (int i = 0; i < numColours; ++i)
-            colours[i] = juce::Colour::fromHSV((float)i / numColours, 
-                                               1.0f, 1.0f, 1.0f);
-        break;
-
-    default:
-        jassertfalse; // Unsupported colour scheme
-        break;
-    }
-
     std::vector<float> colorData(numColours * 3);
     
-    for (int i = 0; i < numColours; ++i)
+    for (int i = 0; i < trackColourSchemes.size(); ++i)
     {
-        colorData[i * 3 + 0] = colours[i].getFloatRed();
-        colorData[i * 3 + 1] = colours[i].getFloatGreen();
-        colorData[i * 3 + 2] = colours[i].getFloatBlue();
+        // Per-track texture 
+        GLuint& tex = trackColourTextures[i];
+        
+        // Delete old texture
+        if (tex != 0)
+        {
+            glDeleteTextures(1, &tex);
+            tex = 0;
+        }
+        
+        // Create a 1D texture for color mapping
+        glGenTextures(1, &tex);
+        glBindTexture(GL_TEXTURE_1D, tex);
+        
+        // Fill color data based on scheme
+        ColourScheme colourScheme = trackColourSchemes[i];
+        for (int j = 0; j < numColours; ++j)
+        {
+            float t = j / 255.0f;
+            float sat = 1.0f;
+
+            switch (colourScheme)
+            {
+                case greyscale:
+                    colours[j] = juce::Colour::fromFloatRGBA(t, t, t, 1.0f);
+                    break;
+
+                case rainbow:
+                    colours[j] = juce::Colour::fromHSV(t, sat, 1.0f, 1.0f);
+                    break;
+
+                case red:
+                {
+                    float hue = 0.0f; // slight shift toward orange
+                    float brt = juce::jmap(t, 0.0f, 1.0f, 0.6f, 1.0f);  // high amp = brighter
+                    colours[j] = juce::Colour::fromHSV(hue, sat, brt, 1.0f);
+                    break;
+                }
+
+                case orange:
+                {
+                    float hue = 0.06f;
+                    float brt = juce::jmap(t, 0.0f, 1.0f, 0.9f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(hue, sat, brt, 1.0f);
+                    break;
+                }
+
+                case yellow:
+                {
+                    float hue = 0.13f;
+                    float brt = juce::jmap(t, 0.0f, 1.0f, 0.95f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(hue, sat, brt, 1.0f);
+                    break;
+                }
+
+                case lightGreen:
+                {
+                    float hue = 0.25f;
+                    float brt = juce::jmap(t, 0.0f, 1.0f, 0.6f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(hue, sat, brt, 1.0f);
+                    break;
+                }
+
+                case darkGreen:
+                {
+                    float hue = 0.35f;
+                    float brt = juce::jmap(t, 0.0f, 1.0f, 0.2f, 0.6f);
+                    colours[j] = juce::Colour::fromHSV(hue, sat, brt, 1.0f);
+                    break;
+                }
+
+                case lightBlue:
+                {
+                    float hue = 0.52;
+                    float brt = juce::jmap(t, 0.0f, 1.0f, 0.8f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(hue, sat, brt, 1.0f);
+                    break;
+                }
+
+                case darkBlue:
+                {
+                    float hue = 0.63;
+                    float brt = juce::jmap(t, 0.0f, 1.0f, 0.8f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(hue, sat, brt, 1.0f);
+                    break;
+                }
+                
+                case purple:
+                {
+                    float hue = 0.8f;
+                    float brt = juce::jmap(t, 0.0f, 1.0f, 0.8f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(hue, sat, brt, 1.0f);
+                    break;
+                }
+
+                case pink:
+                {
+                    float hue = 0.9f;
+                    float brt = juce::jmap(t, 0.0f, 1.0f, 0.8f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(hue, sat, brt, 1.0f);
+                    break;
+                }
+
+                case warm:
+                {
+                    // Red → oragne → pale gold
+                    float hue = juce::jmap(t, 0.0f, 1.0f, 0.00f, 0.13f);
+                    float brt = juce::jmap(t, 0.0f, 1.0f, 0.8f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(hue, sat, brt, 1.0f);
+                    break;
+                }
+
+                case cool:
+                {
+                    // Purple → blue → green
+                    float hue = juce::jmap(t, 0.0f, 1.0f, 0.85f, 0.38f);
+                    float brt = juce::jmap(t, 0.0f, 1.0f, 0.8f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(hue, sat, brt, 1.0f);
+                    break;
+                }
+
+                case slider:
+                {
+                    float hueMax;
+                    float hueMin;
+                    float hue = juce::jmap(t, 0.0f, 1.0f, hueMin, hueMax);
+                    float brt = juce::jmap(t, 0.0f, 1.0f, 0.8f, 1.0f);
+                    colours[j] = juce::Colour::fromHSV(hue, sat, brt, 1.0f);
+                }
+
+                default:
+                    jassertfalse;
+                    break;
+            }
+
+            colorData[j * 3 + 0] = colours[j].getFloatRed();
+            colorData[j * 3 + 1] = colours[j].getFloatGreen();
+            colorData[j * 3 + 2] = colours[j].getFloatBlue();
+        }
+
+        // Upload the texture data
+        glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, numColours, 0,
+                     GL_RGB, GL_FLOAT, colorData.data());
+    
+        // Set texture parameters
+        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     }
 
-    // Upload the texture data
-    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, numColours, 0,
-                 GL_RGB, GL_FLOAT, colorData.data());
-
-    // Set texture parameters
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    newTextureRequsted = false;
+    newTextureRequested = false;
 }
 
 //=============================================================================
@@ -303,6 +413,15 @@ void GLVisualizer::render()
     glDepthFunc(GL_LEQUAL);
     glEnable(GL_PROGRAM_POINT_SIZE);
 
+    // Resize per-track containers if needed
+    if ((int)trackColourTextures.size() <= numTracks)
+    {
+        trackColourTextures.resize (numTracks + 1, 0);
+        trackColourSchemes .resize (numTracks + 1, rainbow);
+        newTextureRequested = true;          // forces buildTexture() next frame
+        // DBG ("Resized track containers to " << numTracks + 1);
+    }
+
     // Check if we need to rebuild the colourmap texture
     buildTexture();
 
@@ -320,7 +439,35 @@ void GLVisualizer::render()
     lastFrameTime = t;
 
     auto results = controller.getLatestResults();
-    // DBG("New results received. Size = " << results.size());
+    numTracks = results.size();
+    // DBG("GLVIS about to read results");
+    // DBG("GLVIS DEBUG: results.size() = " << numTracks);
+    // for (size_t t = 0; t < results.size(); ++t)
+    // {
+    //     DBG("    Track " << (int)t 
+    //         << " has " << results[t].size() 
+    //         << " bands stored");
+
+    //     if (!results[t].empty())
+    //     {
+    //         const auto& first = results[t].front();
+    //         const auto& last  = results[t].back();
+
+    //         DBG("        First bin freq=" << first.frequency
+    //             << " amp=" << first.amplitude
+    //             << " pan=" << first.pan_index
+    //             << " track=" << first.trackIndex);
+
+    //         DBG("        Last  bin freq=" << last.frequency
+    //             << " amp=" << last.amplitude
+    //             << " pan=" << last.pan_index
+    //             << " track=" << last.trackIndex);
+    //     }
+    //     else
+    //     {
+    //         DBG("        Track " << (int)t << " is empty");
+    //     }
+    // }
 
     // Delete old particles
     while (! particles.empty())
@@ -344,32 +491,66 @@ void GLVisualizer::render()
 
         float aspect = getWidth() * 1.0f / getHeight();
 
-        for (frequency_band band : results)
+        for (int i = 0; i < numTracks; i++)
         {
-            if (band.frequency < minFrequency || band.frequency > maxFreq) 
-                continue;
-            
-            float x = band.pan_index * aspect;
-            float y = (std::log(band.frequency) - logMin) / (logMax - logMin);
-            y = juce::jmap(y, -1.0f, 1.0f);
-            float z = 0.f;
-            float a = band.amplitude;
+            const auto& result = results[i];
+            if (result.empty()) continue;
 
-            Particle newParticle = { x, y, z, a, t };
-            particles.push_back(newParticle);
+            int count = 0;
+            for (frequency_band band : result)
+            {
+                if (band.frequency < minFrequency || band.frequency > maxFreq) 
+                    continue;
+                
+                float x = band.pan_index * aspect;
+                float y = (std::log(band.frequency) - logMin) / (logMax - logMin);
+                y = juce::jmap(y, -1.0f, 1.0f);
+                float z = 0.f;
+                float a = band.amplitude;
+
+                Particle newParticle = { x, y, z, a, t, (float)i };
+                particles.push_back(newParticle);
+                ++count;
+            }
+            // DBG("Track " << i << " added " << count << " new particles this frame");
         }
     }
+    
+    size_t offset = 0;
+    
+    ext.glBindVertexArray(mainVAO);
+        
+    for (int i = 0; i < numTracks; i++)
+    {        
+        // Build instance data array
+        std::vector<InstanceData> instances;
+        instances.reserve(particles.size());
+        
+        // Fill instances with this track's particle data
+        for (auto& p : particles)
+        {
+            if ((int)p.trackIndex == i)
+            instances.push_back({ p.spawnX, p.spawnY, p.z, p.amplitude });
+        }
 
-    // Build instance data array
-    std::vector<InstanceData> instances;
-    instances.reserve(particles.size());
-    for (auto& p : particles)
-        instances.push_back({ p.spawnX, p.spawnY, p.z, p.amplitude });
+        // DBG("Track " << i << " will render " << instances.size() << " particles");
+        
+        // Upload instance data to GPU
+        ext.glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+        jassert((int)instances.size() <= maxParticles);
+        ext.glBufferSubData(GL_ARRAY_BUFFER, 0, instances.size() * sizeof(InstanceData), instances.data());
 
-    // Upload instance data to GPU
-    ext.glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-    jassert((int)instances.size() <= maxParticles);
-    ext.glBufferSubData(GL_ARRAY_BUFFER, 0, instances.size() * sizeof(InstanceData), instances.data());
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_1D, trackColourTextures[i]);
+
+        // Draw all particles!!
+        glDrawArraysInstanced(GL_POINTS, 0, 1, (GLsizei)instances.size());
+
+        // Advance offset for the next track
+        offset += instances.size();
+    }
+
+    ext.glBindVertexArray(0);
 
     // Set uniforms
     mainShader->setUniformMat4("uProjection", projection.mat, 1, GL_FALSE);
@@ -378,13 +559,6 @@ void GLVisualizer::render()
     mainShader->setUniform("uFadeEndZ", fadeEndZ);
     mainShader->setUniform("uDotSize", dotSize);
     mainShader->setUniform("uAmpScale", ampScale);
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_1D, colourMapTex);
-
-    // Draw all particles!!
-    ext.glBindVertexArray(mainVAO);
-    glDrawArraysInstanced(GL_POINTS, 0, 1, (GLsizei)instances.size());
 
     // Add the grid overlay on top    
     if (showGrid == true)
@@ -486,10 +660,17 @@ void GLVisualizer::setDimension(Dimension newDimension)
     resized(); // Force a resize to update the projection matrix
 }
 
-void GLVisualizer::setColourScheme(ColourScheme newColourScheme)
+void GLVisualizer::setTrackColourScheme(ColourScheme newColourScheme, int trackIndex)
 {
-    colourScheme = newColourScheme;
-    newTextureRequsted = true;
+    // Grow vector if trackIndex is out of range
+    if (trackIndex >= (int)trackColourSchemes.size())
+    {
+        trackColourSchemes.resize(trackIndex + 1, rainbow);  // default to rainbow
+        trackColourTextures.resize(trackIndex + 1, 0);       // matching textures
+    }
+
+    trackColourSchemes[trackIndex] = newColourScheme;
+    newTextureRequested = true;
 }
 
 void GLVisualizer::setShowGrid(bool shouldShow)

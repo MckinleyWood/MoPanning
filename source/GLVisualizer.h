@@ -6,7 +6,23 @@ class GridComponent;
 class MainController;
 
 //=============================================================================
-enum ColourScheme { greyscale, rainbow };
+enum ColourScheme 
+{
+    greyscale, 
+    rainbow,
+    red,
+    orange,
+    yellow,
+    lightGreen,
+    darkGreen,
+    lightBlue,
+    darkBlue,
+    purple,
+    pink,
+    warm,
+    cool,
+    slider
+};
 enum Dimension { dimension2, dimension3 };
 
 //=============================================================================
@@ -31,7 +47,7 @@ public:
     //=========================================================================
     void setSampleRate(double newSampleRate);
     void setDimension(Dimension newDimension);
-    void setColourScheme(ColourScheme newColourScheme);
+    void setTrackColourScheme(ColourScheme newColourScheme, int trackIndex);
     void setShowGrid(bool shouldShow);
     void setMinFrequency(float newMinFrequency);
     void setRecedeSpeed(float newRecedeSpeed);
@@ -52,6 +68,7 @@ private:
         float z; // Current z position
         float amplitude;
         float spawnTime = 0.0f; // Time since app start when particle spawned
+        float trackIndex;
     };
 
     struct InstanceData { float x, y, z, amplitude; };
@@ -75,8 +92,8 @@ private:
     juce::Matrix3D<float> view; // View matrix
     juce::Matrix3D<float> projection; // Projection matrix
 
-    GLuint colourMapTex = 0;
-    bool newTextureRequsted = true; // Flag to rebuild texture
+    // GLuint colourMapTex = 0;
+    bool newTextureRequested = true; // Flag to rebuild texture
 
     float startTime; // App-launch time in seconds
     float lastFrameTime; // Time of last frame in seconds
@@ -89,9 +106,11 @@ private:
     double sampleRate;
 
     Dimension dimension;
-    ColourScheme colourScheme;
+    std::vector<ColourScheme> trackColourSchemes;
+    std::vector<GLuint> trackColourTextures;
     
     bool showGrid;
+    int numTracks = 1; // Number of tracks in the results vector
     float minFrequency; // Minimum frequency to display (Hz)
     float recedeSpeed; // Speed that objects recede
     float dotSize; // Radius of the dots

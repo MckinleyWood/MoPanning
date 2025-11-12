@@ -16,7 +16,8 @@ AudioEngine::~AudioEngine()
 //=============================================================================
 void AudioEngine::fillAudioBuffers(const float *const *inputChannelData, int numInputChannels,
                                    float *const *outputChannelData, int numOutputChannels,
-                                   int numSamples, juce::AudioBuffer<float>& buffer)
+                                   int numSamples, juce::AudioBuffer<float>& buffer, 
+                                   bool isFirstTrack, float trackGainIn)
 {
     buffer.clear();
     juce::AudioSourceChannelInfo info(&buffer, 0, numSamples);
@@ -33,38 +34,64 @@ void AudioEngine::fillAudioBuffers(const float *const *inputChannelData, int num
         case streaming:
             // Fill the buffer with the input data directly
             if (numInputChannels >= 1)
+            {
+                // jassert (buffer.getNumChannels() >= 2);
+                // DBG("fillAudioBuffers: buffer channels = " << buffer.getNumChannels()
+                //     << " numSamples = " << numSamples);
                 buffer.copyFrom(0, 0, inputChannelData[0], numSamples);
+                buffer.applyGain(0, 0, numSamples, trackGainIn);
+            }
             if (numInputChannels >= 2)
+            {
                 buffer.copyFrom(1, 0, inputChannelData[1], numSamples);
+                buffer.applyGain(1, 0, numSamples, trackGainIn);
+            }
             
             break;
     }
 
+    const float* inL = buffer.getReadPointer(0);
+    const float* inR = buffer.getNumChannels() > 1 ? buffer.getReadPointer(1) : nullptr;
+
     // Copy the filled buffer to the output channels
     if (numOutputChannels == 1)
     {
-        // Downmix to mono if only one output channel
-        static std::vector<float> temp;
-        temp.resize(numSamples);
-        const float *left = buffer.getReadPointer(0);
-        const float *right = buffer.getReadPointer(1);
+        float* out = outputChannelData[0];
 
-        for (int i = 0; i < numSamples; ++i)
-            temp[i] = (left[i] + right[i]) * 0.5f;
-            
-        std::memcpy(outputChannelData[0], temp.data(),
-                    sizeof(float) * numSamples);
+        if (isFirstTrack)
+        {
+            for (int i = 0; i < numSamples; ++i)
+                out[i] = ((inL[i] + (inR ? inR[i] : inL[i])) * 0.5f) * trackGainIn;
+        }
+        else
+        {
+            for (int i = 0; i < numSamples; ++i)
+                out[i] += ((inL[i] + (inR ? inR[i] : inL[i])) * 0.5f) * trackGainIn;
+        }
     }
     else
     {
-        // Else copy the buffer to the first two output channels
-        std::memcpy(outputChannelData[0],
-                    buffer.getReadPointer(0),
-                    sizeof(float) * numSamples);
-        std::memcpy(outputChannelData[1],
-                    buffer.getReadPointer(1),
-                    sizeof(float) * numSamples);
+        float* outL = outputChannelData[0];
+        float* outR = outputChannelData[1];
+
+        if (isFirstTrack)
+        {
+            for (int i = 0; i < numSamples; ++i)
+            {
+                outL[i] = inL[i] * trackGainIn;
+                outR[i] = (inR ? inR[i] : inL[i]) * trackGainIn;
+            }
+        }
+        else
+        {
+            for (int i = 0; i < numSamples; ++i)
+            {
+                outL[i] += inL[i] * trackGainIn;
+                outR[i] += (inR ? inR[i] : inL[i]) * trackGainIn;
+            }
+        }
     }
+
 }
 
 bool AudioEngine::loadFile(const juce::File& file)

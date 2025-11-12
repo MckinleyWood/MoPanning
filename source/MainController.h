@@ -61,11 +61,20 @@ public:
     std::vector<ParameterDescriptor> getParameterDescriptors() const;
     juce::AudioProcessorValueTreeState& getAPVTS() noexcept;
 
-    std::vector<frequency_band> getLatestResults() const;
+    std::vector<std::vector<frequency_band>> getLatestResults() const;
     juce::AudioDeviceManager& getDeviceManager();
+
+    int getNumTracks() const { return numTracks; }
 
     void valueTreePropertyChanged(juce::ValueTree&, 
                                   const juce::Identifier& id) override;
+
+    juce::AudioBuffer<float> buffer;
+    std::vector<juce::AudioBuffer<float>> buffers;
+    std::vector<float> trackGains;
+
+    std::function<void(int)> onNumTracksChanged;
+    std::function<void(int)> onDimChanged;
 
 private:
     //=========================================================================
@@ -79,6 +88,9 @@ private:
     juce::AudioProcessorValueTreeState* apvts;
 
     std::vector<ParameterDescriptor> parameterDescriptors;
+
+    int numTracks = 1;
+    bool threeDim = 1;
 
     //=========================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainController)
