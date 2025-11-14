@@ -22,6 +22,7 @@ GLVisualizer::~GLVisualizer()
 {
     openGLContext.setContinuousRepainting(false);
     openGLContext.detach();
+    shutdownOpenGL();
 }
 
 //=============================================================================
@@ -332,6 +333,11 @@ void GLVisualizer::createGridImageFromComponent(GridComponent* gridComp)
 }
 
 //=============================================================================
+void GLVisualizer::setResultsPointer(std::array<TrackSlot, 8>* resultsPtr)
+{
+    results = resultsPtr;
+}
+
 void GLVisualizer::setSampleRate(double newSampleRate)
 {
     sampleRate = newSampleRate;
@@ -412,10 +418,6 @@ void GLVisualizer::updateParticles()
     float dz = dt * recedeSpeed; // Distance receded since last frame (m)
     lastFrameTime = t;
 
-    auto results = controller.getLatestResults();
-    numTracks = results.size();
-    // DBG("New results received. Size = " << results.size());
-
     // Delete old particles
     while (! particles.empty())
     {
@@ -427,11 +429,14 @@ void GLVisualizer::updateParticles()
 
     // Update z positions of existing particles
     for (auto& p : particles)
-        p.z -= dz;
-
-    // Add new particles from the latest analysis results
-    if (!results.empty())
     {
+        p.z -= dz;
+    }
+
+    {
+        numTracks = results->size();
+
+        // Add new particles from the latest analysis results
         float maxFreq = (float)sampleRate * 0.5f;
         float logMin = std::log(minFrequency);
         float logMax = std::log(maxFreq);
@@ -440,11 +445,14 @@ void GLVisualizer::updateParticles()
 
         for (int i = 0; i < numTracks; i++)
         {
-            const auto& result = results[i];
+            const auto& slot = (*results)[i];
+            int activeIndex = slot.activeIndex.load(std::memory_order_acquire);
+            const auto& result = slot.buffers[activeIndex];
+
             if (result.empty()) continue;
 
             int count = 0;
-            for (frequency_band band : result)
+            for (FrequencyBand band : result)
             {
                 if (band.frequency < minFrequency || band.frequency > maxFreq) 
                     continue;
@@ -459,9 +467,8 @@ void GLVisualizer::updateParticles()
                 particles.push_back(newParticle);
                 ++count;
             }
-            // DBG("Track " << i << " added " << count << " new particles this frame");
         }
-    }
+    } // lock guard
 }
 
 void GLVisualizer::drawParticles(float width, float height, 

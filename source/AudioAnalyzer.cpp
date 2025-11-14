@@ -45,7 +45,6 @@ void AudioAnalyzer::prepare(double newSampleRate, int newNumTracks)
         numBands = numCQTbins;
     
     binFrequencies.resize(numBands);
-    results.resize(numTracks);
 
     // Initialize members needed for the selected frequency transform
     if (transform == FFT)
@@ -92,6 +91,11 @@ void AudioAnalyzer::prepare()
     prepare(sampleRate, numTracks);
 }
 
+void AudioAnalyzer::setResultsPointer(std::array<TrackSlot, 8>* resultsPtr)
+{
+    results = resultsPtr;
+}
+
 void AudioAnalyzer::enqueueBlock(const juce::AudioBuffer<float>* buffer, int trackIndex)
 {
     // DBG("Enqueueing block for track " << trackIndex);
@@ -116,11 +120,6 @@ void AudioAnalyzer::stopWorker(std::unique_ptr<AnalyzerWorker>& worker)
         worker->stop();    // Stop cleanly
         worker.reset();    // Then delete
     }
-}
-
-std::vector<std::vector<frequency_band>>& AudioAnalyzer::getLatestResults()
-{
-    return results;
 }
 
 void AudioAnalyzer::setWindowSize(int newWindowSize)
@@ -388,7 +387,7 @@ void AudioAnalyzer::setupPanWeights()
 */
 void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer, 
                                 int trackIndex, 
-                                std::vector<frequency_band>& outResults,
+                                std::vector<FrequencyBand>& outResults,
                                 juce::dsp::FFT& fftEngine,
                                 std::vector<float>& fftDataTemp,
                                 std::array<std::vector<std::complex<float>>, 2>& outSpectra,
@@ -405,47 +404,6 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer,
 
     // Compute FFT for the block
     computeFFT(buffer, window, fftDataTemp, outSpectra, fftEngine);
-
-    // After computeFFT(buffer, window, fftDataTemp, outSpectra, fftEngine);
-
-    // Log DC bin (bin 0) and Nyquist (bin windowSize/2 if even)
-    // int dcBin = 0;
-    // int nyqBin = windowSize / 2;
-
-    // DBG("FFT DEBUG Track " << trackIndex 
-    //     << " bin" << dcBin 
-    //     << " L: real=" << outSpectra[0][dcBin].real() << " imag=" << outSpectra[0][dcBin].imag()
-    //     << " mag=" << std::abs(outSpectra[0][dcBin])
-    //     << " R: real=" << outSpectra[1][dcBin].real() << " imag=" << outSpectra[1][dcBin].imag()
-    //     << " mag=" << std::abs(outSpectra[1][dcBin]));
-
-    // if (nyqBin > dcBin && nyqBin < windowSize)
-    // {
-    //     DBG("FFT DEBUG Track " << trackIndex 
-    //         << " bin" << nyqBin 
-    //         << " L: real=" << outSpectra[0][nyqBin].real() << " imag=" << outSpectra[0][nyqBin].imag()
-    //         << " mag=" << std::abs(outSpectra[0][nyqBin])
-    //         << " R: real=" << outSpectra[1][nyqBin].real() << " imag=" << outSpectra[1][nyqBin].imag()
-    //         << " mag=" << std::abs(outSpectra[1][nyqBin]));
-    // }
-
-    // // Log a mid-low bin (e.g., expected energy from your test tones)
-    // int midBin = 10;  // Adjust based on binFrequencies[10]
-    // DBG("FFT DEBUG Track " << trackIndex 
-    //     << " bin" << midBin 
-    //     << " L mag=" << std::abs(outSpectra[0][midBin])
-    //     << " R mag=" << std::abs(outSpectra[1][midBin])
-    //     << " phaseL=" << std::arg(outSpectra[0][midBin])
-    //     << " phaseR=" << std::arg(outSpectra[1][midBin]));
-
-    // // Quick energy check
-    // float totalEnergyL = 0.0f, totalEnergyR = 0.0f;
-    // for (int b = 0; b < windowSize / 2; ++b)
-    // {
-    //     totalEnergyL += outSpectra[0][b].real()*outSpectra[0][b].real() + outSpectra[0][b].imag()*outSpectra[0][b].imag();
-    //     totalEnergyR += outSpectra[1][b].real()*outSpectra[1][b].real() + outSpectra[1][b].imag()*outSpectra[1][b].imag();
-    // }
-    // DBG("FFT ENERGY Track " << trackIndex << " L=" << totalEnergyL << " R=" << totalEnergyR);
 
     // Compute the selected frequency transform for the signal
     if (transform == FFT)
@@ -528,45 +486,19 @@ void AudioAnalyzer::analyzeBlock(const juce::AudioBuffer<float>& buffer,
         amp = juce::jlimit(0.0f, 1.0f, amp); // Clamp
 
         outResults.push_back({ binFrequencies[b], amp, panIndices[b], trackIndex });
-        
-        // if (b % 5 == 0 && amp > 0.1f)  // Tune threshold
-        // {
-        //     DBG("RESULTS Track " << trackIndex 
-        //         << " bin" << b << " freq=" << binFrequencies[b] 
-        //         << " amp=" << amp << " pan=" << panIndices[b] 
-        //         << " (magL=" << std::abs(outSpectra[0][b]) << " magR=" << std::abs(outSpectra[1][b]) << ")");
-        // }
     }
 
     // Store per-track results
-    {
-        std::lock_guard<std::mutex> lock(resultsMutex);
-        // Remove old bands for this track
-        results[trackIndex] = outResults;
+    auto& slot = (*results)[trackIndex];
 
-        // DBG("RESULTS DEBUG: results.size() = " << results.size());
-        // for (size_t t = 0; t < results.size(); ++t)
-        // {
-        //     DBG("    Track " << (int)t 
-        //         << " has " << results[t].size() 
-        //         << " bands stored");
-        //     if (!results[t].empty())
-        //     {
-        //         const auto& last = results[t].back();
-        //         DBG("        Last bin freq=" << last.frequency 
-        //             << " amp=" << last.amplitude 
-        //             << " pan=" << last.pan_index
-        //             << " track=" << last.trackIndex);
-        //     }
-        //     else
-        //     {
-        //         DBG("        Track " << (int)t << " is empty");
-        //     }
-        // }
-    }
+    int current = slot.activeIndex.load(std::memory_order_relaxed);
+    int next = 1 - current;
 
-    // DBG("STORE COMPLETE: Track " << trackIndex 
-    // << " stored " << results[trackIndex].size() << " bands");
+    auto& buf = slot.buffers[next];
+    buf = outResults;
+
+    // Publish new buffer atomically
+    slot.activeIndex.store(next, std::memory_order_release);
 }
 
 /*  Computes the FFT of each channel of the input buffer and stores the

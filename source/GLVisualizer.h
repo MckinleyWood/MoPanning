@@ -1,5 +1,6 @@
 #pragma once
 #include <JuceHeader.h>
+#include "Utils.h"
 
 class GridComponent;
 class MainController;
@@ -42,6 +43,8 @@ public:
     void resized() override;
 
     //=========================================================================
+    void setResultsPointer(std::array<TrackSlot, 8>* resultsPtr);
+    
     void setSampleRate(double newSampleRate);
     void setDimension(Dimension newDimension);
     void setTrackColourScheme(ColourScheme newColourScheme, int trackIndex);
@@ -113,6 +116,8 @@ private:
     bool recording;
     std::vector<uint8_t> capturePixels;
     std::vector<uint8_t> flippedPixels; 
+
+    std::array<TrackSlot, 8>* results;
 
     MainController& controller;
 

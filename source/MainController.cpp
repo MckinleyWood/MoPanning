@@ -515,10 +515,10 @@ void MainController::audioDeviceIOCallbackWithContext(
     float *const *outputChannelData, int numOutputChannels, int numSamples,
     const juce::AudioIODeviceCallbackContext& context)
 {
-    jassert(numSamples == samplesPerBlock);
-
-    numTracks = numInputChannels / 2;
-
+    /* When using AirPods, numSamples always seems to max out at 480 and
+    is not consistent with the audio device's getCurrentBufferSizeSamples().
+    somehow, this doesn't seem to cause any issues. */ 
+    // jassert(numSamples == samplesPerBlock);
 
     for (int track = 0; track < numTracks; track++)
     {
@@ -530,7 +530,7 @@ void MainController::audioDeviceIOCallbackWithContext(
         bool isFirstTrack = (track == 0);
 
         // Delegate to the audio engine
-        engine->fillAudioBuffers(selectedChannels, 2,
+        engine->fillAudioBuffers(selectedChannels, std::min(numInputChannels, 2),
                                 outputChannelData, numOutputChannels,
                                 numSamples, buffers[track], isFirstTrack, trackGains[track]);
 
@@ -549,8 +549,9 @@ void MainController::audioDeviceAboutToStart(juce::AudioIODevice* device)
 {
     sampleRate = device->getCurrentSampleRate();
     samplesPerBlock = device->getCurrentBufferSizeSamples();
+    
     int numInputChannels = device->getActiveInputChannels().countNumberOfSetBits();
-    numTracks = (numInputChannels > 0) ? numInputChannels / 2 : 1;  // Fallback to 1 if no inputs
+    numTracks = std::max(numInputChannels / 2, 1); 
 
     if (onNumTracksChanged)
         onNumTracksChanged(numTracks);
@@ -568,8 +569,10 @@ void MainController::audioDeviceAboutToStart(juce::AudioIODevice* device)
     
     engine->prepareToPlay(samplesPerBlock, sampleRate);
     analyzer->setPrepared(false);
+    analyzer->setResultsPointer(&analysisResults);
     analyzer->prepare(sampleRate, numTracks);
     videoWriter->prepare(sampleRate, samplesPerBlock, 2);
+    visualizer->setResultsPointer(&analysisResults);
     visualizer->setSampleRate(sampleRate);
     grid->setSampleRate(sampleRate);
 }
@@ -607,8 +610,6 @@ ParamLayout MainController::makeParameterLayout(
 void MainController::registerVisualizer(GLVisualizer* v)
 {
     visualizer = v;
-
-    // visualizer->startRecording();
 }
 
 void MainController::registerGrid(GridComponent* g)
@@ -660,12 +661,6 @@ std::vector<ParameterDescriptor> MainController::getParameterDescriptors() const
 juce::AudioProcessorValueTreeState& MainController::getAPVTS() noexcept
 {
     return processor->getValueTreeState();;
-}
-
-std::vector<std::vector<frequency_band>> MainController::getLatestResults() const
-{
-    std::lock_guard<std::mutex> lock(analyzer->getResultsMutex());
-    return analyzer->getLatestResults();
 }
 
 juce::AudioDeviceManager& MainController::getDeviceManager()

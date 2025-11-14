@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(MOPANNING VERSION 0.1.2)
+project(MOPANNING VERSION 0.1.3)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "" FORCE)
@@ -20,25 +20,16 @@ juce_generate_juce_header(MoPanning)
 
 target_sources(MoPanning
     PRIVATE
-        app/Main.cpp
+        source/Main.cpp
         source/AudioAnalyzer.cpp
-        source/AudioAnalyzer.h
         source/AudioEngine.cpp
-        source/AudioEngine.h
-        source/GLVisualizer.cpp
-        source/GLVisualizer.h
         source/GridComponent.cpp
-        source/GridComponent.h
+        source/GLVisualizer.cpp
         source/MainComponent.cpp
-        source/MainComponent.h
         source/MainController.cpp
-        source/MainController.h
         source/MiniAudioProcessor.cpp
-        source/MiniAudioProcessor.h
         source/SettingsComponent.cpp
-        source/SettingsComponent.h
         source/VideoWriter.cpp
-        source/VideoWriter.h
 )
 
 target_compile_definitions(MoPanning

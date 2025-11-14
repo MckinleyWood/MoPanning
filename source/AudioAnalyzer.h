@@ -9,13 +9,7 @@ asynchronously.
 
 #pragma once
 #include <JuceHeader.h>
-
-struct frequency_band {
-    float frequency; // Band frequency in Hertz
-    float amplitude; // Range 0 - 1 ...?
-    float pan_index; // -1 = far left, +1 = far right
-    int trackIndex;
-};
+#include "Utils.h"
 
 using Complex = juce::dsp::Complex<float>;
 
@@ -34,11 +28,10 @@ public:
     void prepare(double newSampleRate, int newNumTracks);
     void prepare(); // Uses current sampleRate
 
+    void setResultsPointer(std::array<TrackSlot, 8>* resultsPtr);
+
     // Called by audio thread
     void enqueueBlock(const juce::AudioBuffer<float>* buffer, int trackIndex);
-
-    // Called by GUI thread to get latest results
-    std::vector<std::vector<frequency_band>>& getLatestResults();
 
     void setWindowSize(int newWindowSize);
     void setHopSize(int newHopSize);
@@ -52,8 +45,6 @@ public:
 
     bool getPrepared() const { return isPrepared.load(); }
     void setPrepared(bool prepared) { isPrepared.store(prepared); }
-
-    std::mutex& getResultsMutex() { return resultsMutex; }
 
     //=========================================================================
     class AnalyzerWorker;
@@ -77,7 +68,7 @@ private:
 
     void analyzeBlock(const juce::AudioBuffer<float>& buffer, 
                     int trackIndex, 
-                    std::vector<frequency_band>& outResults,
+                    std::vector<FrequencyBand>& outResults,
                     juce::dsp::FFT& fftEngine,
                     std::vector<float>& fftDataTemp,
                     std::array<std::vector<std::complex<float>>, 2>& outSpectra,
@@ -154,8 +145,7 @@ private:
     std::vector<float> ildWeights;
 
     //=========================================================================
-    std::vector<std::vector<frequency_band>> results; // Must be sorted by frequency!!!
-    mutable std::mutex resultsMutex;
+    std::array<TrackSlot, 8>* results;
 
     std::vector<std::unique_ptr<AnalyzerWorker>> workers; // One worker per track
 
@@ -411,7 +401,7 @@ private:
     std::condition_variable cv;
     std::mutex mutex;
 
-    std::vector<frequency_band> newResults;
+    std::vector<FrequencyBand> newResults;
 
     AudioAnalyzer& parentAnalyzer;
 };

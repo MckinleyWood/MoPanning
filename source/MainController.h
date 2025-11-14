@@ -13,6 +13,7 @@ communication between parts of the program must run through here.
 #include "MiniAudioProcessor.h"
 #include "GridComponent.h"
 #include "VideoWriter.h"
+#include "Utils.h"
 
 //=============================================================================
 using ParamLayout = juce::AudioProcessorValueTreeState::ParameterLayout;
@@ -65,7 +66,6 @@ public:
     std::vector<ParameterDescriptor> getParameterDescriptors() const;
     juce::AudioProcessorValueTreeState& getAPVTS() noexcept;
 
-    std::vector<std::vector<frequency_band>> getLatestResults() const;
     juce::AudioDeviceManager& getDeviceManager();
 
     int getNumTracks() const { return numTracks; }
@@ -93,8 +93,10 @@ private:
     GridComponent* grid = nullptr;
 
     juce::AudioProcessorValueTreeState* apvts;
-
     std::vector<ParameterDescriptor> parameterDescriptors;
+
+    static constexpr int maxNumTracks = 8;
+    std::array<TrackSlot, maxNumTracks> analysisResults;
 
     int numTracks = 1;
     bool threeDim = 1;
