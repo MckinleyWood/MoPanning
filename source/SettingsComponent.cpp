@@ -25,62 +25,20 @@
 //=============================================================================
 SettingsComponent::SettingsComponent(MainController& c) : controller(c)
 {
-    content = std::make_unique<SettingsContentComponent>(controller);
-    viewport.setViewedComponent(content.get(), false);
-    addAndMakeVisible(viewport);
-
+    // 
     controller.onNumTracksChanged = [this](int numTracksIn)
     {
-        if (content)
-        {
-            content->numTracks = numTracksIn;
-            content->updateParamVisibility(content->numTracks,
-                                        content->dim);
-        }
+        numTracks = numTracksIn;
+        updateParamVisibility(numTracks, dim);
     };
 
+    // 
     controller.onDimChanged = [this](int dimIn)
     {
-        if (content)
-        {
-            content->dim = dimIn;
-            content->updateParamVisibility(content->numTracks,
-                                        content->dim);
-        }
+        dim = dimIn;
+        updateParamVisibility(numTracks, dim);
     };
-}
 
-//=============================================================================
-SettingsComponent::~SettingsComponent() = default;
-
-//=============================================================================
-void SettingsComponent::resized() 
-{
-    viewport.setBounds(getLocalBounds());
-    const int deviceSelectorHeight = content->getDeviceSelectorHeight();
-    int selectorDiff = deviceSelectorHeight - oldDeviceSelectorHeight;
-    int contentHeight = 0;
-    if (selectorDiff > 1e-6)
-        contentHeight = content ? content->getHeight() + selectorDiff : getHeight();
-
-    if (selectorDiff < -1e-6)
-        contentHeight = content ? content->getHeight() - selectorDiff : getHeight();
-
-    oldDeviceSelectorHeight = deviceSelectorHeight;
-    int contentWidth = getWidth() - 8; // leave some space for scroll bar
-
-    if (content != nullptr)
-    {
-        content->setSize(contentWidth, contentHeight);
-    }
-}
-
-//=============================================================================
-using sc = SettingsComponent;
-
-sc::SettingsContentComponent::SettingsContentComponent(MainController& c) 
-                                                       : controller(c)
-{
     using Font = juce::FontOptions;
 
     // Set the font
@@ -90,25 +48,52 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
     // Set up title label
     title.setText("MoPanning", juce::dontSendNotification);
     title.setFont(titleFont);
-    title.setJustificationType(juce::Justification::centred);
+    title.setJustificationType(juce::Justification::left);
     title.setColour(juce::Label::textColourId, juce::Colours::white);
     addAndMakeVisible(title);
 
+    // Recording button
+    recordButton = std::make_unique<juce::ToggleButton>("Record");
+    recordButton->setButtonText("Record");
+    addAndMakeVisible(recordButton.get());
+    recordButton->setToggleState(false, juce::dontSendNotification);
+
+    // Create pages for setting groups
+    tabs = std::make_unique<juce::TabbedComponent>(juce::TabbedButtonBar::TabsAtTop);
+    addAndMakeVisible(tabs.get());
+
+    ioPage = std::make_unique<PageComponent>();
+    visualPage = std::make_unique<PageComponent>();
+    analysisPage = std::make_unique<PageComponent>();
+    colorsPage = std::make_unique<PageComponent>();
+
+    ioPage->isIOPage = true;
+
+    tabs->addTab("I/O", juce::Colours::darkgrey, ioPage.get(), false);
+    tabs->addTab("Visual", juce::Colours::darkgrey, visualPage.get(), false);
+    tabs->addTab("Analysis", juce::Colours::darkgrey, analysisPage.get(), false);
+    tabs->addTab("Colors", juce::Colours::darkgrey, colorsPage.get(), false);
+
+    tabs->setTabBarDepth(30);            // height of tab bar
+    tabs->setOutline(0);                 // removes border
+    tabs->setIndent(10);                 // optional padding
+
     // Set up device selector--max 16 input channels, 2 output channels
-    deviceSelector = std::make_unique<CustomAudioDeviceSelectorComponent>(
+    ioPage->deviceSelector = std::make_unique<CustomAudioDeviceSelectorComponent>(
         controller.getDeviceManager(),
         2, 16, 2, 2,
         false, false, true, true);
 
-    deviceSelector.get()->onHeightChanged = [this]()
+    ioPage->deviceSelector.get()->onHeightChanged = [this]()
     {
-        if (auto* parent = findParentComponentOfClass<SettingsComponent>())
-        {
-            parent->resized();
-        }
+        if (ioPage)
+            ioPage->resized();   // re-layout items inside page
+        
+        this->resized();         // re-layout content (title, tabs, page)
+
     };
 
-    addAndMakeVisible(deviceSelector.get());
+    ioPage->addAndMakeVisible(ioPage->deviceSelector.get());
 
     // Set up parameter controls
     auto parameters = controller.getParameterDescriptors();
@@ -119,124 +104,94 @@ sc::SettingsContentComponent::SettingsContentComponent(MainController& c)
         {
             continue;
         }
+
+        if (p.id == "recording")
+        {
+            continue; // special case
+        }
+
+        PageComponent* page = nullptr;
+
+        if (p.group == "io")
+            page = ioPage.get();
+        else if (p.group == "visual")
+            page = visualPage.get();
+        else if (p.group == "analysis")
+            page = analysisPage.get();
+        else if (p.group == "colors")
+            page = colorsPage.get();
+
         if (p.type == ParameterDescriptor::Float)
         {
-            auto slider = std::make_unique<NonScrollingSlider>(p.displayName);
+            auto slider = std::make_unique<Slider>(p.displayName);
             slider->setRange(p.range.start, p.range.end);
             slider->setValue(p.defaultValue);
             slider->setTextValueSuffix(p.unit);
-            addAndMakeVisible(*slider);
-
+            
             auto attachment = std::make_unique<apvts::SliderAttachment>(
                 apvts, p.id, *slider);
-            sliderAttachments.push_back(std::move(attachment));
 
-            uiObjects.push_back(std::move(slider));
+            if (p.id.contains("track"))  // vertical sliders for track gains
+            {
+                slider->setSliderStyle(Slider::SliderStyle::LinearVertical);
+                slider->setTextBoxStyle(Slider::TextEntryBoxPosition::TextBoxBelow, false, 40, 20);
+            }
+                
+            page->addAndMakeVisible(*slider);
+
+            page->controls.push_back(std::move(slider));
         }
         else if (p.type == ParameterDescriptor::Choice)
         {
             auto combo = std::make_unique<juce::ComboBox>(p.displayName);
             combo->addItemList(p.choices, 1); // JUCE items start at index 1
             combo->setSelectedItemIndex(static_cast<int>(p.defaultValue));
-            addAndMakeVisible(*combo);
+            page->addAndMakeVisible(*combo);
 
             auto attachment = std::make_unique<apvts::ComboBoxAttachment>(
                 apvts, p.id, *combo);
-            comboAttachments.push_back(std::move(attachment));
 
-            uiObjects.push_back(std::move(combo));
+            page->controls.push_back(std::move(combo));
         }
 
         auto label = std::make_unique<juce::Label>();
         label->setText(p.displayName, juce::dontSendNotification);
         label->setJustificationType(juce::Justification::left);
         label->setFont(normalFont);
-        addAndMakeVisible(*label);
-        labels.push_back(std::move(label));
+        page->addAndMakeVisible(*label);
+        page->labels.push_back(std::move(label));
 
-        parameterComponentMap[p.id] = uiObjects.back().get();
-        parameterLabelMap[p.id] = labels.back().get();
+        parameterComponentMap[p.id] = page->controls.back().get();
+        parameterLabelMap[p.id] = page->labels.back().get();
     }
 
     initialized = true;
 }
 
-sc::SettingsContentComponent::~SettingsContentComponent()
-{
-    // Clear attachments before APVTS is deleted
-    sliderAttachments.clear();
-    comboAttachments.clear();
-}
+//=============================================================================
+SettingsComponent::~SettingsComponent() = default;
 
-void sc::SettingsContentComponent::resized()
+//=============================================================================
+void SettingsComponent::resized()
 {
     auto bounds = getLocalBounds().reduced(10);
-
-    const int rowHeight = 50;
-    const int labelHeight = 14;
-    int numSettings = (int)uiObjects.size();
 
     // Lay out the title at the top
     auto titleZone = bounds.removeFromTop(60);
     title.setBounds(titleZone);
 
-    // Lay out the device selector below the title
-    auto deviceSelectorHeight = getDeviceSelectorHeight();
-    auto deviceSelectorZone = bounds.removeFromTop(
-         deviceSelectorHeight);
-    deviceSelector->setBounds(deviceSelectorZone);
+    // Lay out record button next to title
+    auto recordButtonZone = titleZone.removeFromRight(100);
+    recordButton->setBounds(recordButtonZone);
 
-    // Dynamic layout of visible parameter controls
-    int yOffset = bounds.getY() - 30;
-
-    // Lay out the parameter controls in rows below the device selector
-    for (int i = 0; i < numSettings; ++i)
-    {
-        auto* control = uiObjects[i].get();
-        auto* label = labels[i].get();
-
-        if (control->isVisible() && label->isVisible())
-        {
-            auto labelZone = juce::Rectangle<int>(
-                bounds.getX(), yOffset, bounds.getWidth(), labelHeight);
-            label->setBounds(labelZone);
-
-            yOffset += labelHeight;
-
-            auto controlZone = juce::Rectangle<int>(
-                bounds.getX(), yOffset, bounds.getWidth(), rowHeight - labelHeight);
-            control->setBounds(controlZone.reduced(0, 4));
-
-            yOffset += (rowHeight - labelHeight);
-        }
-    }
-
-    // Update total component height to fit all visible elements
-    int totalHeight = yOffset + 20;
-    setSize(getWidth(), totalHeight);
-
-    // Notify parent (viewport) to update scroll area
-    if (auto* parent = findParentComponentOfClass<SettingsContentComponent>())
-        parent->resized();
+    // Tabs below title
+    tabs->setBounds(bounds);
 }
 
-void sc::SettingsContentComponent::paint(juce::Graphics& g)
+//=============================================================================
+void SettingsComponent::updateParamVisibility(int numTracksIn, bool threeDimIn)
 {
-    // Paint the background
-    g.fillAll(juce::Colours::darkgrey);
-}
-
-void sc::SettingsContentComponent::updateParamVisibility(int numTracksIn, bool threeDimIn)
-{
-    auto show2 = (numTracksIn >= 2);
-    auto show3 = (numTracksIn >= 3);
-    auto show4 = (numTracksIn >= 4);
-    auto show5 = (numTracksIn >= 5);
-    auto show6 = (numTracksIn >= 6);
-    auto show7 = (numTracksIn >= 7);
-    auto show8 = (numTracksIn >= 8);
-
-    bool showGrid = (threeDimIn == 0);
+    const bool showGrid = (threeDimIn == 0);
 
     auto setVisibleIfFound = [this](const juce::String& id, bool visible)
     {
@@ -246,38 +201,23 @@ void sc::SettingsContentComponent::updateParamVisibility(int numTracksIn, bool t
             label->setVisible(visible);
     };
 
-    setVisibleIfFound("track2ColourScheme", show2);
-    setVisibleIfFound("track3ColourScheme", show3);
-    setVisibleIfFound("track4ColourScheme", show4);
-    setVisibleIfFound("track5ColourScheme", show5);
-    setVisibleIfFound("track6ColourScheme", show6);
-    setVisibleIfFound("track7ColourScheme", show7);
-    setVisibleIfFound("track8ColourScheme", show8);
+    for (int track = 2; track <=8; ++track)
+    {
+        bool shouldShow = (numTracksIn >= track);
 
-    setVisibleIfFound("track2Gain", show2);
-    setVisibleIfFound("track3Gain", show3);
-    setVisibleIfFound("track4Gain", show4);
-    setVisibleIfFound("track5Gain", show5);
-    setVisibleIfFound("track6Gain", show6);
-    setVisibleIfFound("track7Gain", show7);
-    setVisibleIfFound("track8Gain", show8);
+        juce::String colourID = "track" + juce::String(track) + "ColourScheme";
+        juce::String gainID   = "track" + juce::String(track) + "Gain";
 
+        setVisibleIfFound(colourID, shouldShow);
+        setVisibleIfFound(gainID, shouldShow);
+    }
 
     setVisibleIfFound("showGrid", showGrid);
 
-    resized(); // reposition remaining visible controls
-    if (auto* parent = findParentComponentOfClass<SettingsComponent>())
-        parent->resized(); // update viewport size
+    if (ioPage)       ioPage->resized();
+    if (visualPage)   visualPage->resized();
+    if (analysisPage) analysisPage->resized();
+    if (colorsPage) colorsPage->resized();
+
     repaint();
-}
-
-//=============================================================================
-int sc::SettingsContentComponent::getDeviceSelectorHeight() const
-{
-    return deviceSelector ? deviceSelector->getHeight() : 0;
-}
-
-const std::vector<std::unique_ptr<juce::Component>>& sc::SettingsContentComponent::getUIObjects() const
-{
-    return uiObjects;
 }

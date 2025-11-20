@@ -44,7 +44,8 @@ struct ParameterDescriptor
     juce::String id;
     juce::String displayName;
     juce::String description;
-    enum Type { Float, Choice } type;
+    juce::String group;
+    enum Type { Float, Choice, Bool } type;
     float defaultValue;
     juce::NormalisableRange<float> range; // For float parameters
     juce::StringArray choices; // For choice parameters

@@ -37,11 +37,11 @@ MainController::MainController()
         // recording
         {
             "recording", "Recording", "Recording on/off", 
-            ParameterDescriptor::Type::Choice, 0, {},
+            "general", ParameterDescriptor::Type::Bool, false, {},
             {"Off", "On"}, "",
             [this](float value) 
             {
-                if (static_cast<int>(value) == 1)
+                if (value == true)
                 {
                     videoWriter->start();
                     visualizer->startRecording();
@@ -58,7 +58,7 @@ MainController::MainController()
         // inputType
         { 
             "inputType", "Input Type", "Where to receive audio input from.", 
-            ParameterDescriptor::Type::Choice, 1, {}, 
+            "io", ParameterDescriptor::Type::Choice, 1, {}, 
             {"File", "Streaming"}, "",
             [this](float value) 
             {
@@ -70,7 +70,7 @@ MainController::MainController()
         {
             "windowSize", "Window Size", 
             "The length of the analysis window in samples.",
-            ParameterDescriptor::Type::Choice, 2, {},
+            "analysis", ParameterDescriptor::Type::Choice, 2, {},
             {"256", "512", "1024", "2048", "4096"}, "",
             [this](float value) 
             {
@@ -93,7 +93,7 @@ MainController::MainController()
         {
             "hopSize", "Hop Size", 
             "The number of samples between analysis windows.",
-            ParameterDescriptor::Type::Choice, 2, {},
+            "analysis", ParameterDescriptor::Type::Choice, 2, {},
             {"128", "256", "512", "1024", "2048", "4096"}, "",
             [this](float value) 
             {
@@ -114,7 +114,7 @@ MainController::MainController()
         // transform
         { 
             "transform", "Frequency Transform",
-            "Which frequency transform to use for analysis.", 
+            "analysis", "Which frequency transform to use for analysis.", 
             ParameterDescriptor::Type::Choice, 1, {}, 
             {"FFT", "CQT"}, "",
             [this](float value) 
@@ -128,7 +128,7 @@ MainController::MainController()
         {
             "panMethod", "Panning Method", 
             "What cue(s) to use for spatializing audio.", 
-            ParameterDescriptor::Type::Choice, 0, {},
+            "analysis", ParameterDescriptor::Type::Choice, 0, {},
             {"Level Difference", "Time Difference", "Both"}, "",
             [this](float value) 
             {
@@ -140,7 +140,7 @@ MainController::MainController()
         {
             "numCQTbins", "Number of CQT Bins", 
             "Number of frequency bins in the Constant-Q Transform.",
-            ParameterDescriptor::Type::Choice, 2, {},
+            "analysis", ParameterDescriptor::Type::Choice, 2, {},
             {"64", "128", "256", "512", "1024"}, "",
             [this](float value) 
             {
@@ -162,7 +162,7 @@ MainController::MainController()
         {
             "minFrequency", "Minimum Frequency", 
             "Minimum frequency (Hz) to include in the analysis.",
-            ParameterDescriptor::Type::Choice, 1, {},
+            "analysis", ParameterDescriptor::Type::Choice, 1, {},
             {"5Hz", "20Hz", "50Hz", "100Hz"}, "",
             [this](float value) 
             {
@@ -183,11 +183,24 @@ MainController::MainController()
             }
 
         },
+        // dimension
+        {
+            "dimension", "Dimension", "Visualization dimension.",
+            "visual", ParameterDescriptor::Type::Choice, 1, {},
+            {"2D", "3D"}, "",
+            [this](float value) 
+            {
+                if (visualizer != nullptr)
+                    visualizer->setDimension(static_cast<Dimension>(value));
+                if (onDimChanged)
+                    onDimChanged(static_cast<int>(value));
+            }
+        },
         // peakAmplitude
         {
             "peakAmplitude", "Peak Amplitude",
             "The maximum expected amplitude of the input signal.",
-            ParameterDescriptor::Type::Float, 1.f,
+            "visual", ParameterDescriptor::Type::Float, 1.f,
             juce::NormalisableRange<float>(0.000001f, 1.f, 0.0f, 0.5f), {}, "",
             [this](float value) 
             {
@@ -199,7 +212,7 @@ MainController::MainController()
         {
             "threshold", "Amplitude Threshold",
             "The amplitude level (dB relative to peak) below which frequency bands are ignored.",
-            ParameterDescriptor::Type::Float, -60.f,
+            "visual", ParameterDescriptor::Type::Float, -60.f,
             juce::NormalisableRange<float>(-120.f, -20.f), {}, "dB",
             [this](float value) 
             {
@@ -211,7 +224,7 @@ MainController::MainController()
         {
             "freqWeighting", "Frequency Weighting",
             "Choose a frequency weighting curve to apply to the input signal.",
-            ParameterDescriptor::Type::Choice, 1, {},
+            "analysis", ParameterDescriptor::Type::Choice, 1, {},
             {"None", "A-Weighting"}, "",
             [this](float value) 
             {
@@ -221,24 +234,11 @@ MainController::MainController()
                                                     (value));
             }
         },
-        // dimension
-        {
-            "dimension", "Dimension", "Visualization dimension.",
-            ParameterDescriptor::Type::Choice, 1, {},
-            {"2D", "3D"}, "",
-            [this](float value) 
-            {
-                if (visualizer != nullptr)
-                    visualizer->setDimension(static_cast<Dimension>(value));
-                if (onDimChanged)
-                    onDimChanged(static_cast<int>(value));
-            }
-        },
         // colourSchemeTrack1
         {
             "track1ColourScheme", "Track 1 Colour Scheme", 
             "Colour scheme for visualization of track 1.",
-            ParameterDescriptor::Type::Choice, 1, {},
+            "colors", ParameterDescriptor::Type::Choice, 1, {},
             {"Greyscale", "Rainbow", "Red", "Orange", "Yellow", "Light Green", "Dark Green", "Light Blue", "Dark Blue", "Purple", "Pink", "Warm", "Cool"}, "",
             [this](float value) 
             {
@@ -251,7 +251,7 @@ MainController::MainController()
         // gainTrack1
         {
             "track1Gain", "Track 1 Gain", 
-            "Gain of track 1.",
+            "Gain of track 1.", "io",
             ParameterDescriptor::Type::Float, 1.0f,
             juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
             [this](float value) 
@@ -264,7 +264,7 @@ MainController::MainController()
         {
             "track2ColourScheme", "Track 2 Colour Scheme", 
             "Colour scheme for visualization of track 2.",
-            ParameterDescriptor::Type::Choice, 1, {},
+            "colors", ParameterDescriptor::Type::Choice, 1, {},
             {"Greyscale", "Rainbow", "Red", "Orange", "Yellow", "Light Green", "Dark Green", "Light Blue", "Dark Blue", "Purple", "Pink", "Warm", "Cool"}, "",
             [this](float value) 
             {
@@ -276,7 +276,7 @@ MainController::MainController()
         // gainTrack2
         {
             "track2Gain", "Track 2 Gain", 
-            "Gain of track 2.",
+            "Gain of track 2.", "io",
             ParameterDescriptor::Type::Float, 1.0f,
             juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
             [this](float value) 
@@ -289,7 +289,7 @@ MainController::MainController()
         {
             "track3ColourScheme", "Track 3 Colour Scheme", 
             "Colour scheme for visualization of track 3.",
-            ParameterDescriptor::Type::Choice, 1, {},
+            "colors", ParameterDescriptor::Type::Choice, 1, {},
             {"Greyscale", "Rainbow", "Red", "Orange", "Yellow", "Light Green", "Dark Green", "Light Blue", "Dark Blue", "Purple", "Pink", "Warm", "Cool"}, "",
             [this](float value) 
             {
@@ -301,7 +301,7 @@ MainController::MainController()
         // gainTrack3
         {
             "track3Gain", "Track 3 Gain", 
-            "Gain of track 3.",
+            "Gain of track 3.", "io",
             ParameterDescriptor::Type::Float, 1.0f,
             juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
             [this](float value) 
@@ -314,7 +314,7 @@ MainController::MainController()
         {
             "track4ColourScheme", "Track 4 Colour Scheme", 
             "Colour scheme for visualization of track 4.",
-            ParameterDescriptor::Type::Choice, 1, {},
+            "colors", ParameterDescriptor::Type::Choice, 1, {},
             {"Greyscale", "Rainbow", "Red", "Orange", "Yellow", "Light Green", "Dark Green", "Light Blue", "Dark Blue", "Purple", "Pink", "Warm", "Cool"}, "",
             [this](float value) 
             {
@@ -326,7 +326,7 @@ MainController::MainController()
         // gainTrack4
         {
             "track4Gain", "Track 4 Gain", 
-            "Gain of track 4.",
+            "Gain of track 4.", "io",
             ParameterDescriptor::Type::Float, 1.0f,
             juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
             [this](float value) 
@@ -339,7 +339,7 @@ MainController::MainController()
         {
             "track5ColourScheme", "Track 5 Colour Scheme", 
             "Colour scheme for visualization of track 5.",
-            ParameterDescriptor::Type::Choice, 1, {},
+            "colors", ParameterDescriptor::Type::Choice, 1, {},
             {"Greyscale", "Rainbow", "Red", "Orange", "Yellow", "Light Green", "Dark Green", "Light Blue", "Dark Blue", "Purple", "Pink", "Warm", "Cool"}, "",
             [this](float value) 
             {
@@ -351,7 +351,7 @@ MainController::MainController()
         // gainTrack5
         {
             "track5Gain", "Track 5 Gain", 
-            "Gain of track 5.",
+            "Gain of track 5.", "io",
             ParameterDescriptor::Type::Float, 1.0f,
             juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
             [this](float value) 
@@ -364,7 +364,7 @@ MainController::MainController()
         {
             "track6ColourScheme", "Track 6 Colour Scheme", 
             "Colour scheme for visualization of track 6.",
-            ParameterDescriptor::Type::Choice, 1, {},
+            "colors", ParameterDescriptor::Type::Choice, 1, {},
             {"Greyscale", "Rainbow", "Red", "Orange", "Yellow", "Light Green", "Dark Green", "Light Blue", "Dark Blue", "Purple", "Pink", "Warm", "Cool"}, "",
             [this](float value) 
             {
@@ -376,7 +376,7 @@ MainController::MainController()
         // gainTrack6
         {
             "track6Gain", "Track 6 Gain", 
-            "Gain of track 6.",
+            "Gain of track 6.", "io",
             ParameterDescriptor::Type::Float, 1.0f,
             juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
             [this](float value) 
@@ -389,7 +389,7 @@ MainController::MainController()
         {
             "track7ColourScheme", "Track 7 Colour Scheme", 
             "Colour scheme for visualization of track 7.",
-            ParameterDescriptor::Type::Choice, 1, {},
+            "colors", ParameterDescriptor::Type::Choice, 1, {},
             {"Greyscale", "Rainbow", "Red", "Orange", "Yellow", "Light Green", "Dark Green", "Light Blue", "Dark Blue", "Purple", "Pink", "Warm", "Cool"}, "",
             [this](float value) 
             {
@@ -401,7 +401,7 @@ MainController::MainController()
         // gainTrack7
         {
             "track7Gain", "Track 7 Gain", 
-            "Gain of track 7.",
+            "Gain of track 7.", "io",
             ParameterDescriptor::Type::Float, 1.0f,
             juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
             [this](float value) 
@@ -414,7 +414,7 @@ MainController::MainController()
         {
             "track8ColourScheme", "Track 8 Colour Scheme", 
             "Colour scheme for visualization of track 8.",
-            ParameterDescriptor::Type::Choice, 1, {},
+            "colors", ParameterDescriptor::Type::Choice, 1, {},
             {"Greyscale", "Rainbow", "Red", "Orange", "Yellow", "Light Green", "Dark Green", "Light Blue", "Dark Blue", "Purple", "Pink", "Warm", "Cool"}, "",
             [this](float value) 
             {
@@ -426,7 +426,7 @@ MainController::MainController()
         // gainTrack8
         {
             "track8Gain", "Track 8 Gain", 
-            "Gain of track 8.",
+            "Gain of track 8.", "io",
             ParameterDescriptor::Type::Float, 1.0f,
             juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
             [this](float value) 
@@ -438,7 +438,7 @@ MainController::MainController()
         // showGrid
         {
             "showGrid", "Show Grid", 
-            "Toggle display of the grid.",
+            "Toggle display of the grid.", "visual",
             ParameterDescriptor::Type::Choice, 0, {},
             {"Off", "On"}, "",
             [this](float value) 
@@ -454,7 +454,7 @@ MainController::MainController()
         {
             "dotSize", "Particle Size", 
             "Size of each particle in the visualization.",
-            ParameterDescriptor::Type::Float, 1.0f,
+            "visual", ParameterDescriptor::Type::Float, 1.0f,
             juce::NormalisableRange<float>(0.001f, 10.0, 0.0f, 0.5f), {}, "",
             [this](float value) 
             {
@@ -466,7 +466,7 @@ MainController::MainController()
         {
             "recedeSpeed", "Recede Speed", 
             "How fast the particles recede into the distance.",
-            ParameterDescriptor::Type::Float, 5.f,
+            "visual", ParameterDescriptor::Type::Float, 5.f,
             juce::NormalisableRange<float>(0.1f, 20.f), {}, "m/s",
             [this](float value) 
             {
@@ -478,7 +478,7 @@ MainController::MainController()
         {
             "fadeEndZ", "Fade Distance", 
             "Distance at which particles are fully faded out.",
-            ParameterDescriptor::Type::Float, 5.f,
+            "visual", ParameterDescriptor::Type::Float, 5.f,
             juce::NormalisableRange<float>(0.1f, 10.f), {}, "m",
             [this](float value) 
             {
