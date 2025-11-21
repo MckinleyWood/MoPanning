@@ -25,14 +25,14 @@
 //=============================================================================
 SettingsComponent::SettingsComponent(MainController& c) : controller(c)
 {
-    // 
+    // Update parameter visibility when numTracks changes
     controller.onNumTracksChanged = [this](int numTracksIn)
     {
         numTracks = numTracksIn;
         updateParamVisibility(numTracks, dim);
     };
 
-    // 
+    // Update parameter visibility when dim changes
     controller.onDimChanged = [this](int dimIn)
     {
         dim = dimIn;
@@ -41,9 +41,9 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
 
     using Font = juce::FontOptions;
 
-    // Set the font
+    // Set the fonts
     Font normalFont = {13.f, 0};
-    Font titleFont = normalFont.withHeight(40).withStyle("Bold");
+    Font titleFont = normalFont.withHeight(40.0f).withStyle("Bold");
 
     // Set up title label
     title.setText("MoPanning", juce::dontSendNotification);
@@ -52,13 +52,19 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
     title.setColour(juce::Label::textColourId, juce::Colours::white);
     addAndMakeVisible(title);
 
+    // 
+    auto parameters = controller.getParameterDescriptors();
+    auto& apvts = controller.getAPVTS();
+
     // Recording button
-    recordButton = std::make_unique<juce::ToggleButton>("Record");
+    recordButton = std::make_unique<juce::ToggleButton>("Recording");
     recordButton->setButtonText("Record");
     addAndMakeVisible(recordButton.get());
-    recordButton->setToggleState(false, juce::dontSendNotification);
+    auto recordAttachment = std::make_unique<apvts::ButtonAttachment>(
+        apvts, "recording", *recordButton);
+    buttonAttachments.push_back(std::move(recordAttachment));
 
-    // Create pages for setting groups
+    // Create tabs and pages for setting groups
     tabs = std::make_unique<juce::TabbedComponent>(juce::TabbedButtonBar::TabsAtTop);
     addAndMakeVisible(tabs.get());
 
@@ -66,8 +72,6 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
     visualPage = std::make_unique<PageComponent>();
     analysisPage = std::make_unique<PageComponent>();
     colorsPage = std::make_unique<PageComponent>();
-
-    ioPage->isIOPage = true;
 
     tabs->addTab("I/O", juce::Colours::darkgrey, ioPage.get(), false);
     tabs->addTab("Visual", juce::Colours::darkgrey, visualPage.get(), false);
@@ -90,14 +94,11 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
             ioPage->resized();   // re-layout items inside page
         
         this->resized();         // re-layout content (title, tabs, page)
-
     };
 
     ioPage->addAndMakeVisible(ioPage->deviceSelector.get());
 
     // Set up parameter controls
-    auto parameters = controller.getParameterDescriptors();
-    auto& apvts = controller.getAPVTS();
     for (const auto& p : parameters)
     {
         if (p.display == false)
@@ -107,7 +108,7 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
 
         if (p.id == "recording")
         {
-            continue; // special case
+            continue; // special case--already handled above
         }
 
         PageComponent* page = nullptr;
@@ -120,6 +121,11 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
             page = analysisPage.get();
         else if (p.group == "colors")
             page = colorsPage.get();
+            
+        auto label = std::make_unique<juce::Label>();
+        label->setText(p.displayName, juce::dontSendNotification);
+        label->setJustificationType(juce::Justification::centredLeft);
+        label->setFont(normalFont);
 
         if (p.type == ParameterDescriptor::Float)
         {
@@ -127,6 +133,8 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
             slider->setRange(p.range.start, p.range.end);
             slider->setValue(p.defaultValue);
             slider->setTextValueSuffix(p.unit);
+            slider->setTextBoxStyle(Slider::TextEntryBoxPosition::TextBoxLeft, false, 55, 15);
+            slider->setNumDecimalPlacesToDisplay(2);
             
             auto attachment = std::make_unique<apvts::SliderAttachment>(
                 apvts, p.id, *slider);
@@ -134,11 +142,14 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
             if (p.id.contains("track"))  // vertical sliders for track gains
             {
                 slider->setSliderStyle(Slider::SliderStyle::LinearVertical);
-                slider->setTextBoxStyle(Slider::TextEntryBoxPosition::TextBoxBelow, false, 40, 20);
+                slider->setTextBoxStyle(Slider::TextEntryBoxPosition::TextBoxBelow, false, 35, 15);
+                slider->setSize(45, 150);
+                label->setJustificationType(juce::Justification::centred);
             }
                 
             page->addAndMakeVisible(*slider);
 
+            sliderAttachments.push_back(std::move(attachment));
             page->controls.push_back(std::move(slider));
         }
         else if (p.type == ParameterDescriptor::Choice)
@@ -146,21 +157,27 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
             auto combo = std::make_unique<juce::ComboBox>(p.displayName);
             combo->addItemList(p.choices, 1); // JUCE items start at index 1
             combo->setSelectedItemIndex(static_cast<int>(p.defaultValue));
-            page->addAndMakeVisible(*combo);
-
+            combo->setJustificationType(juce::Justification::centred);
+            if (p.choices[0].length() < 7 && p.choices[1].length() < 7)
+                combo->setSize(80, 25);
+            else if (p.choices[0].length() < 10 && p.choices[1].length() < 10)
+                combo->setSize(115, 25);
+            else
+                combo->setSize(150, 25);
+            
             auto attachment = std::make_unique<apvts::ComboBoxAttachment>(
                 apvts, p.id, *combo);
+                
+            page->addAndMakeVisible(*combo);
 
+            comboAttachments.push_back(std::move(attachment));
             page->controls.push_back(std::move(combo));
         }
 
-        auto label = std::make_unique<juce::Label>();
-        label->setText(p.displayName, juce::dontSendNotification);
-        label->setJustificationType(juce::Justification::left);
-        label->setFont(normalFont);
         page->addAndMakeVisible(*label);
         page->labels.push_back(std::move(label));
 
+        // For dynamic resizing
         parameterComponentMap[p.id] = page->controls.back().get();
         parameterLabelMap[p.id] = page->labels.back().get();
     }
@@ -169,7 +186,12 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
 }
 
 //=============================================================================
-SettingsComponent::~SettingsComponent() = default;
+SettingsComponent::~SettingsComponent()
+{
+    // Clear attachments before APVTS is deleted
+    sliderAttachments.clear();
+    comboAttachments.clear();
+}
 
 //=============================================================================
 void SettingsComponent::resized()

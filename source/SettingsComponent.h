@@ -53,14 +53,12 @@ public:
     std::vector<std::unique_ptr<juce::Component>> controls;
     std::vector<std::unique_ptr<juce::Label>> labels;
     std::unique_ptr<CustomAudioDeviceSelectorComponent> deviceSelector;
-    bool isIOPage = false;
 
     void resized() override
     {
         jassert (controls.size() == labels.size());
 
-        auto full = getLocalBounds();
-        auto bounds = full.reduced(10);
+        auto bounds = getLocalBounds();
 
         // Device selector
         if (deviceSelector != nullptr)
@@ -86,37 +84,61 @@ public:
             // Combos
             if (auto* control = dynamic_cast<ComboBox*>(ctrl))
             {
-                auto zone = bounds.removeFromTop(40);
-                label->setBounds(zone);
-                ctrl->setBounds(zone.removeFromRight(150));
-                continue;
+                // setBounds will change size, so store width and height
+                auto w = ctrl->getWidth();
+                auto h = ctrl->getHeight();
+
+                auto zone = bounds.removeFromTop(25);
+
+                auto comboZone = zone.removeFromRight(200);
+                auto comboLabelZone = zone.removeFromLeft(150);
+
+                label->setBounds(comboLabelZone);
+
+                ctrl->setBounds(comboZone);
+                
+                ctrl->setSize(w, h);
             }
 
             // Sliders
             else if (auto* slider = dynamic_cast<juce::Slider*>(ctrl))
             {
+                // Vertical gain sliders
                 if (slider->getSliderStyle() == juce::Slider::SliderStyle::LinearVertical)
                 {
                     if (j == 0)
                     {
                         vSliderArea = bounds.removeFromTop(150);
-                        vSliderLabelArea = bounds.removeFromTop(20);
+                        vSliderLabelArea = bounds.removeFromTop(25);
                         ++j;
                     }
 
-                    ctrl->setBounds(vSliderArea.removeFromLeft(42));
-                    label->setBounds(vSliderLabelArea.removeFromLeft(42));
+                    int gainSpacing = ctrl->getWidth();
+
+                    label->setBounds(vSliderLabelArea.removeFromLeft(gainSpacing));
+                    label->setJustificationType(juce::Justification::centred);
+
+                    ctrl->setBounds(vSliderArea.removeFromLeft(gainSpacing));
+                    ctrl->setSize(gainSpacing, 150);
                 }
+
+                // Horizontal sliders
                 else
                 {
-                    auto zone = bounds.removeFromTop(40);
-                    label->setBounds(zone);
-                    ctrl->setBounds(zone.removeFromRight(150));
+                    auto zone = bounds.removeFromTop(25);
+
+                    auto sliderZone = zone.removeFromRight(200);
+                    auto sliderLabelZone = zone.removeFromLeft(150);
+
+                    label->setBounds(sliderLabelZone);
+
+                    ctrl->setBounds(sliderZone);
+                    ctrl->setSize(200, 25);
                 }
             }
-        }
 
-        setSize(getWidth(), 1000);
+            bounds.removeFromTop(12);
+        }
     }
 };
 
@@ -155,6 +177,11 @@ private:
 
     // Label pointers
     std::vector<std::unique_ptr<juce::Label>> labels;
+
+    // Attachment pointers
+    std::vector<std::unique_ptr<apvts::ComboBoxAttachment>> comboAttachments;
+    std::vector<std::unique_ptr<apvts::SliderAttachment>> sliderAttachments;
+    std::vector<std::unique_ptr<apvts::ButtonAttachment>> buttonAttachments;
 
     bool initialized = false;
 

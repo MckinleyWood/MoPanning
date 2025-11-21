@@ -250,7 +250,7 @@ MainController::MainController()
         },
         // gainTrack1
         {
-            "track1Gain", "Track 1 Gain", 
+            "track1Gain", "Track 1", 
             "Gain of track 1.", "io",
             ParameterDescriptor::Type::Float, 1.0f,
             juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
@@ -275,7 +275,7 @@ MainController::MainController()
         },
         // gainTrack2
         {
-            "track2Gain", "Track 2 Gain", 
+            "track2Gain", "Track 2", 
             "Gain of track 2.", "io",
             ParameterDescriptor::Type::Float, 1.0f,
             juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
@@ -300,7 +300,7 @@ MainController::MainController()
         },
         // gainTrack3
         {
-            "track3Gain", "Track 3 Gain", 
+            "track3Gain", "Track 3", 
             "Gain of track 3.", "io",
             ParameterDescriptor::Type::Float, 1.0f,
             juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
@@ -325,7 +325,7 @@ MainController::MainController()
         },
         // gainTrack4
         {
-            "track4Gain", "Track 4 Gain", 
+            "track4Gain", "Track 4", 
             "Gain of track 4.", "io",
             ParameterDescriptor::Type::Float, 1.0f,
             juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
@@ -350,7 +350,7 @@ MainController::MainController()
         },
         // gainTrack5
         {
-            "track5Gain", "Track 5 Gain", 
+            "track5Gain", "Track 5", 
             "Gain of track 5.", "io",
             ParameterDescriptor::Type::Float, 1.0f,
             juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
@@ -375,7 +375,7 @@ MainController::MainController()
         },
         // gainTrack6
         {
-            "track6Gain", "Track 6 Gain", 
+            "track6Gain", "Track 6", 
             "Gain of track 6.", "io",
             ParameterDescriptor::Type::Float, 1.0f,
             juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
@@ -400,7 +400,7 @@ MainController::MainController()
         },
         // gainTrack7
         {
-            "track7Gain", "Track 7 Gain", 
+            "track7Gain", "Track 7", 
             "Gain of track 7.", "io",
             ParameterDescriptor::Type::Float, 1.0f,
             juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
@@ -425,7 +425,7 @@ MainController::MainController()
         },
         // gainTrack8
         {
-            "track8Gain", "Track 8 Gain", 
+            "track8Gain", "Track 8", 
             "Gain of track 8.", "io",
             ParameterDescriptor::Type::Float, 1.0f,
             juce::NormalisableRange<float>(0.000001f, 1.0f), {}, "",
@@ -621,6 +621,12 @@ ParamLayout MainController::makeParameterLayout(
             int defaultIndex = static_cast<int>(d.defaultValue);
             layout.add(std::make_unique<juce::AudioParameterChoice>(
                 d.id, d.displayName, d.choices, defaultIndex));
+        }
+        else if (d.type == ParameterDescriptor::Type::Bool)
+        {
+            bool defaultBool = (d.defaultValue != 0.0f);
+            layout.add(std::make_unique<juce::AudioParameterBool>(
+                d.id, d.displayName, defaultBool));
         }
     }
 
