@@ -478,7 +478,7 @@ void GLVisualizer::updateParticles()
                 if (band.frequency < minFrequency || band.frequency > maxFreq) 
                     continue;
                 
-                float x = band.pan_index * aspect;
+                float x = band.panIndex * aspect;
                 float y = (std::log(band.frequency) - logMin) / (logMax - logMin);
                 y = juce::jmap(y, -1.0f, 1.0f);
                 float z = 0.f;
@@ -768,7 +768,7 @@ juce::Matrix3D<float> GLVisualizer::buildProjectionMatrix(float width, float hei
 
     switch (dimension)
     {
-    case dimension2:
+    case twoD:
         // Orthographic projection for 2D
         proj = juce::Matrix3D<float>(
             2.0f / (r - l), 0, 0, 0,
@@ -777,7 +777,7 @@ juce::Matrix3D<float> GLVisualizer::buildProjectionMatrix(float width, float hei
            -(r + l) / (r - l), -(t + b) / (t-b), -(f + n) / (f - n), 1.0f);
         break;
     
-    case dimension3:
+    case threeD:
         // Perspective projection for 3D
         proj = juce::Matrix3D<float>::fromFrustum(
               -nearZ * std::tan(fovRadians * 0.5f) * aspect,   // left

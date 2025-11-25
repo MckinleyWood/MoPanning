@@ -27,26 +27,6 @@ class GridComponent;
 class MainController;
 
 //=============================================================================
-enum ColourScheme 
-{
-    greyscale, 
-    rainbow,
-    red,
-    orange,
-    yellow,
-    lightGreen,
-    darkGreen,
-    lightBlue,
-    darkBlue,
-    purple,
-    pink,
-    warm,
-    cool,
-    slider
-};
-enum Dimension { dimension2, dimension3 };
-
-//=============================================================================
 /*  This is the component for the OpenGL canvas. It handles rendering 
     the visualization.
 */

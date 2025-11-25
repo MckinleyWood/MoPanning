@@ -176,7 +176,7 @@ MainController::MainController()
                     default: newMinFreq = 20.0f; break;
                 }
 
-                grid->setMinFrequency(newMinFreq);
+                /* grid->setMinFrequency(newMinFreq); */
                 visualizer->setMinFrequency(newMinFreq);
                 analyzer->setMinFrequency(newMinFreq);
                 updateGridTexture();
@@ -444,7 +444,7 @@ MainController::MainController()
             [this](float value) 
             {
                 bool showGrid = (static_cast<int>(value) == 1);
-                grid->setGridVisible(showGrid);
+                /* grid->setGridVisible(showGrid); */
                 if (visualizer != nullptr)
                     visualizer->setShowGrid(showGrid);
             },
@@ -594,8 +594,8 @@ void MainController::audioDeviceAboutToStart(juce::AudioIODevice* device)
     analyzer->prepare(sampleRate, numTracks);
     videoWriter->prepare(sampleRate, samplesPerBlock, 2);
     visualizer->setResultsPointer(&analysisResults);
-    visualizer->setSampleRate(sampleRate);
-    grid->setSampleRate(sampleRate);
+    // visualizer->setSampleRate(sampleRate);
+    /* grid->setSampleRate(sampleRate); */
 }
 
 void MainController::audioDeviceStopped() 
@@ -628,16 +628,16 @@ ParamLayout MainController::makeParameterLayout(
 }
 
 //=============================================================================
-void MainController::registerVisualizer(GLVisualizer* v)
+void MainController::registerVisualizer(GLVisualizer2* v)
 {
     visualizer = v;
 }
 
-void MainController::registerGrid(GridComponent* g)
+/* void MainController::registerGrid(GridComponent* g)
 {
     grid = g;
 }
-
+ */
 void MainController::setDefaultParameters()
 {
     for (auto& d : parameterDescriptors)
@@ -659,7 +659,7 @@ void MainController::togglePlayback()
 
 void MainController::updateGridTexture()
 {
-    visualizer->createGridImageFromComponent(grid);
+    /* visualizer->createGridImageFromComponent(grid); */
 }
 
 void MainController::giveFrameToVideoWriter(const uint8_t* rgb, int numBytes)

@@ -26,7 +26,7 @@
 class GridComponent : public juce::Component
 {
 public:
-    GridComponent(MainController& controllerRef);
+    GridComponent(/* MainController& controllerRef */);
 
     void setMinFrequency(float f);
     void setSampleRate(double sr);
@@ -38,7 +38,7 @@ public:
     void setGridVisible(bool shouldShow);
 
 private:
-    MainController& controller;
+    /* MainController& controller; */
 
     std::vector<float> frequencies;
     float minFrequency;

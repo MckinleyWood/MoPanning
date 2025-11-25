@@ -22,8 +22,8 @@
 #include "GridComponent.h"
 #include <cmath>
 
-GridComponent::GridComponent(MainController& controllerRef)
-    : controller(controllerRef),
+GridComponent::GridComponent(/* MainController& controllerRef */)
+    : /* controller(controllerRef), */
       minFrequency(20.0f),      // default 20 Hz
       sampleRate(48000.0)       // default 48 kHz    
 {
@@ -78,7 +78,7 @@ void GridComponent::setSampleRate(double sr)
 
 void GridComponent::resized()
 {
-    controller.updateGridTexture(); // Notify controller to update texture
+    /* controller.updateGridTexture(); // Notify controller to update texture */
 }
 
 void GridComponent::paint(juce::Graphics& g)

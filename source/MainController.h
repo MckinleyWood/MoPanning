@@ -30,7 +30,7 @@ communication between parts of the program must run through here.
 #include <JuceHeader.h>
 #include "AudioAnalyzer.h"
 #include "AudioEngine.h"
-#include "GLVisualizer.h"
+#include "GLVisualizer2.h"
 #include "MiniAudioProcessor.h"
 #include "GridComponent.h"
 #include "VideoWriter.h"
@@ -74,8 +74,8 @@ public:
     static ParamLayout makeParameterLayout(
         const std::vector<ParameterDescriptor>& descriptors);
 
-    void registerVisualizer(GLVisualizer* v);
-    void registerGrid(GridComponent* g);
+    void registerVisualizer(GLVisualizer2* v);
+    /* void registerGrid(GridComponent* g); */
     void setDefaultParameters();
     bool loadFile(const juce::File& f);
     void togglePlayback();
@@ -110,8 +110,8 @@ private:
     std::unique_ptr<MiniAudioProcessor> processor;
     std::unique_ptr<AudioEngine> engine;
     std::unique_ptr<VideoWriter> videoWriter;
-    GLVisualizer* visualizer = nullptr;
-    GridComponent* grid = nullptr;
+    GLVisualizer2* visualizer = nullptr;
+    /* GridComponent* grid = nullptr; */
 
     juce::AudioProcessorValueTreeState* apvts;
     std::vector<ParameterDescriptor> parameterDescriptors;
