@@ -28,7 +28,7 @@ MainController::MainController()
     analyzer = std::make_unique<AudioAnalyzer>();
     engine = std::make_unique<AudioEngine>();
 
-    trackGains.resize(8, 1.0f);
+    trackGains.resize(Constants::maxTracks, 1.0f);
     videoWriter = std::make_unique<VideoWriter>();
 
     // Set up parameter descriptors - all parameters should be listed here

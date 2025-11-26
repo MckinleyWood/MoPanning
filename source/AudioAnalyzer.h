@@ -49,7 +49,7 @@ public:
     void prepare(double newSampleRate, int newNumTracks);
     void prepare(); // Uses current sampleRate
 
-    void setResultsPointer(std::array<TrackSlot, 8>* resultsPtr);
+    void setResultsPointer(std::array<TrackSlot, Constants::maxTracks>* resultsPtr);
 
     // Called by audio thread
     void enqueueBlock(const juce::AudioBuffer<float>* buffer, int trackIndex);
@@ -166,7 +166,7 @@ private:
     std::vector<float> ildWeights;
 
     //=========================================================================
-    std::array<TrackSlot, 8>* results;
+    std::array<TrackSlot, Constants::maxTracks>* results;
 
     std::vector<std::unique_ptr<AnalyzerWorker>> workers; // One worker per track
 

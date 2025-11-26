@@ -21,6 +21,16 @@
 
 #pragma once
 
+/*  This file holds enums and constants that all MoPanning files can use.
+*/
+
+//=============================================================================
+namespace Constants
+{
+    constexpr int maxTracks = 8;
+}
+
+//=============================================================================
 /*  Contains the data ascociated with one frequency band. 
 */
 struct FrequencyBand 

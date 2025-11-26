@@ -116,8 +116,7 @@ private:
     juce::AudioProcessorValueTreeState* apvts;
     std::vector<ParameterDescriptor> parameterDescriptors;
 
-    static constexpr int maxNumTracks = 8;
-    std::array<TrackSlot, maxNumTracks> analysisResults;
+    std::array<TrackSlot, Constants::maxTracks> analysisResults;
 
     int numTracks = 1;
     bool threeDim = 1;
