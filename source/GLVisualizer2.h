@@ -55,20 +55,49 @@ public:
     void resized() override;
 
     //=========================================================================
-    void createGridImageFromComponent(juce::Component* gridComp);
+    /*  Sets the pointer to the shared buffer holding results to be visualized.
+    */
+    void setResultsPointer(std::array<TrackSlot, Constants::maxTracks>* resultsPtr);
 
-    void setResultsPointer(std::array<TrackSlot, 8>* resultsPtr);
-    
+    /*  Sets the dimension of the visualization (2D or 3D).
+    */
     void setDimension(Dimension newDimension);
+
+    /*  Sets the colour scheme for the given track. Needs Implementation!
+    */
     void setTrackColourScheme(ColourScheme newColourScheme, int trackIndex);
+
+    /*  Grid not yet implemented. 
+    */
     void setShowGrid(bool shouldShow);
+
+    /*  Sets the minimum frequency, corresponding to the bottom of the screen.
+    */
     void setMinFrequency(float newMinFrequency);
+
+    /*  Sets the maximum frequency, corresponding to the top of the screen.
+    */    
+    void setMaxFrequency(float newMinFrequency);
+
+    /*  Sets the speed at which the particles recede ("m/s").
+    */
     void setRecedeSpeed(float newRecedeSpeed);
+
+    /*  Sets the size of the particles relative to the default (1).
+    */
     void setDotSize(float newDotSize);
+
+    /*  Sets the distance at which particles disappear ("m")
+    */
     void setFadeEndZ(float newFadeEndZ);
 
     //=========================================================================
+    /*  Tells the component to start recording. Not yet implemented.
+    */
     void startRecording();
+
+    /*  Tells the component to stop recording. Not yet implemented.
+    */
     void stopRecording();
 
 
@@ -86,30 +115,32 @@ private:
     };
 
     //========================================================================
-    /*  This struct manages a vertex buffer object (VBO).
+    /*  Forward declarations of nested classes (see below).
     */
     struct VertexBuffer;
-
-    /*  This struct manages the attributes that the shaders use.
-    */
     struct Attributes;
-
-    /* This struct manages the uniform values that the shaders use.
-    */
     struct Uniforms;
 
     //=========================================================================
-    /*  Initializes the shaders...
+    /*  Compliles and links the shaders, and sets them active.
     */
     void createShaders();
 
     /*  Updates all uniform values on the GPU.
     
-        This function should only be called on the GL thread!
+        This function should only be called from the GL thread!
     */
     void updateUniforms();
-    
-    /*  Creates a projection matrix for the given viewport size.
+
+    /*  Creates a 2D colourmap (amplidude x track ID) and uploads it to GPU.
+    */
+    void buildTexture();
+
+    /*  Returns the colour corresponding to a colour scheme and amplitude value.
+    */
+    juce::Colour getColourForSchemeAndAmp(ColourScheme colourScheme, float amp);
+
+    /*  Creates and returns a projection matrix for the given viewport size.
     */
     juce::Matrix3D<float> buildProjectionMatrix(float width, float height);
 
@@ -121,7 +152,7 @@ private:
     std::unique_ptr<Attributes> attributes;
     std::unique_ptr<Uniforms> uniforms;
 
-    std::array<TrackSlot, 8>* results; // Pointer to the shared results buffer
+    std::array<TrackSlot, Constants::maxTracks>* results;
 
     float startTime;
     float lastFrameTime;
@@ -133,12 +164,14 @@ private:
     juce::Matrix3D<float> displayProj; // Projection matrix for the display window
     juce::Matrix3D<float> captureProj; // Projection matrix for the video capture
 
+    juce::OpenGLTexture colourMapTexture;
+    std::atomic<bool> textureNeedsRebuild { true };
+
     //=========================================================================
     /* Parameters */
 
     Dimension dimension;
-    std::vector<ColourScheme> trackColourSchemes;
-    std::vector<GLuint> trackColourTextures;
+    std::array<std::atomic<ColourScheme>, Constants::maxTracks> trackColourSchemes;
     
     int numTracks; // Number of tracks in the results vector
     float minFrequency; // Minimum frequency to display (Hz)
@@ -156,13 +189,25 @@ private:
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GLVisualizer2)
 };
 
+
 //=============================================================================
+/*  This struct manages a vertex buffer object (VBO).
+*/
 struct GLVisualizer2::VertexBuffer
 {
+    //=========================================================================
     explicit VertexBuffer();
     ~VertexBuffer();
 
-    void updateParticles(std::array<TrackSlot, 8>* results, float globalDistance, float fadeEndZ);
+    //=========================================================================
+    /*  Updates the particle array with new data from the results buffer.
+    */
+    void updateParticles(std::array<TrackSlot, Constants::maxTracks>* results, 
+                         float globalDistance, 
+                         float fadeEndZ);
+
+    /*  Draws all active particles.
+    */
     void draw(Attributes& glAttributes);
 
     GLuint vaoID;
@@ -177,72 +222,21 @@ struct GLVisualizer2::VertexBuffer
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(VertexBuffer)
 };
 
+
 //=============================================================================
+/*  This struct manages the attributes that the shaders use.
+*/
 struct GLVisualizer2::Attributes
 {
-    explicit Attributes(OpenGLShaderProgram& shaderProgram)
-    {
-        frequency.reset(createAttribute(shaderProgram, "frequency"));
-        amplitude.reset(createAttribute(shaderProgram, "amplitude"));
-        panIndex.reset(createAttribute(shaderProgram, "panIndex"));
-        birthDistance.reset(createAttribute(shaderProgram, "birthDistance"));
-        trackIndex.reset(createAttribute(shaderProgram, "trackIndex"));
-    }
+    explicit Attributes(OpenGLShaderProgram& shaderProgram);
 
-    void enable()
-    {
-        using namespace ::juce::gl;
+    /*  Enables each of the attributes held in the struct.
+    */
+    void enable();
 
-        if (frequency.get() != nullptr)
-        {
-            glVertexAttribPointer(frequency->attributeID, 1, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), nullptr);
-            glEnableVertexAttribArray(frequency->attributeID);
-        }
-
-        if (amplitude.get() != nullptr)
-        {
-            glVertexAttribPointer(amplitude->attributeID, 1, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), (GLvoid*)(sizeof(float)));
-            glEnableVertexAttribArray(amplitude->attributeID);
-        }
-
-        if (panIndex.get() != nullptr)
-        {
-            glVertexAttribPointer(panIndex->attributeID, 1, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), (GLvoid*)(sizeof(float) * 2));
-            glEnableVertexAttribArray(panIndex->attributeID);
-        }
-
-        if (birthDistance.get() != nullptr)
-        {
-            glVertexAttribPointer(birthDistance->attributeID, 1, GL_FLOAT, GL_FALSE, sizeof(ParticleVertex), (GLvoid*)(sizeof(float) * 3));
-            glEnableVertexAttribArray(birthDistance->attributeID);
-        }
-
-        if (trackIndex.get() != nullptr)
-        {
-            glVertexAttribIPointer(trackIndex->attributeID, 1, GL_INT, sizeof(ParticleVertex), (GLvoid*)(sizeof(float) * 4));
-            glEnableVertexAttribArray(trackIndex->attributeID);
-        }
-    }
-
-    void disable()
-    {
-        using namespace ::juce::gl;
-
-        if (frequency != nullptr)
-            glDisableVertexAttribArray(frequency->attributeID);
-
-        if (amplitude != nullptr)
-            glDisableVertexAttribArray(amplitude->attributeID);
-
-        if (panIndex != nullptr)
-            glDisableVertexAttribArray(panIndex->attributeID);
-
-        if (birthDistance != nullptr)
-            glDisableVertexAttribArray(birthDistance->attributeID);
-
-        if (trackIndex != nullptr)
-            glDisableVertexAttribArray(trackIndex->attributeID);
-    }
+    /*  Disables each of the attributes held in the struct.
+    */
+    void disable();
 
     std::unique_ptr<OpenGLShaderProgram::Attribute> frequency; 
     std::unique_ptr<OpenGLShaderProgram::Attribute> amplitude;
@@ -251,33 +245,21 @@ struct GLVisualizer2::Attributes
     std::unique_ptr<OpenGLShaderProgram::Attribute> trackIndex;
 
 private:
+    /*  Safely creates a new juce::OpenGLShaderProgram::Attribute
+    */
     static OpenGLShaderProgram::Attribute* createAttribute(OpenGLShaderProgram& shader,
-                                                           const char* attributeName)
-    {
-        using namespace ::juce::gl;
-
-        if (glGetAttribLocation(shader.getProgramID(), attributeName) < 0)
-            return nullptr;
-
-        return new OpenGLShaderProgram::Attribute(shader, attributeName);
-    }
+                                                           const char* attributeName);
 };
 
+
 //=============================================================================
+/* This struct manages the uniform values that the shaders use.
+*/
 struct GLVisualizer2::Uniforms
 {
-    explicit Uniforms(OpenGLShaderProgram& shaderProgram)
-    {
-        projectionMatrix.reset(createUniform(shaderProgram, "uProjectionMatrix"));
-        viewMatrix.reset(createUniform(shaderProgram, "uViewMatrix"));
-        windowSize.reset(createUniform(shaderProgram, "uWindowSize"));
-        minFrequency.reset(createUniform(shaderProgram, "uMinFrequency"));
-        maxFrequency.reset(createUniform(shaderProgram, "uMaxFrequency"));
-        globalDistance.reset(createUniform(shaderProgram, "uGlobalDistance"));
-        fadeEndZ.reset(createUniform(shaderProgram, "uFadeEndZ"));
-        dotSize.reset(createUniform(shaderProgram, "uDotSize"));
-    }
+    explicit Uniforms(OpenGLShaderProgram& shaderProgram);
 
+    std::unique_ptr<OpenGLShaderProgram::Uniform> colourMap;
     std::unique_ptr<OpenGLShaderProgram::Uniform> projectionMatrix;
     std::unique_ptr<OpenGLShaderProgram::Uniform> viewMatrix;
     std::unique_ptr<OpenGLShaderProgram::Uniform> windowSize; 
@@ -288,14 +270,8 @@ struct GLVisualizer2::Uniforms
     std::unique_ptr<OpenGLShaderProgram::Uniform> dotSize;
 
 private:
-    static OpenGLShaderProgram::Uniform* createUniform(OpenGLShaderProgram& shaderProgram,
-                                                        const char* uniformName)
-    {
-        using namespace ::juce::gl;
-
-        if (glGetUniformLocation(shaderProgram.getProgramID(), uniformName) < 0)
-            return nullptr;
-
-        return new OpenGLShaderProgram::Uniform(shaderProgram, uniformName);
-    }
+    /*  Safely creates a new juce::OpenGLShaderProgram::Uniform
+    */
+    static OpenGLShaderProgram::Uniform* createUniform(OpenGLShaderProgram& shader,
+                                                        const char* uniformName);
 };
