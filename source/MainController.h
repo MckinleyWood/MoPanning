@@ -101,6 +101,7 @@ public:
 
     std::function<void(int)> onNumTracksChanged;
     std::function<void(int)> onDimChanged;
+    std::function<void(int)> onInputTypeChanged;
 
 private:
     //=========================================================================

@@ -25,6 +25,9 @@
 //=============================================================================
 SettingsComponent::SettingsComponent(MainController& c) : controller(c)
 {
+    // Set look and feel
+    setLookAndFeel(&epicLookAndFeel);
+
     // Update parameter visibility when numTracks changes
     controller.onNumTracksChanged = [this](int numTracksIn)
     {
@@ -39,17 +42,29 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
         updateParamVisibility(numTracks, dim);
     };
 
+    // Update device selector visibility when inputType changes
+    controller.onInputTypeChanged = [this] (int inputTypeIn)
+    {
+        const bool isStreaming = inputTypeIn;
+
+        if (ioPage->deviceSelector != nullptr)
+            ioPage->deviceSelector->setDeviceControls(isStreaming);
+
+        resized();
+    };
+
+
     using Font = juce::FontOptions;
 
     // Set the fonts
-    Font normalFont = {13.f, 0};
+    Font normalFont = {14.f, 0};
     Font titleFont = normalFont.withHeight(40.0f).withStyle("Bold");
 
     // Set up title label
-    title.setText("MoPanning", juce::dontSendNotification);
+    title.setText("Stereocilia", juce::dontSendNotification);
     title.setFont(titleFont);
-    title.setJustificationType(juce::Justification::left);
-    title.setColour(juce::Label::textColourId, juce::Colours::white);
+    title.setJustificationType(Justification::left);
+    title.setColour(Label::textColourId, Colours::linen);
     addAndMakeVisible(title);
 
     // 
@@ -73,10 +88,12 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
     analysisPage = std::make_unique<PageComponent>();
     colorsPage = std::make_unique<PageComponent>();
 
-    tabs->addTab("I/O", juce::Colours::darkgrey, ioPage.get(), false);
-    tabs->addTab("Visual", juce::Colours::darkgrey, visualPage.get(), false);
-    tabs->addTab("Analysis", juce::Colours::darkgrey, analysisPage.get(), false);
-    tabs->addTab("Colors", juce::Colours::darkgrey, colorsPage.get(), false);
+    Colour backgroundColour = Colour::fromRGB(30, 30, 30);
+
+    tabs->addTab("I/O", backgroundColour, ioPage.get(), false);
+    tabs->addTab("Visual", backgroundColour, visualPage.get(), false);
+    tabs->addTab("Analysis", backgroundColour, analysisPage.get(), false);
+    tabs->addTab("Colors", backgroundColour, colorsPage.get(), false);
 
     tabs->setTabBarDepth(30);            // height of tab bar
     tabs->setOutline(0);                 // removes border
@@ -101,6 +118,7 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
     // Set up parameter controls
     for (const auto& p : parameters)
     {
+        // Skip hidden parameters
         if (p.display == false)
         {
             continue;
@@ -108,7 +126,7 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
 
         if (p.id == "recording")
         {
-            continue; // special case--already handled above
+            continue; // special cases--already handled above
         }
 
         PageComponent* page = nullptr;
@@ -169,9 +187,19 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
                 apvts, p.id, *combo);
                 
             page->addAndMakeVisible(*combo);
-
             comboAttachments.push_back(std::move(attachment));
-            page->controls.push_back(std::move(combo));
+
+            if (p.id == "inputType")
+            {
+                page->inputTypeCombo = std::move(combo);
+                page->inputTypeLabel = std::move(label);
+                page->addAndMakeVisible(*page->inputTypeLabel);
+                continue;
+            }
+            else
+            {
+                page->controls.push_back(std::move(combo));
+            }
         }
 
         page->addAndMakeVisible(*label);

@@ -64,6 +64,8 @@ MainController::MainController()
             {
                 if (engine != nullptr)
                     engine->setInputType(static_cast<InputType>(value));
+                if (onInputTypeChanged)
+                    onInputTypeChanged(static_cast<int>(value));
             }
         },
         // windowSize

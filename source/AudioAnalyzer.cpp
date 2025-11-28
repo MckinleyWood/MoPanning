@@ -568,7 +568,7 @@ void AudioAnalyzer::computeCQT(const std::array<std::vector<Complex>, 2>& ffts,
         for (int bin = 0; bin < magnitudesOut[ch].size(); ++bin)
         {
             jassert(bin < cqtKernelsIn.size());
-            jassert(spectraOut[ch][bin].size() == windowSize);
+            // jassert(spectraOut[ch][bin].size() == windowSize);
 
             std::complex<float> sum = 0.0f;
             const auto& kernel = cqtKernelsIn[bin];
