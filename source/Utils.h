@@ -28,6 +28,11 @@
 namespace Constants
 {
     constexpr int maxTracks = 8;
+
+    constexpr int W = 1280;
+    constexpr int H = 720;
+    constexpr int FPS = 60;
+    constexpr int frameBytes = W * H * 3;
 }
 
 //=============================================================================

@@ -50,6 +50,12 @@ void GLVisualizer2::newOpenGLContextCreated()
     attributes = std::make_unique<Attributes>(*mainShader);
     uniforms = std::make_unique<Uniforms>(*mainShader);
 
+    captureProj = buildProjectionMatrix(captureW, captureH);
+    captureProj.mat[5] *= -1.0f; // Invert Y-axis scaling in the matrix 
+    captureFBO.initialise(openGLContext, captureW, captureH);
+    capturePixels.resize(captureW * captureH * 3);
+    flippedPixels.resize(captureW * captureH * 3);
+
     glEnable(GL_PROGRAM_POINT_SIZE);
 }
 
@@ -65,23 +71,20 @@ void GLVisualizer2::renderOpenGL()
     globalDistance += dz;
     lastFrameTime = t;
 
-    // Ensure we have the latest parameter values for our uniforms
-    updateUniforms();
-
-    // Rebuild the colourmap 
+    // Rebuild the colourmap if needed
     if (textureNeedsRebuild.load())
         buildTexture();
-
-    // Bind the colourmap texture
-    glActiveTexture(GL_TEXTURE0);
-    colourMapTexture.bind();
-
+    
     // Add the new particles to the VBO
     vertexBuffer->updateParticles(results, globalDistance, fadeEndZ);
 
-    // Draw
-    juce::OpenGLHelpers::clear(juce::Colours::black);
-    vertexBuffer->draw(*attributes);
+    glActiveTexture(GL_TEXTURE0);
+    colourMapTexture.bind();
+
+    renderToScreen();
+
+    if (recording)
+        renderToCapture(); 
 
     colourMapTexture.unbind();
 }
@@ -94,6 +97,7 @@ void GLVisualizer2::openGLContextClosing()
     attributes.reset();
     uniforms.reset();
     colourMapTexture.release();
+    captureFBO.release();
 }
 
 //=============================================================================
@@ -106,6 +110,11 @@ void GLVisualizer2::resized()
 void GLVisualizer2::setResultsPointer(std::array<TrackSlot, Constants::maxTracks>* resultsPtr)
 {
     results = resultsPtr;
+}
+
+void GLVisualizer2::setFrameQueuePointer(VideoFrameQueue* frameQueuePtr)
+{
+    frameQueue = frameQueuePtr;
 }
 
 void GLVisualizer2::setDimension(Dimension newDimension)
@@ -158,13 +167,13 @@ void GLVisualizer2::setFadeEndZ(float newFadeEndZ)
 //=============================================================================
 void GLVisualizer2::startRecording()
 {
-    // recording = true;
+    recording = true;
     // resized(); // Update projection matrix
 }
 
 void GLVisualizer2::stopRecording()
 {
-    // recording = false;
+    recording = false;
     // resized(); // Update projection matrix
 }
 
@@ -309,6 +318,50 @@ void GLVisualizer2::buildTexture()
     colourMapTexture.loadImage(colourMapImage);
 
     textureNeedsRebuild.store(false);
+}
+
+void GLVisualizer2::renderToScreen()
+{
+    using namespace juce::gl;
+
+    // Bind the default framebuffer
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    
+    // Set the viewport to the window size (adjusted for HiDPI scaling)
+    const float scale = openGLContext.getRenderingScale();
+    glViewport(0, 0, (int)(getWidth()  * scale), (int)(getHeight() * scale));
+
+    // Update dynamic uniforms
+    updateUniforms();
+
+    // Clear and draw
+    juce::OpenGLHelpers::clear(juce::Colours::black);
+    vertexBuffer->draw(*attributes);
+}
+
+void GLVisualizer2::renderToCapture()
+{
+    using namespace juce::gl;
+
+    // Bind the capture FBO
+    captureFBO.makeCurrentAndClear();
+    glViewport(0, 0, captureW, captureH);
+
+    // Set the uniforms that should be different from the main render
+    uniforms->projectionMatrix->setMatrix4(captureProj.mat, 1, false);
+    uniforms->windowSize->set((float)captureW, (float)captureH);
+
+    // Render to the capture VBO
+    vertexBuffer->draw(*attributes);
+
+    // Read pixels from the FBO to CPU memory
+    glReadPixels(0, 0, captureW, captureH, GL_RGB, GL_UNSIGNED_BYTE, capturePixels.data());
+
+    // Enqueue the frame for the video writer
+    frameQueue->enqueueVideoFrame(capturePixels.data(), (int)capturePixels.size());
+
+    // Unbind the capture VBO
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
 juce::Colour GLVisualizer2::getColourForSchemeAndAmp(ColourScheme colourScheme, float amp)

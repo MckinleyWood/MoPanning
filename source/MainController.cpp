@@ -589,11 +589,17 @@ void MainController::audioDeviceAboutToStart(juce::AudioIODevice* device)
     }
     
     engine->prepareToPlay(samplesPerBlock, sampleRate);
+
     analyzer->setPrepared(false);
     analyzer->setResultsPointer(&analysisResults);
     analyzer->prepare(sampleRate, numTracks);
+
     videoWriter->prepare(sampleRate, samplesPerBlock, 2);
+    videoWriter->setFrameQueuePointer(&videoWritingFrameQueue);
+
     visualizer->setResultsPointer(&analysisResults);
+    visualizer->setFrameQueuePointer(&videoWritingFrameQueue);
+    
     // visualizer->setSampleRate(sampleRate);
     /* grid->setSampleRate(sampleRate); */
 }
@@ -664,7 +670,7 @@ void MainController::updateGridTexture()
 
 void MainController::giveFrameToVideoWriter(const uint8_t* rgb, int numBytes)
 {
-    videoWriter->enqueueVideoFrame(rgb, numBytes);
+    /* videoWriter->enqueueVideoFrame(rgb, numBytes); */
 }
 
 void MainController::stopRecording()

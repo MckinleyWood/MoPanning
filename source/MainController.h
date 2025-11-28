@@ -27,13 +27,17 @@ communication between parts of the program must run through here.
 */
 
 #pragma once
+
 #include <JuceHeader.h>
+
 #include "AudioAnalyzer.h"
 #include "AudioEngine.h"
 #include "GLVisualizer2.h"
 #include "MiniAudioProcessor.h"
 #include "GridComponent.h"
 #include "VideoWriter.h"
+
+#include "FrameQueue.h"
 #include "Utils.h"
 
 //=============================================================================
@@ -117,6 +121,7 @@ private:
     std::vector<ParameterDescriptor> parameterDescriptors;
 
     std::array<TrackSlot, Constants::maxTracks> analysisResults;
+    VideoFrameQueue videoWritingFrameQueue;
 
     int numTracks = 1;
     bool threeDim = 1;

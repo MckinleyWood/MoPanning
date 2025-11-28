@@ -22,6 +22,7 @@
 #pragma once
 #include <JuceHeader.h>
 #include "Utils.h"
+#include "FrameQueue.h"
 
 //=============================================================================
 /*  A component for rendering a dot cloud with OpenGL.
@@ -58,6 +59,10 @@ public:
     /*  Sets the pointer to the shared buffer holding results to be visualized.
     */
     void setResultsPointer(std::array<TrackSlot, Constants::maxTracks>* resultsPtr);
+
+    /*  Sets the pointer to the shared queue for video writing output.
+    */
+    void setFrameQueuePointer(VideoFrameQueue* frameQueuePtr);
 
     /*  Sets the dimension of the visualization (2D or 3D).
     */
@@ -136,6 +141,16 @@ private:
     */
     void buildTexture();
 
+    //=========================================================================
+    /*  Renders the visualization to the screen.
+    */
+    void renderToScreen();
+
+    /*  Renders the visualization to the capture FBO and enqueues it the frameQueue.
+    */
+    void renderToCapture();
+
+    //=========================================================================
     /*  Returns the colour corresponding to a colour scheme and amplitude value.
     */
     juce::Colour getColourForSchemeAndAmp(ColourScheme colourScheme, float amp);
@@ -153,6 +168,7 @@ private:
     std::unique_ptr<Uniforms> uniforms;
 
     std::array<TrackSlot, Constants::maxTracks>* results;
+    VideoFrameQueue* frameQueue;
 
     float startTime;
     float lastFrameTime;
@@ -166,6 +182,12 @@ private:
 
     juce::OpenGLTexture colourMapTexture;
     std::atomic<bool> textureNeedsRebuild { true };
+
+    juce::OpenGLFrameBuffer captureFBO;
+    static constexpr int captureW = 1280, captureH = 720;
+    bool recording;
+    std::vector<uint8_t> capturePixels ;
+    std::vector<uint8_t> flippedPixels;
 
     //=========================================================================
     /* Parameters */
