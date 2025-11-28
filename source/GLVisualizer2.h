@@ -24,8 +24,9 @@
 #include "Utils.h"
 #include "FrameQueue.h"
 
+
 //=============================================================================
-/*  A component for rendering a dot cloud with OpenGL.
+/*  The component that handles rendering the main MoPanning visulization.
 */
 class GLVisualizer2 : public juce::OpenGLRenderer,
                       public juce::Component
@@ -62,7 +63,7 @@ public:
 
     /*  Sets the pointer to the shared queue for video writing output.
     */
-    void setFrameQueuePointer(VideoFrameQueue* frameQueuePtr);
+    void setFrameQueuePointer(FrameQueue* frameQueuePtr);
 
     /*  Sets the dimension of the visualization (2D or 3D).
     */
@@ -168,7 +169,7 @@ private:
     std::unique_ptr<Uniforms> uniforms;
 
     std::array<TrackSlot, Constants::maxTracks>* results;
-    VideoFrameQueue* frameQueue;
+    FrameQueue* frameQueue;
 
     float startTime;
     float lastFrameTime;
@@ -186,8 +187,7 @@ private:
     juce::OpenGLFrameBuffer captureFBO;
     static constexpr int captureW = 1280, captureH = 720;
     bool recording;
-    std::vector<uint8_t> capturePixels ;
-    std::vector<uint8_t> flippedPixels;
+    std::vector<uint8_t> capturePixels;
 
     //=========================================================================
     /* Parameters */

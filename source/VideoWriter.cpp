@@ -90,7 +90,7 @@ void VideoWriter::stop()
 }
 
 //=============================================================================
-void VideoWriter::setFrameQueuePointer(VideoFrameQueue* frameQueuePtr)
+void VideoWriter::setFrameQueuePointer(FrameQueue* frameQueuePtr)
 {
     frameQueue = frameQueuePtr;
 }
@@ -148,21 +148,18 @@ void VideoWriter::getFFmpegVersion()
 //=============================================================================
 bool VideoWriter::dequeueVideoFrame()
 {
-    // Get the next readable index from the FIFO
-    int index = frameQueue->getReadableBufferIndex();
+    // Get the buffer data from the FIFO
+    const uint8_t* data = frameQueue->readNextBuffer();
 
-    if (index < 0)
+    if (data == nullptr)
     {
         // No frame available
         return false; 
     }
 
-    // Get the buffer data from the FIFO
-    const uint8_t* data = frameQueue->getBuffer(index);
-
     // Write the RGB24 frame
     framesOut->write(data, (size_t)Constants::frameBytes);
-    frameQueue->finishRead(1);
+    frameQueue->finishRead();
 
     if (framesOut->getStatus().failed())
     {

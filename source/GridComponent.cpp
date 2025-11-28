@@ -22,6 +22,8 @@
 #include "GridComponent.h"
 #include <cmath>
 
+
+//=============================================================================
 GridComponent::GridComponent(/* MainController& controllerRef */)
     : /* controller(controllerRef), */
       minFrequency(20.0f),      // default 20 Hz

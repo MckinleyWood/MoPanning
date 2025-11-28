@@ -51,10 +51,9 @@ void GLVisualizer2::newOpenGLContextCreated()
     uniforms = std::make_unique<Uniforms>(*mainShader);
 
     captureProj = buildProjectionMatrix(captureW, captureH);
-    captureProj.mat[5] *= -1.0f; // Invert Y-axis scaling in the matrix 
+    captureProj.mat[5] *= -1.0f; // Becuase OpenGL has bottom-up row order
     captureFBO.initialise(openGLContext, captureW, captureH);
     capturePixels.resize(captureW * captureH * 3);
-    flippedPixels.resize(captureW * captureH * 3);
 
     glEnable(GL_PROGRAM_POINT_SIZE);
 }
@@ -112,7 +111,7 @@ void GLVisualizer2::setResultsPointer(std::array<TrackSlot, Constants::maxTracks
     results = resultsPtr;
 }
 
-void GLVisualizer2::setFrameQueuePointer(VideoFrameQueue* frameQueuePtr)
+void GLVisualizer2::setFrameQueuePointer(FrameQueue* frameQueuePtr)
 {
     frameQueue = frameQueuePtr;
 }

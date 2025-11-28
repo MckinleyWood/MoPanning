@@ -26,6 +26,7 @@
 #include "SettingsComponent.h"
 /* #include "GridComponent.h" */
 
+
 //=============================================================================
 /*  This is the top-level UI container. It holds the GLVisualizer 
     (OpenGL canvas), SettingsComponent (sidebar), and a MainController& 

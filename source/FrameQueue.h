@@ -23,56 +23,76 @@
 #include <JuceHeader.h>
 #include "Utils.h"
 
-class VideoFrameQueue
+
+//=============================================================================
+/*  A helper for managing a queue of rgb video frames to pass between threads.
+*/
+class FrameQueue
 {
 public:
     //=========================================================================
-    VideoFrameQueue() : videoFIFOManager(bufferSize)
+    FrameQueue()
     {
         // Initialize video FIFO storage
-        videoFIFOStorage.reserve(bufferSize);
+        storage.reserve(bufferSize);
         for (int i = 0; i < bufferSize; ++i)
-            videoFIFOStorage.push_back(std::make_unique<uint8_t[]>(Constants::frameBytes));
+            storage.push_back(std::make_unique<uint8_t[]>(Constants::frameBytes));
     }
 
     //=========================================================================
-    void enqueueVideoFrame(const uint8_t* rgb, int numBytes)
+    /*  Adds a frame to the queue.
+
+        This function copies numbytes of data to the next available 
+        buffer slot. It returns false if there are no slots available.
+    */
+    bool enqueueVideoFrame(const uint8_t* rgb, int numBytes)
     {
-        // Get the next write position and advance the write pointer
-        const auto scope = videoFIFOManager.write(1);
+        // Get the next write position
+        const auto scope = abstractFifo.write(1);
 
         // Copy the frame data into the FIFO storage
         if (scope.blockSize1 > 0)
-            std::memcpy(videoFIFOStorage[scope.startIndex1].get(), rgb, (size_t)numBytes);
+        {
+            // This does not support dynamic frame sizes at the moment
+            jassert(numBytes == Constants::frameBytes);
+
+            std::memcpy(storage[scope.startIndex1].get(), rgb, (size_t)numBytes);
+            return true;
+        }
+
+        return false;
     }
     
-    //=========================================================================
-    // Returns index of buffer to read, or -1 if empty
-    int getReadableBufferIndex()
+    /*  Returns a pointer to the start of the next available buffer to read.
+
+        The caller is reponsible for copying the data out, and must call
+        finishedRead() when they are done with it. The function will
+        return nullptr if there is no available buffer.
+    */
+    uint8_t* readNextBuffer()
     {
         int start1, size1, start2, size2;
-        videoFIFOManager.prepareToRead(1, start1, size1, start2, size2);
+        abstractFifo.prepareToRead(1, start1, size1, start2, size2);
 
         if (size1 > 0)
-            return start1;
+            return storage[start1].get();;
         
-        return -1; // Queue is empty
-    }
-    
-    // Returns reference to specific buffer
-    const uint8_t* getBuffer(int index) const
-    {
-        return videoFIFOStorage[index].get();
+        return nullptr; // Queue is empty
     }
 
-    void finishRead(int numRead)
+    /*  Finalizes a read and advances the internal read pointer.
+
+        This function must be called after each read is finished.
+    */
+    void finishRead()
     {
-        videoFIFOManager.finishedRead(numRead);
+        abstractFifo.finishedRead(1);
     }
 
 private:
+    //=========================================================================
     static constexpr int bufferSize = 8;
 
-    juce::AbstractFifo videoFIFOManager { bufferSize };
-    std::vector<std::unique_ptr<uint8_t[]>> videoFIFOStorage;
+    juce::AbstractFifo abstractFifo { bufferSize };
+    std::vector<std::unique_ptr<uint8_t[]>> storage;
 };

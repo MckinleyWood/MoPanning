@@ -21,6 +21,7 @@
 
 #include "AudioAnalyzer.h"
 
+
 //=============================================================================
 AudioAnalyzer::AudioAnalyzer() {}
 AudioAnalyzer::~AudioAnalyzer()

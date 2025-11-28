@@ -23,6 +23,8 @@
 #include <JuceHeader.h>
 #include "MainController.h"
 
+
+//=============================================================================
 class GridComponent : public juce::Component
 {
 public:

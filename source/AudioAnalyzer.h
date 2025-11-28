@@ -34,10 +34,7 @@ asynchronously.
 
 using Complex = juce::dsp::Complex<float>;
 
-enum Transform { FFT, CQT };
-enum PanMethod { level_pan, time_pan, both };
-enum FrequencyWeighting { none, A_weighting };
-
+//=============================================================================
 class AudioAnalyzer
 {
 public:

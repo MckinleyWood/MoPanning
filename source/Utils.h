@@ -58,6 +58,31 @@ struct TrackSlot
 //=============================================================================
 /*  Enums for parameter choices */
 
+enum InputType 
+{ 
+    file, 
+    streaming 
+};
+
+enum Transform 
+{ 
+    FFT, 
+    CQT 
+};
+
+enum PanMethod 
+{ 
+    level_pan, 
+    time_pan, 
+    both 
+};
+
+enum FrequencyWeighting 
+{ 
+    none, 
+    A_weighting 
+};
+
 enum ColourScheme 
 {
     greyscale, 

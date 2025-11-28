@@ -121,7 +121,7 @@ private:
     std::vector<ParameterDescriptor> parameterDescriptors;
 
     std::array<TrackSlot, Constants::maxTracks> analysisResults;
-    VideoFrameQueue videoWritingFrameQueue;
+    FrameQueue videoWritingFrameQueue;
 
     int numTracks = 1;
     bool threeDim = 1;

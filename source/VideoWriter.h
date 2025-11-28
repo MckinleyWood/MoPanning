@@ -24,6 +24,7 @@
 #include "Utils.h"
 #include "FrameQueue.h"
 
+
 //=============================================================================
 /*  Handles writing video files from MoPanning output.
 
@@ -65,7 +66,7 @@ public:
     //=========================================================================
     /*  Sets the pointer to the shared queue for video writing output.
     */
-    void setFrameQueuePointer(VideoFrameQueue* frameQueuePtr);
+    void setFrameQueuePointer(FrameQueue* frameQueuePtr);
 
     //=========================================================================
     /*  Enques an RGB frame for writing.
@@ -170,7 +171,7 @@ private:
     std::atomic<int64_t> videoBytesWritten {0};
     std::atomic<int> frameCount {0};
 
-    VideoFrameQueue* frameQueue;
+    FrameQueue* frameQueue;
 
     std::unique_ptr<Worker> videoWorkerThread;
 
