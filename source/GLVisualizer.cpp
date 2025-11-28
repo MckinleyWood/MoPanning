@@ -21,6 +21,7 @@
 
 #include "GLVisualizer.h"
 
+
 //=============================================================================
 GLVisualizer::GLVisualizer()
 {
@@ -32,7 +33,6 @@ GLVisualizer::GLVisualizer()
     openGLContext.setRenderer(this);
     openGLContext.attachTo(*this);
     openGLContext.setContinuousRepainting(true);
-
 
     startTime = (float)juce::Time::getMillisecondCounterHiRes() * 0.001f;
     lastFrameTime = startTime;

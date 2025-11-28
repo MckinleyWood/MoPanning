@@ -159,6 +159,28 @@ MainController::MainController()
                     analyzer->setNumCQTBins(newNumBins);
             }
         },
+        // maxFrequency
+        {
+            "maxFrequency", "Maximum Frequency", 
+            "Maximum frequency (Hz) to include in the analysis.",
+            ParameterDescriptor::Type::Choice, 2, {},
+            {"5000Hz", "10000Hz", "20000Hz", "24000Hz"}, "",
+            [this](float value) 
+            {
+                float newMaxFrequency;
+                switch ((int)value)
+                {
+                    case 0: newMaxFrequency = 5000.0f; break;
+                    case 1: newMaxFrequency = 10000.0f; break;
+                    case 2: newMaxFrequency = 20000.0f; break;
+                    case 3: newMaxFrequency = 24000.0f; break;
+                    default: jassertfalse;
+                }
+                visualizer->setMaxFrequency(newMaxFrequency);
+            },
+            true
+
+        },
         // minFrequency
         {
             "minFrequency", "Minimum Frequency", 
@@ -180,28 +202,6 @@ MainController::MainController()
                 visualizer->setMinFrequency(newMinFreq);
                 analyzer->setMinFrequency(newMinFreq);
             }
-
-        },
-        // maxFrequency
-        {
-            "maxFrequency", "Maximum Frequency", 
-            "Maximum frequency (Hz) to include in the analysis.",
-            ParameterDescriptor::Type::Choice, 2, {},
-            {"5000Hz", "10000Hz", "20000Hz", "24000Hz"}, "",
-            [this](float value) 
-            {
-                float newMaxFrequency;
-                switch ((int)value)
-                {
-                    case 0: newMaxFrequency = 5000.0f; break;
-                    case 1: newMaxFrequency = 10000.0f; break;
-                    case 2: newMaxFrequency = 20000.0f; break;
-                    case 3: newMaxFrequency = 24000.0f; break;
-                    default: jassertfalse;
-                }
-                visualizer->setMaxFrequency(newMaxFrequency);
-            },
-            true
 
         },
         // peakAmplitude

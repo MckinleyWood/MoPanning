@@ -39,7 +39,8 @@ public:
     void paint (juce::Graphics& g) override;
 
 private:
-    std::vector<float> frequencies;
+    std::vector<float> mainGridlineFrequencies;
+    std::vector<float> smolGridlineFrequencies;
     float minFrequency;
     float maxFrequency;
 };
