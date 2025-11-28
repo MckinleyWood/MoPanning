@@ -20,36 +20,18 @@
 =============================================================================*/
 
 #include "GridComponent.h"
-#include <cmath>
 
 
 //=============================================================================
-GridComponent::GridComponent(/* MainController& controllerRef */)
-    : /* controller(controllerRef), */
-      minFrequency(20.0f),      // default 20 Hz
-      sampleRate(48000.0)       // default 48 kHz    
-{
-    setInterceptsMouseClicks(false, false);
-    setAlwaysOnTop(true);
-    setOpaque(false);
-
-    // Populate default frequencies immediately
-    updateFrequencies();
-    // DBG("GridComponent created with minFrequency: " << minFrequency 
-    //     << " Hz, sampleRate: " << sampleRate << " Hz");
-}
-
-// Call this whenever sampleRate or minFrequency changes
 void GridComponent::updateFrequencies()
 {
     frequencies.clear();
 
-    float maxFreq = static_cast<float>(sampleRate * 0.5);
     int numLines = 10; // choose how many lines you want
 
     // Logarithmically spaced frequencies
     float logMin = std::log(minFrequency);
-    float logMax = std::log(maxFreq);
+    float logMax = std::log(maxFrequency);
     for (int i = 0; i < numLines; ++i)
     {
         float t = static_cast<float>(i) / (numLines - 1);
@@ -58,29 +40,13 @@ void GridComponent::updateFrequencies()
     }
 
     repaint();
-    // DBG("GridComponent::updateFrequencies called. Frequencies updated. Repainted.");
 }
 
-void GridComponent::setMinFrequency(float f)
+void GridComponent::setFrequencyRange(float min, float max)
 {
-    // DBG("GridComponent::setMinFrequency called");
-    // DBG(juce::String::formatted("this = %p", this));
-
-    minFrequency = f;
+    minFrequency = min;
+    maxFrequency = max;
     updateFrequencies();
-}
-
-void GridComponent::setSampleRate(double sr)
-{
-    // DBG("GridComponent::setSampleRate called");
-    sampleRate = sr;
-    updateFrequencies();
-    repaint();
-}
-
-void GridComponent::resized()
-{
-    /* controller.updateGridTexture(); // Notify controller to update texture */
 }
 
 void GridComponent::paint(juce::Graphics& g)
@@ -88,23 +54,21 @@ void GridComponent::paint(juce::Graphics& g)
     // Clear background to transparent
     g.fillAll(juce::Colours::transparentBlack);
 
-    g.setColour(juce::Colours::red);
-    // g.setColour(juce::Colours::lightgrey);
+    // g.setColour(juce::Colours::red);
+    g.setColour(juce::Colours::lightgrey);
 
     if(frequencies.empty())
     {
-        // DBG("GridComponent::paint() skipped — frequencies is empty");
         return;
     }
 
     auto bounds = getLocalBounds().toFloat();
-    float maxFreq = static_cast<float>(sampleRate * 0.5f);
     float logMin = std::log(minFrequency);
-    float logMax = std::log(maxFreq);
+    float logMax = std::log(maxFrequency);
 
     for (auto f : frequencies)
     {
-        if (f < minFrequency || f > maxFreq)
+        if (f < minFrequency || f > maxFrequency)
             continue;
 
         float norm = (std::log(f) - logMin) / (logMax - logMin);
@@ -122,9 +86,4 @@ void GridComponent::paint(juce::Graphics& g)
                    60, 16,
                    juce::Justification::left);
     }
-}
-
-void GridComponent::setGridVisible(bool shouldShow)
-{
-    setVisible(shouldShow);
 }

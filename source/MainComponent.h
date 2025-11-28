@@ -22,9 +22,8 @@
 #pragma once
 #include <JuceHeader.h>
 #include "MainController.h"
-#include "GLVisualizer2.h"
+#include "GLVisualizer.h"
 #include "SettingsComponent.h"
-/* #include "GridComponent.h" */
 
 
 //=============================================================================
@@ -77,11 +76,9 @@ private:
     //=========================================================================
     MainController& controller;
     juce::ApplicationCommandManager& commandManager;
-    std::unique_ptr<GLVisualizer2> visualizer;
+    std::unique_ptr<GLVisualizer> visualizer;
     std::unique_ptr<SettingsComponent> settings;
-    /* std::unique_ptr<GridComponent> grid; */
     ViewMode viewMode { ViewMode::Focus };
-    /* std::unique_ptr<juce::ParameterAttachment> gridAttachment; */
 
     //=========================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
