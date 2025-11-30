@@ -157,6 +157,8 @@ private:
     */
     juce::Matrix3D<float> buildProjectionMatrix(float width, float height);
 
+    void printFrameInfo();
+
     //=========================================================================
     juce::OpenGLContext openGLContext;
 
@@ -169,7 +171,8 @@ private:
     FrameQueue* frameQueue;
 
     float startTime;
-    float lastFrameTime;
+    float lastFrameTime = 0.0f;
+    int frameCount = 0;
 
     float globalDistance = 0.0f; // Total (positive) distance traveled
 

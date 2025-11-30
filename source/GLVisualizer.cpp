@@ -35,7 +35,7 @@ GLVisualizer::GLVisualizer()
     openGLContext.setContinuousRepainting(true);
 
     startTime = (float)juce::Time::getMillisecondCounterHiRes() * 0.001f;
-    lastFrameTime = startTime;
+    // lastFrameTime = startTime;
 }
 
 GLVisualizer::~GLVisualizer()
@@ -331,6 +331,10 @@ void GLVisualizer::renderFrame()
         renderToCapture(); 
 
     colourMapTexture.unbind();
+
+    ++frameCount;
+    // if (frameCount % 60 == 0)
+    //     printFrameInfo();
 }
 
 void GLVisualizer::renderToScreen()
@@ -497,6 +501,17 @@ juce::Matrix3D<float> GLVisualizer::buildProjectionMatrix(float width, float hei
     return proj;
 }
 
+void GLVisualizer::printFrameInfo()
+{
+    DBG
+    (
+        "Frame #" << frameCount << ":\n"
+        << "Time = " << lastFrameTime << ",\n"
+        << "Distance = " << globalDistance << ",\n"
+        << "# active particles = " << vertexBuffer->numActiveVertices << ",\n"
+    );
+}
+
 
 //=============================================================================
 GLVisualizer::VertexBuffer::VertexBuffer()
@@ -561,7 +576,7 @@ void GLVisualizer::VertexBuffer::updateParticles(
         {
             // We have overwritten some vertices
             int difference = numActiveVertices - maxParticles;
-            oldestIndex += difference;
+            oldestIndex = (oldestIndex + difference) % maxParticles;
             numActiveVertices = maxParticles;
         }
     }
