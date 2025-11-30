@@ -621,8 +621,6 @@ void AudioAnalyzer::computeITDs(
         float freq = binFrequencies[bin];
 
         // --- GCC-PHAT ---
-        float alpha = alphaForFreq(freq);
-
         for (int k = 0; k < windowSize; ++k)
         {
             auto R = (leftBin[k] * std::conj(rightBin[k]));
@@ -630,8 +628,7 @@ void AudioAnalyzer::computeITDs(
 
             if (mag > 1e-8f)
             {
-                // Hybrid weighting: denominator is |R|^alpha
-                crossSpectrum[k] = R / std::pow(mag, alpha);
+                crossSpectrum[k] = R / mag;
             }
             else
             {
@@ -711,21 +708,6 @@ void AudioAnalyzer::computeITDs(
 }
 
 //=============================================================================
-/* What is alpha? */
-float AudioAnalyzer::alphaForFreq(float f)
-{
-    // log-scale (Hz)
-    float logf = std::log10(f + 1.0f);   // +1 to avoid log(0)
-    float logLow = std::log10(100.0f);   // anchor: 100 Hz
-    float logHigh = std::log10(4000.0f); // anchor: 4 kHz
-
-    // Normalize [0..1] across range
-    float t = juce::jlimit(0.0f, 1.0f, (logf - logLow) / (logHigh - logLow));
-
-    // Interpolate smoothly between 0.8 and 1.0
-    return 0.8f + t * (1.0f - 0.4f);
-}
-
 float AudioAnalyzer::coherenceThresholdForFreq(float f)
 {
     float logf = std::log10(f + 1.0f);
