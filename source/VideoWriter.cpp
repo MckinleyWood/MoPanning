@@ -33,11 +33,6 @@ void VideoWriter::prepare(double newSampleRate, int newSamplesPerBlock, int newN
 //=============================================================================
 void VideoWriter::start()
 {
-    // Initialize video FIFO storage
-    videoFIFOStorage.reserve(numVideoSlots);
-    for (int i = 0; i < numVideoSlots; ++i)
-        videoFIFOStorage.push_back(std::make_unique<uint8_t[]>(frameBytes));
-    
     // Set up the video output stream
     framesOut = std::make_unique<juce::FileOutputStream>(rawFrames);
     jassert(framesOut != nullptr && framesOut->openedOk());
@@ -95,18 +90,12 @@ void VideoWriter::stop()
 }
 
 //=============================================================================
-void VideoWriter::enqueueVideoFrame(const uint8_t* rgb, int numBytes)
+void VideoWriter::setFrameQueuePointer(FrameQueue* frameQueuePtr)
 {
-    // Get the next write position and advance the write pointer
-    const auto scope = videoFIFOManager.write(1);
-
-    // Copy the frame data into the FIFO storage
-    if (scope.blockSize1 > 0)
-        std::memcpy(videoFIFOStorage[scope.startIndex1].get(), rgb, (size_t)numBytes);
-
-    videoWorkerThread->notify();
+    frameQueue = frameQueuePtr;
 }
 
+//=============================================================================
 void VideoWriter::enqueueAudioBlock(const float* const* newBlock, int numSamples)
 {
     // Ensure the WAV writer is ready and we have valid data
@@ -159,27 +148,26 @@ void VideoWriter::getFFmpegVersion()
 //=============================================================================
 bool VideoWriter::dequeueVideoFrame()
 {
-    // Get the next read position and advance the read pointer
-    const auto scope = videoFIFOManager.read(1);
+    // Get the buffer data from the FIFO
+    const uint8_t* data = frameQueue->readNextBuffer();
 
-    // Copy the frame data from FIFO storage to the output stream
-    if (scope.blockSize1 <= 0)
+    if (data == nullptr)
     {
-        // No frame to dequeue
-        return false;
+        // No frame available
+        return false; 
     }
 
-    const uint8_t* data = videoFIFOStorage[scope.startIndex1].get();
-
     // Write the RGB24 frame
-    framesOut->write(data, (size_t)frameBytes);
+    framesOut->write(data, (size_t)Constants::frameBytes);
+    frameQueue->finishRead();
+
     if (framesOut->getStatus().failed())
     {
         DBG("framesOut write failed");
         return false;
     }
 
-    videoBytesWritten += frameBytes;
+    videoBytesWritten += Constants::frameBytes;
     ++frameCount;
     return true;
 }
@@ -291,8 +279,8 @@ void VideoWriter::runFFmpeg(juce::File destination)
     // Input 0: raw RGB frames
     args.add("-f");             args.add("rawvideo");
     args.add("-pixel_format");  args.add("rgb24");
-    args.add("-video_size");    args.add(juce::String(W) + "x" + juce::String(H));
-    args.add("-framerate");     args.add(juce::String(FPS));
+    args.add("-video_size");    args.add(juce::String(Constants::W) + "x" + juce::String(Constants::H));
+    args.add("-framerate");     args.add(juce::String(Constants::FPS));
     args.add("-i");             args.add(rawFrames.getFullPathName());
 
     // Input 1: WAV audio
@@ -365,7 +353,7 @@ void VideoWriter::Worker::run()
         if (frameWritten == false)
         {
             // No frame to write, sleep briefly
-            juce::Thread::wait(1);
+            juce::Thread::sleep(1);
         }
     }
 }

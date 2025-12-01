@@ -236,8 +236,6 @@ void sc::SettingsContentComponent::updateParamVisibility(int numTracksIn, bool t
     auto show7 = (numTracksIn >= 7);
     auto show8 = (numTracksIn >= 8);
 
-    bool showGrid = (threeDimIn == 0);
-
     auto setVisibleIfFound = [this](const juce::String& id, bool visible)
     {
         if (auto* comp = parameterComponentMap[id])
@@ -261,9 +259,6 @@ void sc::SettingsContentComponent::updateParamVisibility(int numTracksIn, bool t
     setVisibleIfFound("track6Gain", show6);
     setVisibleIfFound("track7Gain", show7);
     setVisibleIfFound("track8Gain", show8);
-
-
-    setVisibleIfFound("showGrid", showGrid);
 
     resized(); // reposition remaining visible controls
     if (auto* parent = findParentComponentOfClass<SettingsComponent>())

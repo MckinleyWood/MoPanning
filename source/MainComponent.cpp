@@ -27,19 +27,15 @@ MainComponent::MainComponent(MainController& mc,
     : controller(mc),
       commandManager(cm)
 {
-    visualizer = std::make_unique<GLVisualizer>(controller);
+    visualizer = std::make_unique<GLVisualizer>();
     settings = std::make_unique<SettingsComponent>(controller);
-    grid = std::make_unique<GridComponent>(controller);    
 
-    jassert(visualizer != nullptr && settings != nullptr && grid != nullptr);
+    jassert(visualizer != nullptr && settings != nullptr);
     
     addAndMakeVisible(visualizer.get());
     addChildComponent(settings.get());    
-    addChildComponent(grid.get());
 
     controller.registerVisualizer(visualizer.get());
-    controller.registerGrid(grid.get());
-    grid->setAlwaysOnTop(true);
 
     controller.setDefaultParameters();
 
@@ -58,7 +54,6 @@ void MainComponent::resized()
     {
         visualizer->setBounds(bounds);
         settings->setVisible(false);
-        grid->setBounds(bounds);
     }
     else // viewMode == Split
     {
@@ -66,7 +61,6 @@ void MainComponent::resized()
         auto right = bounds.removeFromRight(sidebarW);
         settings->setBounds(right);
         visualizer->setBounds(bounds);
-        grid->setBounds(bounds);
         settings->setVisible(true);
     }
 }

@@ -21,6 +21,9 @@
 
 #pragma once
 #include <JuceHeader.h>
+#include "Utils.h"
+#include "FrameQueue.h"
+
 
 //=============================================================================
 /*  Handles writing video files from MoPanning output.
@@ -30,7 +33,6 @@
     a FIFO buffer, and a worker thread dequeues them and writes them
     to the pipe for FFmpeg to encode.
 */
-
 class VideoWriter 
 {
 public:
@@ -60,6 +62,11 @@ public:
         file, and prompts the user to save the completed video.
     */
     void stop();
+
+    //=========================================================================
+    /*  Sets the pointer to the shared queue for video writing output.
+    */
+    void setFrameQueuePointer(FrameQueue* frameQueuePtr);
 
     //=========================================================================
     /*  Enques an RGB frame for writing.
@@ -138,11 +145,6 @@ private:
     void runFFmpeg(juce::File destination);
 
     //=========================================================================
-    // Video parameters - fixed for now
-    static constexpr int W = 1280;
-    static constexpr int H = 720;
-    static constexpr int FPS = 60;
-    static constexpr int frameBytes = W * H * 3;
 
     // Audio parameters - set via prepare()
     int sampleRate;
@@ -169,9 +171,7 @@ private:
     std::atomic<int64_t> videoBytesWritten {0};
     std::atomic<int> frameCount {0};
 
-    static constexpr int numVideoSlots = 8;
-    juce::AbstractFifo videoFIFOManager { numVideoSlots };
-    std::vector<std::unique_ptr<uint8_t[]>> videoFIFOStorage;
+    FrameQueue* frameQueue;
 
     std::unique_ptr<Worker> videoWorkerThread;
 

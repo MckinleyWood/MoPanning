@@ -21,9 +21,8 @@
 
 #pragma once
 #include <JuceHeader.h>
+#include "Utils.h"
 
-
-enum InputType { file, streaming };
 
 //=============================================================================
 /*  This class handles retrieving the audio data from the input file or 

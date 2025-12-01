@@ -21,16 +21,88 @@
 
 #pragma once
 
+/*  This file holds enums and constants that all MoPanning files can use.
+*/
+
+//=============================================================================
+namespace Constants
+{
+    constexpr int maxTracks = 8;
+
+    constexpr int W = 1920;
+    constexpr int H = 1080;
+    constexpr int FPS = 60;
+    constexpr int frameBytes = W * H * 3;
+}
+
+//=============================================================================
+/*  Contains the data ascociated with one frequency band. 
+*/
 struct FrequencyBand 
 {
     float frequency; // Band frequency in Hertz
-    float amplitude; // Range 0 - 1 ...?
-    float pan_index; // -1 = far left, +1 = far right
-    int trackIndex;
+    float amplitude; // 'Percieved' amplitude in range [0,1]
+    float panIndex; // 'Percieved' lateralization in range [-1,1]
+    int trackIndex;  // Which track this band belongs to
 };
 
+/*  A double-buffered slot for storing one track's analysis results.
+*/
 struct TrackSlot
 {
     std::array<std::vector<FrequencyBand>, 2> buffers;
-    std::atomic<int> activeIndex { 0 }; // Which buffer reader should use
+    std::atomic<int> activeIndex { 0 }; // Which buffer the reader should use
+};
+
+
+//=============================================================================
+/*  Enums for parameter choices */
+
+enum InputType 
+{ 
+    file, 
+    streaming 
+};
+
+enum Transform 
+{ 
+    FFT, 
+    CQT 
+};
+
+enum PanMethod 
+{ 
+    level_pan, 
+    time_pan, 
+    both 
+};
+
+enum FrequencyWeighting 
+{ 
+    none, 
+    A_weighting 
+};
+
+enum ColourScheme 
+{
+    greyscale, 
+    rainbow,
+    red,
+    orange,
+    yellow,
+    lightGreen,
+    darkGreen,
+    lightBlue,
+    darkBlue,
+    purple,
+    pink,
+    warm,
+    cool,
+    slider
+};
+
+enum Dimension 
+{ 
+    twoD,
+    threeD
 };

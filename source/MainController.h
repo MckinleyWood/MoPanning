@@ -27,13 +27,16 @@ communication between parts of the program must run through here.
 */
 
 #pragma once
+
 #include <JuceHeader.h>
+
 #include "AudioAnalyzer.h"
 #include "AudioEngine.h"
 #include "GLVisualizer.h"
 #include "MiniAudioProcessor.h"
-#include "GridComponent.h"
 #include "VideoWriter.h"
+
+#include "FrameQueue.h"
 #include "Utils.h"
 
 //=============================================================================
@@ -75,13 +78,10 @@ public:
         const std::vector<ParameterDescriptor>& descriptors);
 
     void registerVisualizer(GLVisualizer* v);
-    void registerGrid(GridComponent* g);
     void setDefaultParameters();
     bool loadFile(const juce::File& f);
     void togglePlayback();
 
-    void updateGridTexture();
-    void giveFrameToVideoWriter(const uint8_t* rgb, int numBytes);
     void stopRecording();
 
     std::vector<ParameterDescriptor> getParameterDescriptors() const;
@@ -111,13 +111,12 @@ private:
     std::unique_ptr<AudioEngine> engine;
     std::unique_ptr<VideoWriter> videoWriter;
     GLVisualizer* visualizer = nullptr;
-    GridComponent* grid = nullptr;
 
     juce::AudioProcessorValueTreeState* apvts;
     std::vector<ParameterDescriptor> parameterDescriptors;
 
-    static constexpr int maxNumTracks = 8;
-    std::array<TrackSlot, maxNumTracks> analysisResults;
+    std::array<TrackSlot, Constants::maxTracks> analysisResults;
+    FrameQueue videoWritingFrameQueue;
 
     int numTracks = 1;
     bool threeDim = 1;

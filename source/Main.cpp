@@ -30,12 +30,13 @@
 #include "MainController.h"
 #include "MainComponent.h"
 
+
 //=============================================================================
-class GuiAppApplication final : public juce::JUCEApplication
+class MoPanning final : public juce::JUCEApplication
 {
 public:
     //=========================================================================
-    GuiAppApplication() = default;
+    MoPanning() = default;
 
     const juce::String getApplicationName() override 
     { 
@@ -178,4 +179,4 @@ private:
 
 //=============================================================================
 // This macro generates the main() routine that launches the app.
-START_JUCE_APPLICATION(GuiAppApplication)
+START_JUCE_APPLICATION(MoPanning)
