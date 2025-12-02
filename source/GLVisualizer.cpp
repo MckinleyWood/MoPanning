@@ -35,7 +35,6 @@ GLVisualizer::GLVisualizer()
     openGLContext.setContinuousRepainting(true);
 
     startTime = (float)juce::Time::getMillisecondCounterHiRes() * 0.001f;
-    // lastFrameTime = startTime;
 }
 
 GLVisualizer::~GLVisualizer()
@@ -54,10 +53,10 @@ void GLVisualizer::newOpenGLContextCreated()
     attributes = std::make_unique<Attributes>(*mainShader);
     uniforms = std::make_unique<Uniforms>(*mainShader);
 
-    captureProj = buildProjectionMatrix(captureW, captureH);
+    captureProj = buildProjectionMatrix(Constants::W, Constants::H);
     captureProj.mat[5] *= -1.0f; // Becuase OpenGL has bottom-up row order
-    captureFBO.initialise(openGLContext, captureW, captureH);
-    capturePixels.resize(captureW * captureH * 3);
+    captureFBO.initialise(openGLContext, Constants::W, Constants::H);
+    capturePixels.resize(Constants::W * Constants::H * 3);
 
     glEnable(GL_PROGRAM_POINT_SIZE);
 }
@@ -149,13 +148,11 @@ void GLVisualizer::setFadeEndZ(float newFadeEndZ)
 void GLVisualizer::startRecording()
 {
     recording = true;
-    // resized(); // Update projection matrix
 }
 
 void GLVisualizer::stopRecording()
 {
     recording = false;
-    // resized(); // Update projection matrix
 }
 
 //=============================================================================
@@ -362,17 +359,17 @@ void GLVisualizer::renderToCapture()
 
     // Bind the capture FBO
     captureFBO.makeCurrentAndClear();
-    glViewport(0, 0, captureW, captureH);
+    glViewport(0, 0, Constants::W, Constants::H);
 
     // Set the uniforms that should be different from the main render
     uniforms->projectionMatrix->setMatrix4(captureProj.mat, 1, false);
-    uniforms->windowSize->set((float)captureW, (float)captureH);
+    uniforms->windowSize->set((float)Constants::W, (float)Constants::H);
 
     // Render to the capture VBO
     vertexBuffer->draw(*attributes);
 
     // Read pixels from the FBO to CPU memory
-    glReadPixels(0, 0, captureW, captureH, GL_RGB, GL_UNSIGNED_BYTE, capturePixels.data());
+    glReadPixels(0, 0, Constants::W, Constants::H, GL_RGB, GL_UNSIGNED_BYTE, capturePixels.data());
 
     // Enqueue the frame for the video writer
     frameQueue->enqueueVideoFrame(capturePixels.data(), (int)capturePixels.size());

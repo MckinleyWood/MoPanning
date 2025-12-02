@@ -30,7 +30,7 @@
 /*  The component that handles rendering the main MoPanning visulization.
 */
 class GLVisualizer : public juce::OpenGLRenderer,
-                      public juce::Component
+                     public juce::Component
 {
 public:
     //=========================================================================
@@ -185,7 +185,6 @@ private:
     std::atomic<bool> textureNeedsRebuild { true };
 
     juce::OpenGLFrameBuffer captureFBO;
-    static constexpr int captureW = 1280, captureH = 720;
     bool recording;
     std::vector<uint8_t> capturePixels;
 
@@ -294,7 +293,7 @@ struct GLVisualizer::Uniforms
     std::unique_ptr<OpenGLShaderProgram::Uniform> dotSize;
 
 private:
-    /*  Safely creates a new juce::OpenGLShaderProgram::Uniform
+    /*  Safely creates a new juce::OpenGLShaderProgram::Uniform.
     */
     static OpenGLShaderProgram::Uniform* createUniform(OpenGLShaderProgram& shader,
                                                         const char* uniformName);

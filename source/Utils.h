@@ -29,6 +29,7 @@ namespace Constants
 {
     constexpr int maxTracks = 8;
 
+    // Video recording settings
     constexpr int W = 1920;
     constexpr int H = 1080;
     constexpr int FPS = 60;
