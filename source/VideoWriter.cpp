@@ -286,20 +286,12 @@ void VideoWriter::runFFmpeg(juce::File destination)
     // Input 1: WAV audio
     args.add("-i");             args.add(wavAudio.getFullPathName());
 
-   #if JUCE_MAC
-    // Hardware encode on macOS (much faster)
-    args.add("-c:v");           args.add("h264_videotoolbox");
-    args.add("-pix_fmt");       args.add("yuv420p");
-    args.add("-b:v");           args.add("8M");
-    args.add("-maxrate");       args.add("10M");
-    args.add("-bufsize");       args.add("20M");
-   #else
     // CPU x264
     args.add("-c:v");           args.add("libx264");
-    args.add("-preset");        args.add("veryfast");
+    args.add("-preset");        args.add("slow");
     args.add("-crf");           args.add("18");
     args.add("-pix_fmt");       args.add("yuv420p");
-   #endif
+    args.add("-tune");          args.add("grain");
 
     args.add("-c:a");           args.add("aac");
     args.add("-b:a");           args.add("320k");
@@ -318,6 +310,8 @@ void VideoWriter::runFFmpeg(juce::File destination)
 
     // Launch rendering window thread
     RenderingWindow renderingWindow(*this);
+
+    DBG("Launching FFmpeg...");
     if (renderingWindow.runThread())
     {
         // Process completed successfully
@@ -360,16 +354,52 @@ void VideoWriter::Worker::run()
 
 void VideoWriter::RenderingWindow::run()
 {
+    setStatusMessage("Starting the encoding process...");
     while (threadShouldExit() == false)
     {
+        // Check if the FFmpeg process has finished
         if (parent.ffProcess.isRunning() == false)
         {
-            // getAlertWindow()->getButton("Cancel")->setVisible(false);
-            // setStatusMessage("Complete!");
-            // juce::Thread::sleep(500);
+            setStatusMessage("Complete!");
+            juce::Thread::sleep(1000);
             break;
         }
 
-        juce::Thread::sleep(1);
+        // Read FFmpeg output
+        int bytesRead = parent.ffProcess.readProcessOutput(buffer, bufferSize - 1);
+
+        if (bytesRead > 0)
+        {
+            // Convert the raw buffer to a JUCE String
+            juce::String output(buffer, (size_t)bytesRead);
+
+            // Look for "frame=" to extract progress
+            int index = output.lastIndexOf("frame=");
+            
+            if (index >= 0)
+            {
+                index += 6; // Move past "frame="
+                
+                // Parses until we hit a non-digit
+                int currentFrame = output.substring(index).getIntValue();
+
+                if (currentFrame > lastFrame)
+                {
+                    double progress = (double)currentFrame / (double)totalFrames;
+                    setProgress(juce::jlimit(0.0, 1.0, progress));
+                    
+                    setStatusMessage("Encoding frame " + juce::String(currentFrame) + 
+                                     " of " + juce::String(totalFrames) + "...");
+                    
+                    lastFrame = currentFrame;
+                }
+            }
+        }
+        else
+        {
+            // If no data was read, sleep briefly to prevent CPU spinning
+            wait(10); 
+        }
     }
+
 }

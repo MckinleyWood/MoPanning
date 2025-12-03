@@ -219,7 +219,7 @@ class VideoWriter::RenderingWindow : public juce::ThreadWithProgressWindow
 public:
     //=========================================================================
     RenderingWindow(VideoWriter& vw) 
-        : ThreadWithProgressWindow("Writing the video file...", false, true), parent(vw)
+        : ThreadWithProgressWindow("Writing the video file...", true, true), parent(vw)
     {
     }
 
@@ -228,6 +228,16 @@ public:
 private:
     //=========================================================================
     VideoWriter& parent;
+
+    // The total number of frames we will need to process
+    const int totalFrames = std::max(1, parent.frameCount.load());
+
+    // The last frame number we reported progress for
+    int lastFrame = 0;
+    
+    // A buffer for reading FFmpeg output for status updates
+    static constexpr int bufferSize = 512;
+    char buffer[bufferSize];
 
     //=========================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(RenderingWindow)
