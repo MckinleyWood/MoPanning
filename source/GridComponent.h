@@ -21,26 +21,26 @@
 
 #pragma once
 #include <JuceHeader.h>
-#include "MainController.h"
 
+
+//=============================================================================
+/*  A frequency grid overlay to put on top of the visualization.
+*/
 class GridComponent : public juce::Component
 {
 public:
-    GridComponent(MainController& controllerRef);
+//=========================================================================
+    GridComponent() = default;
+    ~GridComponent() = default;
 
-    void setMinFrequency(float f);
-    void setSampleRate(double sr);
+    void setFrequencyRange(float min, float max);
     void updateFrequencies();
 
-    void resized() override;
     void paint (juce::Graphics& g) override;
 
-    void setGridVisible(bool shouldShow);
-
 private:
-    MainController& controller;
-
-    std::vector<float> frequencies;
+    std::vector<float> mainGridlineFrequencies;
+    std::vector<float> smolGridlineFrequencies;
     float minFrequency;
-    double sampleRate;
+    float maxFrequency;
 };

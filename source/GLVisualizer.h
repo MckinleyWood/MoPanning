@@ -21,148 +21,280 @@
 
 #pragma once
 #include <JuceHeader.h>
+#include "GridComponent.h"
 #include "Utils.h"
+#include "FrameQueue.h"
 
-class GridComponent;
-class MainController;
-
-//=============================================================================
-enum ColourScheme 
-{
-    greyscale, 
-    rainbow,
-    red,
-    orange,
-    yellow,
-    lightGreen,
-    darkGreen,
-    lightBlue,
-    darkBlue,
-    purple,
-    pink,
-    warm,
-    cool,
-    slider
-};
-enum Dimension { dimension2, dimension3 };
 
 //=============================================================================
-/*  This is the component for the OpenGL canvas. It handles rendering 
-    the visualization.
+/*  The component that handles rendering the main MoPanning visulization.
 */
-class GLVisualizer : public juce::OpenGLAppComponent
+class GLVisualizer : public juce::OpenGLRenderer,
+                     public juce::Component
 {
 public:
     //=========================================================================
-    explicit GLVisualizer(MainController&);
+    explicit GLVisualizer();
     ~GLVisualizer() override;
 
     //=========================================================================
-    void initialise() override;
-    void shutdown() override;
-    void render() override;
+    /*  Called when a new OpenGL context has been created.
+        
+        This is where we will create our textures, shaders, etc.
+    */
+    void newOpenGLContextCreated() override;
+
+    /*  Called on the OpenGL thread when a new frame is to be rendered. 
+    */
+    void renderOpenGL() override;
+
+    /*  Called when the current OpenGL context is about to close. 
+    */
+    void openGLContextClosing() override;
+
+    //=========================================================================
+    /*  Called when the component changes size.
+    */
     void resized() override;
 
     //=========================================================================
-    void setResultsPointer(std::array<TrackSlot, 8>* resultsPtr);
-    
-    void setSampleRate(double newSampleRate);
+    /*  Sets the pointer to the shared buffer holding results to be visualized.
+    */
+    void setResultsPointer(std::array<TrackSlot, Constants::maxTracks>* resultsPtr);
+
+    /*  Sets the pointer to the shared queue for video writing output.
+    */
+    void setFrameQueuePointer(FrameQueue* frameQueuePtr);
+
+    /*  Sets the dimension of the visualization (2D or 3D).
+    */
     void setDimension(Dimension newDimension);
+
+    /*  Sets the colour scheme for the given track. Needs Implementation!
+    */
     void setTrackColourScheme(ColourScheme newColourScheme, int trackIndex);
+
+    /*  Sets the frequency grid overlay as visible or not.
+    */
     void setShowGrid(bool shouldShow);
+
+    /*  Sets the minimum frequency, corresponding to the bottom of the screen.
+    */
     void setMinFrequency(float newMinFrequency);
+
+    /*  Sets the maximum frequency, corresponding to the top of the screen.
+    */    
+    void setMaxFrequency(float newMinFrequency);
+
+    /*  Sets the speed at which the particles recede ("m/s").
+    */
     void setRecedeSpeed(float newRecedeSpeed);
+
+    /*  Sets the size of the particles relative to the default (1).
+    */
     void setDotSize(float newDotSize);
+
+    /*  Sets the distance at which particles disappear ("m")
+    */
     void setFadeEndZ(float newFadeEndZ);
 
     //=========================================================================
+    /*  Tells the component to start recording. Not yet implemented.
+    */
     void startRecording();
+
+    /*  Tells the component to stop recording. Not yet implemented.
+    */
     void stopRecording();
 
-    void paint(juce::Graphics& g) override;
-
-    void createGridImageFromComponent(GridComponent* gridComp);
 
 private:
     //=========================================================================
-    void updateParticles();
-    void drawParticles(float width, float height, juce::Matrix3D<float>& proj);
-    void drawGrid();
-
-    void buildTexture();
-    juce::Matrix3D<float> buildProjectionMatrix(float width, float height);
-    void updateFBOSize();
-    
-    //=========================================================================
-    struct Particle
+    /*  This struct defines the layout of a single vertex in the VBO.
+    */
+    struct ParticleVertex
     {
-        float spawnX;
-        float spawnY;
-        float z; // Current z position
-        float amplitude;
-        float spawnTime = 0.0f; // Time since app start when particle spawned
-        float trackIndex;
+        float frequency; // Band frequency in Hertz
+        float amplitude; // 'Percieved' amplitude in range [0,1]
+        float panIndex; // 'Percieved' lateralization in range [-1,1]
+        float birthDistance; // Distance from camera when particle was created
+        int trackIndex;  // Which track this particle belongs to
     };
 
-    struct InstanceData { float x, y, z, amplitude; };
+    //========================================================================
+    /*  Forward declarations of nested classes (see below).
+    */
+    struct VertexBuffer;
+    struct Attributes;
+    struct Uniforms;
 
-    std::deque<Particle> particles; // Queue of particles
-    
-    std::unique_ptr<juce::OpenGLShaderProgram> mainShader;
-    GLuint instanceVBO = 0;
-    GLuint mainVAO = 0;
-    
-    std::unique_ptr<juce::OpenGLShaderProgram> gridShader;
-    GLuint gridVBO = 0;
-    GLuint gridVAO = 0;
+    //=========================================================================
+    /*  Compliles and links the shaders, and sets them active.
+    */
+    void createShaders();
 
-    juce::Image gridImage; 
-    juce::OpenGLTexture gridGLTex; 
-    std::atomic<bool> gridTextureDirty{false};
-    bool gridTextureReady = false;
+    /*  Updates all uniform values on the GPU.
+    
+        This function should only be called from the GL thread!
+    */
+    void updateUniforms();
+
+    /*  Creates a 2D colourmap (amplidude x track ID) and uploads it to GPU.
+    */
+    void buildTexture();
+
+    //=========================================================================
+    void renderFrame();
+    void renderToScreen();
+    void renderToCapture();
+
+    //=========================================================================
+    /*  Returns the colour corresponding to a colour scheme and amplitude value.
+    */
+    juce::Colour getColourForSchemeAndAmp(ColourScheme colourScheme, float amp);
+
+    /*  Creates and returns a projection matrix for the given viewport size.
+    */
+    juce::Matrix3D<float> buildProjectionMatrix(float width, float height);
+
+    void printFrameInfo();
+
+    //=========================================================================
+    juce::OpenGLContext openGLContext;
+
+    std::unique_ptr<OpenGLShaderProgram> mainShader;
+    std::unique_ptr<VertexBuffer> vertexBuffer;
+    std::unique_ptr<Attributes> attributes;
+    std::unique_ptr<Uniforms> uniforms;
+
+    std::array<TrackSlot, Constants::maxTracks>* results;
+    FrameQueue* frameQueue;
+
+    float startTime;
+    float lastFrameTime = 0.0f;
+    int frameCount = 0;
+
+    float globalDistance = 0.0f; // Total (positive) distance traveled
 
     juce::Vector3D<float> cameraPosition { 0.0f, 0.0f, -2.0f };
-    juce::Matrix3D<float> view; // View matrix
-    juce::Matrix3D<float> projection; // Projection matrix
-    juce::Matrix3D<float> captureProj;
+    juce::Matrix3D<float> view = juce::Matrix3D<float>::fromTranslation(cameraPosition);
+    juce::Matrix3D<float> displayProj; // Projection matrix for the display window
+    juce::Matrix3D<float> captureProj; // Projection matrix for the video capture
 
-    // GLuint colourMapTex = 0;
-    bool newTextureRequested = true; // Flag to rebuild texture
-
-    float startTime; // App-launch time in seconds
-    float lastFrameTime; // Time of last frame in seconds
+    juce::OpenGLTexture colourMapTexture;
+    std::atomic<bool> textureNeedsRebuild { true };
 
     juce::OpenGLFrameBuffer captureFBO;
-    int captureW = 1280, captureH = 720;
     bool recording;
     std::vector<uint8_t> capturePixels;
-    std::vector<uint8_t> flippedPixels; 
 
-    std::array<TrackSlot, 8>* results;
-
-    MainController& controller;
+    std::unique_ptr<GridComponent> grid;
 
     //=========================================================================
     /* Parameters */
 
-    double sampleRate;
-
     Dimension dimension;
-    std::vector<ColourScheme> trackColourSchemes;
-    std::vector<GLuint> trackColourTextures;
+    std::array<std::atomic<ColourScheme>, Constants::maxTracks> trackColourSchemes;
     
-    bool showGrid;
-    int numTracks = 1; // Number of tracks in the results vector
+    int numTracks; // Number of tracks in the results vector
     float minFrequency; // Minimum frequency to display (Hz)
+    float maxFrequency = 20000.0f; // Maximum frequency to display (Hz)
     float recedeSpeed; // Speed that objects recede
     float dotSize; // Radius of the dots
-    float fadeEndZ; // Distance at which points are fully faded (m)
+    float fadeEndZ; // (Positive) distance at which points are fully faded (m)
 
-    float nearZ = 0.1f; // Distance to the start of clip space (m)
-    float farZ = 100.f; // Distance to the end of clip space (m)
-    float fov = 45.f; // Vertical field of view (degrees)
-    int maxParticles = 200000;
-    
+    static constexpr float nearZ = 0.1f; // Distance to the start of clip space (m)
+    static constexpr float farZ = 100.f; // Distance to the end of clip space (m)
+    static constexpr float fov = 45.f; // Vertical field of view (degrees)
+    static constexpr int maxParticles = 200000;
+
     //=========================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GLVisualizer)
+};
+
+
+//=============================================================================
+/*  This struct manages a vertex buffer object (VBO).
+*/
+struct GLVisualizer::VertexBuffer
+{
+    //=========================================================================
+    explicit VertexBuffer();
+    ~VertexBuffer();
+
+    //=========================================================================
+    /*  Updates the particle array with new data from the results buffer.
+    */
+    void updateParticles(std::array<TrackSlot, Constants::maxTracks>* results, 
+                         float globalDistance, 
+                         float fadeEndZ);
+
+    /*  Draws all active particles.
+    */
+    void draw(Attributes& glAttributes);
+
+    GLuint vaoID;
+    GLuint vboID;
+
+    std::array<ParticleVertex, maxParticles> particles;
+
+    int oldestIndex = 0;
+    int numActiveVertices = 0;
+    float lastUpdateTime = 0.0f;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(VertexBuffer)
+};
+
+
+//=============================================================================
+/*  This struct manages the attributes that the shaders use.
+*/
+struct GLVisualizer::Attributes
+{
+    explicit Attributes(OpenGLShaderProgram& shaderProgram);
+
+    /*  Enables each of the attributes held in the struct.
+    */
+    void enable();
+
+    /*  Disables each of the attributes held in the struct.
+    */
+    void disable();
+
+    std::unique_ptr<OpenGLShaderProgram::Attribute> frequency; 
+    std::unique_ptr<OpenGLShaderProgram::Attribute> amplitude;
+    std::unique_ptr<OpenGLShaderProgram::Attribute> panIndex;
+    std::unique_ptr<OpenGLShaderProgram::Attribute> birthDistance;
+    std::unique_ptr<OpenGLShaderProgram::Attribute> trackIndex;
+
+private:
+    /*  Safely creates a new juce::OpenGLShaderProgram::Attribute
+    */
+    static OpenGLShaderProgram::Attribute* createAttribute(OpenGLShaderProgram& shader,
+                                                           const char* attributeName);
+};
+
+
+//=============================================================================
+/* This struct manages the uniform values that the shaders use.
+*/
+struct GLVisualizer::Uniforms
+{
+    explicit Uniforms(OpenGLShaderProgram& shaderProgram);
+
+    std::unique_ptr<OpenGLShaderProgram::Uniform> colourMap;
+    std::unique_ptr<OpenGLShaderProgram::Uniform> projectionMatrix;
+    std::unique_ptr<OpenGLShaderProgram::Uniform> viewMatrix;
+    std::unique_ptr<OpenGLShaderProgram::Uniform> windowSize; 
+    std::unique_ptr<OpenGLShaderProgram::Uniform> minFrequency;
+    std::unique_ptr<OpenGLShaderProgram::Uniform> maxFrequency;
+    std::unique_ptr<OpenGLShaderProgram::Uniform> globalDistance;
+    std::unique_ptr<OpenGLShaderProgram::Uniform> fadeEndZ; 
+    std::unique_ptr<OpenGLShaderProgram::Uniform> dotSize;
+
+private:
+    /*  Safely creates a new juce::OpenGLShaderProgram::Uniform.
+    */
+    static OpenGLShaderProgram::Uniform* createUniform(OpenGLShaderProgram& shader,
+                                                        const char* uniformName);
 };

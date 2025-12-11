@@ -22,6 +22,7 @@
 #pragma once
 #include <JuceHeader.h>
 
+
 //=============================================================================
 class MiniAudioProcessor : public juce::AudioProcessor
 {

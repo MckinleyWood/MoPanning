@@ -21,6 +21,7 @@
 
 #include "MainController.h"
 
+
 //=============================================================================
 MainController::MainController()
 {
@@ -28,7 +29,7 @@ MainController::MainController()
     analyzer = std::make_unique<AudioAnalyzer>();
     engine = std::make_unique<AudioEngine>();
 
-    trackGains.resize(8, 1.0f);
+    trackGains.resize(Constants::maxTracks, 1.0f);
     videoWriter = std::make_unique<VideoWriter>();
 
     // Set up parameter descriptors - all parameters should be listed here
@@ -160,6 +161,28 @@ MainController::MainController()
                     analyzer->setNumCQTBins(newNumBins);
             }
         },
+        // maxFrequency
+        {
+            "maxFrequency", "Maximum Frequency", 
+            "Maximum frequency (Hz) to include in the analysis.",
+            ParameterDescriptor::Type::Choice, 2, {},
+            {"5000Hz", "10000Hz", "20000Hz", "24000Hz"}, "",
+            [this](float value) 
+            {
+                float newMaxFrequency;
+                switch ((int)value)
+                {
+                    case 0: newMaxFrequency = 5000.0f; break;
+                    case 1: newMaxFrequency = 10000.0f; break;
+                    case 2: newMaxFrequency = 20000.0f; break;
+                    case 3: newMaxFrequency = 24000.0f; break;
+                    default: jassertfalse;
+                }
+                visualizer->setMaxFrequency(newMaxFrequency);
+            },
+            true
+
+        },
         // minFrequency
         {
             "minFrequency", "Minimum Frequency", 
@@ -178,10 +201,8 @@ MainController::MainController()
                     default: newMinFreq = 20.0f; break;
                 }
 
-                grid->setMinFrequency(newMinFreq);
                 visualizer->setMinFrequency(newMinFreq);
                 analyzer->setMinFrequency(newMinFreq);
-                updateGridTexture();
             }
 
         },
@@ -446,11 +467,11 @@ MainController::MainController()
             [this](float value) 
             {
                 bool showGrid = (static_cast<int>(value) == 1);
-                grid->setGridVisible(showGrid);
+
                 if (visualizer != nullptr)
                     visualizer->setShowGrid(showGrid);
             },
-            false
+            true
         },
         // dotSize
         {
@@ -591,13 +612,16 @@ void MainController::audioDeviceAboutToStart(juce::AudioIODevice* device)
     }
     
     engine->prepareToPlay(samplesPerBlock, sampleRate);
+
     analyzer->setPrepared(false);
     analyzer->setResultsPointer(&analysisResults);
     analyzer->prepare(sampleRate, numTracks);
+
     videoWriter->prepare(sampleRate, samplesPerBlock, 2);
+    videoWriter->setFrameQueuePointer(&videoWritingFrameQueue);
+
     visualizer->setResultsPointer(&analysisResults);
-    visualizer->setSampleRate(sampleRate);
-    grid->setSampleRate(sampleRate);
+    visualizer->setFrameQueuePointer(&videoWritingFrameQueue);
 }
 
 void MainController::audioDeviceStopped() 
@@ -641,11 +665,6 @@ void MainController::registerVisualizer(GLVisualizer* v)
     visualizer = v;
 }
 
-void MainController::registerGrid(GridComponent* g)
-{
-    grid = g;
-}
-
 void MainController::setDefaultParameters()
 {
     for (auto& d : parameterDescriptors)
@@ -663,16 +682,6 @@ bool MainController::loadFile(const juce::File& f)
 void MainController::togglePlayback()
 {
     engine->togglePlayback();
-}
-
-void MainController::updateGridTexture()
-{
-    visualizer->createGridImageFromComponent(grid);
-}
-
-void MainController::giveFrameToVideoWriter(const uint8_t* rgb, int numBytes)
-{
-    videoWriter->enqueueVideoFrame(rgb, numBytes);
 }
 
 void MainController::stopRecording()

@@ -21,6 +21,7 @@
 
 #include "AudioAnalyzer.h"
 
+
 //=============================================================================
 AudioAnalyzer::AudioAnalyzer() {}
 AudioAnalyzer::~AudioAnalyzer()
@@ -112,7 +113,7 @@ void AudioAnalyzer::prepare()
     prepare(sampleRate, numTracks);
 }
 
-void AudioAnalyzer::setResultsPointer(std::array<TrackSlot, 8>* resultsPtr)
+void AudioAnalyzer::setResultsPointer(std::array<TrackSlot, Constants::maxTracks>* resultsPtr)
 {
     results = resultsPtr;
 }

@@ -33,11 +33,6 @@ void VideoWriter::prepare(double newSampleRate, int newSamplesPerBlock, int newN
 //=============================================================================
 void VideoWriter::start()
 {
-    // Initialize video FIFO storage
-    videoFIFOStorage.reserve(numVideoSlots);
-    for (int i = 0; i < numVideoSlots; ++i)
-        videoFIFOStorage.push_back(std::make_unique<uint8_t[]>(frameBytes));
-    
     // Set up the video output stream
     framesOut = std::make_unique<juce::FileOutputStream>(rawFrames);
     jassert(framesOut != nullptr && framesOut->openedOk());
@@ -95,18 +90,12 @@ void VideoWriter::stop()
 }
 
 //=============================================================================
-void VideoWriter::enqueueVideoFrame(const uint8_t* rgb, int numBytes)
+void VideoWriter::setFrameQueuePointer(FrameQueue* frameQueuePtr)
 {
-    // Get the next write position and advance the write pointer
-    const auto scope = videoFIFOManager.write(1);
-
-    // Copy the frame data into the FIFO storage
-    if (scope.blockSize1 > 0)
-        std::memcpy(videoFIFOStorage[scope.startIndex1].get(), rgb, (size_t)numBytes);
-
-    videoWorkerThread->notify();
+    frameQueue = frameQueuePtr;
 }
 
+//=============================================================================
 void VideoWriter::enqueueAudioBlock(const float* const* newBlock, int numSamples)
 {
     // Ensure the WAV writer is ready and we have valid data
@@ -159,27 +148,26 @@ void VideoWriter::getFFmpegVersion()
 //=============================================================================
 bool VideoWriter::dequeueVideoFrame()
 {
-    // Get the next read position and advance the read pointer
-    const auto scope = videoFIFOManager.read(1);
+    // Get the buffer data from the FIFO
+    const uint8_t* data = frameQueue->readNextBuffer();
 
-    // Copy the frame data from FIFO storage to the output stream
-    if (scope.blockSize1 <= 0)
+    if (data == nullptr)
     {
-        // No frame to dequeue
-        return false;
+        // No frame available
+        return false; 
     }
 
-    const uint8_t* data = videoFIFOStorage[scope.startIndex1].get();
-
     // Write the RGB24 frame
-    framesOut->write(data, (size_t)frameBytes);
+    framesOut->write(data, (size_t)Constants::frameBytes);
+    frameQueue->finishRead();
+
     if (framesOut->getStatus().failed())
     {
         DBG("framesOut write failed");
         return false;
     }
 
-    videoBytesWritten += frameBytes;
+    videoBytesWritten += Constants::frameBytes;
     ++frameCount;
     return true;
 }
@@ -291,27 +279,19 @@ void VideoWriter::runFFmpeg(juce::File destination)
     // Input 0: raw RGB frames
     args.add("-f");             args.add("rawvideo");
     args.add("-pixel_format");  args.add("rgb24");
-    args.add("-video_size");    args.add(juce::String(W) + "x" + juce::String(H));
-    args.add("-framerate");     args.add(juce::String(FPS));
+    args.add("-video_size");    args.add(juce::String(Constants::W) + "x" + juce::String(Constants::H));
+    args.add("-framerate");     args.add(juce::String(Constants::FPS));
     args.add("-i");             args.add(rawFrames.getFullPathName());
 
     // Input 1: WAV audio
     args.add("-i");             args.add(wavAudio.getFullPathName());
 
-   #if JUCE_MAC
-    // Hardware encode on macOS (much faster)
-    args.add("-c:v");           args.add("h264_videotoolbox");
-    args.add("-pix_fmt");       args.add("yuv420p");
-    args.add("-b:v");           args.add("8M");
-    args.add("-maxrate");       args.add("10M");
-    args.add("-bufsize");       args.add("20M");
-   #else
     // CPU x264
     args.add("-c:v");           args.add("libx264");
-    args.add("-preset");        args.add("veryfast");
+    args.add("-preset");        args.add("slow");
     args.add("-crf");           args.add("18");
     args.add("-pix_fmt");       args.add("yuv420p");
-   #endif
+    args.add("-tune");          args.add("grain");
 
     args.add("-c:a");           args.add("aac");
     args.add("-b:a");           args.add("320k");
@@ -330,6 +310,8 @@ void VideoWriter::runFFmpeg(juce::File destination)
 
     // Launch rendering window thread
     RenderingWindow renderingWindow(*this);
+
+    DBG("Launching FFmpeg...");
     if (renderingWindow.runThread())
     {
         // Process completed successfully
@@ -365,23 +347,59 @@ void VideoWriter::Worker::run()
         if (frameWritten == false)
         {
             // No frame to write, sleep briefly
-            juce::Thread::wait(1);
+            juce::Thread::sleep(1);
         }
     }
 }
 
 void VideoWriter::RenderingWindow::run()
 {
+    setStatusMessage("Starting the encoding process...");
     while (threadShouldExit() == false)
     {
+        // Check if the FFmpeg process has finished
         if (parent.ffProcess.isRunning() == false)
         {
-            // getAlertWindow()->getButton("Cancel")->setVisible(false);
-            // setStatusMessage("Complete!");
-            // juce::Thread::sleep(500);
+            setStatusMessage("Complete!");
+            juce::Thread::sleep(1000);
             break;
         }
 
-        juce::Thread::sleep(1);
+        // Read FFmpeg output
+        int bytesRead = parent.ffProcess.readProcessOutput(buffer, bufferSize - 1);
+
+        if (bytesRead > 0)
+        {
+            // Convert the raw buffer to a JUCE String
+            juce::String output(buffer, (size_t)bytesRead);
+
+            // Look for "frame=" to extract progress
+            int index = output.lastIndexOf("frame=");
+            
+            if (index >= 0)
+            {
+                index += 6; // Move past "frame="
+                
+                // Parses until we hit a non-digit
+                int currentFrame = output.substring(index).getIntValue();
+
+                if (currentFrame > lastFrame)
+                {
+                    double progress = (double)currentFrame / (double)totalFrames;
+                    setProgress(juce::jlimit(0.0, 1.0, progress));
+                    
+                    setStatusMessage("Encoding frame " + juce::String(currentFrame) + 
+                                     " of " + juce::String(totalFrames) + "...");
+                    
+                    lastFrame = currentFrame;
+                }
+            }
+        }
+        else
+        {
+            // If no data was read, sleep briefly to prevent CPU spinning
+            wait(10); 
+        }
     }
+
 }

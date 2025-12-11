@@ -27,19 +27,14 @@ MainComponent::MainComponent(MainController& mc,
     : controller(mc),
       commandManager(cm)
 {
-    visualizer = std::make_unique<GLVisualizer>(controller);
-    grid = std::make_unique<GridComponent>(controller); 
-    settingsWindow = std::make_unique<SettingsWindow>(controller);
+    visualizer = std::make_unique<GLVisualizer>();
+    settingsWindow = std::make_unique<SettingsWindow>(controller);   
 
-    jassert(visualizer != nullptr && settingsWindow != nullptr && grid != nullptr);
+    jassert(visualizer != nullptr && settingsWindow != nullptr);
     
     addAndMakeVisible(visualizer.get());
-    // addChildComponent(settingsWindow.get());    
-    addChildComponent(grid.get());
 
     controller.registerVisualizer(visualizer.get());
-    controller.registerGrid(grid.get());
-    grid->setAlwaysOnTop(true);
 
     controller.setDefaultParameters();
 
@@ -58,7 +53,6 @@ void MainComponent::resized()
     {
         visualizer->setBounds(bounds);
         settingsWindow->setVisible(false);
-        grid->setBounds(bounds);
     }
     else // viewMode == Settings
     {
