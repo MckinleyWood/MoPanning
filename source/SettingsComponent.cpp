@@ -116,7 +116,7 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
     ioPage->addAndMakeVisible(ioPage->deviceSelector.get());
 
     // Set up parameter controls
-    for (const auto& p : parameters)
+    for (auto& p : parameters)
     {
         // Skip hidden parameters
         if (p.display == false)
@@ -139,7 +139,7 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
             page = analysisPage.get();
         else if (p.group == "colors")
             page = colorsPage.get();
-            
+
         auto label = std::make_unique<juce::Label>();
         label->setText(p.displayName, juce::dontSendNotification);
         label->setJustificationType(juce::Justification::centredLeft);
@@ -239,9 +239,9 @@ void SettingsComponent::resized()
 }
 
 //=============================================================================
-void SettingsComponent::updateParamVisibility(int numTracksIn, bool threeDimIn)
+void SettingsComponent::updateParamVisibility(int numTracksIn, bool showGridSettingIn)
 {
-    const bool showGrid = (threeDimIn == 0);
+    const bool showGridSetting = (showGridSettingIn == 0);
 
     auto setVisibleIfFound = [this](const juce::String& id, bool visible)
     {
@@ -251,7 +251,7 @@ void SettingsComponent::updateParamVisibility(int numTracksIn, bool threeDimIn)
             label->setVisible(visible);
     };
 
-    for (int track = 2; track <=8; ++track)
+    for (int track = 2; track <= 8; ++track)
     {
         bool shouldShow = (numTracksIn >= track);
 
@@ -262,12 +262,12 @@ void SettingsComponent::updateParamVisibility(int numTracksIn, bool threeDimIn)
         setVisibleIfFound(gainID, shouldShow);
     }
 
-    setVisibleIfFound("showGrid", showGrid);
-
+    setVisibleIfFound("showGrid", showGridSetting);
+        
     if (ioPage)       ioPage->resized();
     if (visualPage)   visualPage->resized();
     if (analysisPage) analysisPage->resized();
-    if (colorsPage) colorsPage->resized();
+    if (colorsPage)   colorsPage->resized();
 
     repaint();
 }

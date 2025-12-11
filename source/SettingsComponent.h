@@ -501,11 +501,15 @@ public:
     std::unique_ptr<CustomAudioDeviceSelectorComponent> deviceSelector;
     std::unique_ptr<ComboBox> inputTypeCombo;
     std::unique_ptr<juce::Label> inputTypeLabel;
+    juce::Label fadersLabel;
+
+    bool firstGainSlider = true;
 
     void resized() override
     {
         jassert (controls.size() == labels.size());
 
+        firstGainSlider = true;
         auto bounds = getLocalBounds();
 
         // Input type
@@ -552,20 +556,28 @@ public:
                 auto h = ctrl->getHeight();
 
                 auto zone = bounds.removeFromTop(25);
-
                 auto comboZone = zone.removeFromRight(200);
                 auto comboLabelZone = zone.removeFromLeft(150);
 
                 label->setBounds(comboLabelZone);
-
                 ctrl->setBounds(comboZone);
-                
                 ctrl->setSize(w, h);
             }
 
             // Sliders
             else if (auto* slider = dynamic_cast<Slider*>(ctrl))
             {
+                if (firstGainSlider == true)
+                {
+                    fadersLabel.setText("Faders", juce::dontSendNotification);
+                    fadersLabel.setJustificationType(Justification::centred);
+                    fadersLabel.setColour(Label::textColourId, Colours::linen);
+                    addAndMakeVisible(fadersLabel);
+                    fadersLabel.setBounds(bounds.removeFromTop(10));
+
+                    firstGainSlider = false;
+                }
+                
                 // Vertical gain sliders
                 if (slider->getSliderStyle() == Slider::SliderStyle::LinearVertical)
                 {
@@ -621,7 +633,7 @@ public:
 
     int oldDeviceSelectorHeight = 0;
 
-    void updateParamVisibility(int numTracksIn, bool threeDimIn);
+    void updateParamVisibility(int numTracksIn, bool showGridSettingIn);
 
     std::unordered_map<juce::String, juce::Component*> parameterComponentMap;
     std::unordered_map<juce::String, juce::Label*> parameterLabelMap;
@@ -678,7 +690,7 @@ public:
         setResizable(true, true);
         setContentOwned(settings.get(), true);
 
-        centreWithSize(400, 600);
+        centreWithSize(400, 700);
         setVisible(true);
     }
 

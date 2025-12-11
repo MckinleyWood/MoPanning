@@ -165,7 +165,7 @@ MainController::MainController()
         {
             "maxFrequency", "Maximum Frequency", 
             "Maximum frequency (Hz) to include in the analysis.",
-            ParameterDescriptor::Type::Choice, 2, {},
+            "analysis", ParameterDescriptor::Type::Choice, 2, {},
             {"5000Hz", "10000Hz", "20000Hz", "24000Hz"}, "",
             [this](float value) 
             {
