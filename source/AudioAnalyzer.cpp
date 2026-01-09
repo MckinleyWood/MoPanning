@@ -91,17 +91,10 @@ void AudioAnalyzer::prepare(double newSampleRate, int newNumTracks)
         setupPanWeights();
 
     // Start the worker threads
-    DBG("numTracks: " << numTracks << ", numBands: " << numBands);
     for (int i = 0; i < numTracks; ++i)
     {
-        workers[i] = std::make_unique<AnalyzerWorker>(windowSize, 
-                                                    hopSize, 
-                                                    sampleRate, 
-                                                    numBands, 
-                                                    i, 
-                                                    *this);
+        workers[i] = std::make_unique<AnalyzerWorker>(windowSize, hopSize, sampleRate, numBands, i, *this);
         workers[i]->start();
-        DBG("Started AnalyzerWorker for track " << i);
     }
 
     isPrepared.store(true);
@@ -120,7 +113,6 @@ void AudioAnalyzer::setResultsPointer(std::array<TrackSlot, Constants::maxTracks
 
 void AudioAnalyzer::enqueueBlock(const juce::AudioBuffer<float>* buffer, int trackIndex)
 {
-    // DBG("Enqueueing block for track " << trackIndex);
     if (!buffer) return;
 
     // If trackIndex is greater than current number of workers, ignore until re-prepared
@@ -131,7 +123,6 @@ void AudioAnalyzer::enqueueBlock(const juce::AudioBuffer<float>* buffer, int tra
     }
 
     workers[trackIndex]->pushBlock(*buffer);
-    // DBG("Block enqueued for track " << trackIndex);
 }
 
 
