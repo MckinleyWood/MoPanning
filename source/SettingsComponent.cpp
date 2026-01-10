@@ -32,6 +32,7 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
     controller.onNumTracksChanged = [this](int numTracksIn)
     {
         numTracks = numTracksIn;
+        DBG("SettingsComponent: numTracks changed to " + juce::String(numTracks));
         updateParamVisibility(numTracks, dim);
     };
 
@@ -58,10 +59,10 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
 
     // Set the fonts
     Font normalFont = {14.f, 0};
-    Font titleFont = normalFont.withHeight(40.0f).withStyle("Bold");
+    Font titleFont = normalFont.withHeight(30.0f).withStyle("Bold");
 
     // Set up title label
-    title.setText("Stereocilia", juce::dontSendNotification);
+    title.setText("MoPanning Settings", juce::dontSendNotification);
     title.setFont(titleFont);
     title.setJustificationType(Justification::left);
     title.setColour(Label::textColourId, Colours::linen);
@@ -152,7 +153,6 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
             slider->setValue(p.defaultValue);
             slider->setTextValueSuffix(p.unit);
             slider->setTextBoxStyle(Slider::TextEntryBoxPosition::TextBoxLeft, false, 55, 15);
-            slider->setNumDecimalPlacesToDisplay(2);
             
             auto attachment = std::make_unique<apvts::SliderAttachment>(
                 apvts, p.id, *slider);
@@ -176,12 +176,15 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
             combo->addItemList(p.choices, 1); // JUCE items start at index 1
             combo->setSelectedItemIndex(static_cast<int>(p.defaultValue));
             combo->setJustificationType(juce::Justification::centred);
-            if (p.choices[0].length() < 7 && p.choices[1].length() < 7)
-                combo->setSize(80, 25);
+
+            if (p.id == "inputType")
+                combo->setSize(160, 24);
+            else if (p.choices[0].length() < 7 && p.choices[1].length() < 7)
+                combo->setSize(80, 24);
             else if (p.choices[0].length() < 10 && p.choices[1].length() < 10)
-                combo->setSize(115, 25);
+                combo->setSize(115, 24);
             else
-                combo->setSize(150, 25);
+                combo->setSize(150, 24);
             
             auto attachment = std::make_unique<apvts::ComboBoxAttachment>(
                 apvts, p.id, *combo);
@@ -193,6 +196,7 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
             {
                 page->inputTypeCombo = std::move(combo);
                 page->inputTypeLabel = std::move(label);
+                page->inputTypeLabel->setJustificationType(juce::Justification::bottomRight);
                 page->addAndMakeVisible(*page->inputTypeLabel);
                 continue;
             }
@@ -231,7 +235,7 @@ void SettingsComponent::resized()
     title.setBounds(titleZone);
 
     // Lay out record button next to title
-    auto recordButtonZone = titleZone.removeFromRight(100);
+    auto recordButtonZone = titleZone.removeFromRight(80);
     recordButton->setBounds(recordButtonZone);
 
     // Tabs below title

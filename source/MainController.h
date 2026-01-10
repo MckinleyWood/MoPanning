@@ -55,6 +55,7 @@ struct ParameterDescriptor
     juce::String unit;
     std::function<void(float)> onChanged;
     bool display = true;
+    int numDecimals = 2; // For float parameters
 };
 
 //=============================================================================

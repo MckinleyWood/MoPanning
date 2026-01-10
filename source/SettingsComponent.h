@@ -120,11 +120,12 @@ public:
                     selected = inputBox->getSelectedId();
                     // selectedName = inputBox->getSelectedIdAsValue();
                     
-                    // inputBox->setSelectedId(-1);
+                    inputBox->setSelectedId(-1);
+                    // auto noneText = inputBox->getItemText(-1);
                     
-                    // Set the displayed text without affecting the underlying item list
-                    selectedText = inputBox->getText();
-                    inputBox->setText("File", juce::dontSendNotification);
+                    // // Set the displayed text without affecting the underlying item list
+                    // selectedText = inputBox->getText();
+                    // inputBox->setText("File", juce::dontSendNotification);
                     
                     // Lock the box so the user cannot change it
                     inputBox->setEnabled(false);
@@ -137,9 +138,9 @@ public:
                     inputBox->setEnabled(true);
 
                     inputBox->setText(selectedText, juce::dontSendNotification);
-                    // int numItems = inputBox->getNumItems();
-                    // if (numItems > 0)
-                    //     inputBox->setSelectedId(selected);
+                    int numItems = inputBox->getNumItems();
+                    if (numItems > 0)
+                        inputBox->setSelectedId(selected);
                 }
             }
 
@@ -227,267 +228,6 @@ public:
         setColour(PopupMenu::highlightedBackgroundColourId, Colours::grey);
     }
 
-    // void drawMenuBarBackground (Graphics& g, int width, int height,
-    //                             bool, MenuBarComponent& menuBar) override
-    // {
-    //     menuBar.setColour(TextButton::buttonColourId, Colours::lightgreen);
-
-    //     auto colour = menuBar.findColour (TextButton::buttonColourId).withAlpha (0.4f);
-
-    //     Rectangle<int> r (width, height);
-
-    //     g.setColour (colour.contrasting (0.15f));
-    //     g.fillRect  (r.removeFromTop (1));
-    //     g.fillRect  (r.removeFromBottom (1));
-
-    //     g.setGradientFill (ColourGradient::vertical (colour, 0, colour.darker (0.2f), (float) height));
-    //     g.fillRect (r);
-    // }
-
-    // void drawMenuBarItem (Graphics& g, int width, int height,
-    //                     int itemIndex, const String& itemText,
-    //                     bool isMouseOverItem, bool isMenuOpen,
-    //                     bool /*isMouseOverBar*/, MenuBarComponent& menuBar) override
-    // {
-    //     menuBar.setColour(TextButton::textColourOffId, Colours::red);
-    //     menuBar.setColour(TextButton::textColourOnId, Colours::purple);
-    //     menuBar.setColour(TextButton::buttonOnColourId, Colours::pink);
-
-
-    //     if (! menuBar.isEnabled())
-    //     {
-    //         g.setColour (menuBar.findColour (TextButton::textColourOffId)
-    //                             .withMultipliedAlpha (0.5f));
-    //     }
-    //     else if (isMenuOpen || isMouseOverItem)
-    //     {
-    //         g.fillAll   (menuBar.findColour (TextButton::buttonOnColourId));
-    //         g.setColour (menuBar.findColour (TextButton::textColourOnId));
-    //     }
-    //     else
-    //     {
-    //         g.setColour (menuBar.findColour (TextButton::textColourOffId));
-    //     }
-
-    //     g.setFont (getMenuBarFont (menuBar, itemIndex, itemText));
-    //     g.drawFittedText (itemText, 0, 0, width, height, Justification::centred, 1);
-    // }
-
-    // void drawComboBox(juce::Graphics& g, int width, int height,
-    //                 bool isButtonDown, int buttonX, int buttonY, int buttonW, int buttonH,
-    //                 ComboBox& box) override
-    // {
-    //     // box.setColour(ComboBox::backgroundColourId, Colours::darkgrey);
-    //     // box.setColour(ComboBox::outlineColourId, Colours::linen);
-    //     // box.setColour(ComboBox::arrowColourId, Colours::linen);
-
-    //     auto cornerSize = box.findParentComponentOfClass<ChoicePropertyComponent>() != nullptr ? 0.0f : 3.0f;
-    //     Rectangle<int> boxBounds (0, 0, width, height);
-
-    //     g.setColour (box.findColour (ComboBox::backgroundColourId));
-    //     g.fillRoundedRectangle (boxBounds.toFloat(), cornerSize);
-
-    //     g.setColour (box.findColour (ComboBox::outlineColourId));
-    //     g.drawRoundedRectangle (boxBounds.toFloat().reduced (0.5f, 0.5f), cornerSize, 1.0f);
-
-    //     Rectangle<int> arrowZone (width - 30, 0, 20, height);
-    //     Path path;
-    //     path.startNewSubPath ((float) arrowZone.getX() + 3.0f, (float) arrowZone.getCentreY() - 2.0f);
-    //     path.lineTo ((float) arrowZone.getCentreX(), (float) arrowZone.getCentreY() + 3.0f);
-    //     path.lineTo ((float) arrowZone.getRight() - 3.0f, (float) arrowZone.getCentreY() - 2.0f);
-
-    //     g.setColour (box.findColour (ComboBox::arrowColourId).withAlpha ((box.isEnabled() ? 0.9f : 0.2f)));
-    //     g.strokePath (path, PathStrokeType (2.0f));
-    // }
-
-    // void drawLinearSlider(juce::Graphics& g, int x, int y, int width, int height,
-    //                 float sliderPos, float minSliderPos, float maxSliderPos,
-    //                 const Slider::SliderStyle style, Slider& slider) override
-    // {
-    //     // slider.setColour(Slider::backgroundColourId, Colours::darkgrey);
-    //     // slider.setColour(Slider::thumbColourId, Colours::lightgrey);
-    //     // slider.setColour(Slider::trackColourId, Colours::grey);
-
-    //     // slider.setColour(Slider::textBoxTextColourId, Colours::black);
-    //     // slider.setColour(Slider::textBoxBackgroundColourId, Colours::lightgrey);
-    //     // slider.setColour(Slider::textBoxOutlineColourId, Colours::grey);
-    //     // slider.setColour(Slider::textBoxHighlightColourId, Colours::lightblue);
-
-    //     if (slider.isBar())
-    //     {
-    //         g.setColour (slider.findColour (Slider::trackColourId));
-    //         g.fillRect (slider.isHorizontal() ? Rectangle<float> (static_cast<float> (x), (float) y + 0.5f, sliderPos - (float) x, (float) height - 1.0f)
-    //                                         : Rectangle<float> ((float) x + 0.5f, sliderPos, (float) width - 1.0f, (float) y + ((float) height - sliderPos)));
-
-    //         drawLinearSliderOutline (g, x, y, width, height, style, slider);
-    //     }
-    //     else
-    //     {
-    //         auto isTwoVal   = (style == Slider::SliderStyle::TwoValueVertical   || style == Slider::SliderStyle::TwoValueHorizontal);
-    //         auto isThreeVal = (style == Slider::SliderStyle::ThreeValueVertical || style == Slider::SliderStyle::ThreeValueHorizontal);
-
-    //         auto trackWidth = jmin (6.0f, slider.isHorizontal() ? (float) height * 0.25f : (float) width * 0.25f);
-
-    //         Point<float> startPoint (slider.isHorizontal() ? (float) x : (float) x + (float) width * 0.5f,
-    //                                 slider.isHorizontal() ? (float) y + (float) height * 0.5f : (float) (height + y));
-
-    //         Point<float> endPoint (slider.isHorizontal() ? (float) (width + x) : startPoint.x,
-    //                             slider.isHorizontal() ? startPoint.y : (float) y);
-
-    //         Path backgroundTrack;
-    //         backgroundTrack.startNewSubPath (startPoint);
-    //         backgroundTrack.lineTo (endPoint);
-    //         g.setColour (slider.findColour (Slider::backgroundColourId));
-    //         g.strokePath (backgroundTrack, { trackWidth, PathStrokeType::curved, PathStrokeType::rounded });
-
-    //         Path valueTrack;
-    //         Point<float> minPoint, maxPoint, thumbPoint;
-
-    //         if (isTwoVal || isThreeVal)
-    //         {
-    //             minPoint = { slider.isHorizontal() ? minSliderPos : (float) width * 0.5f,
-    //                         slider.isHorizontal() ? (float) height * 0.5f : minSliderPos };
-
-    //             if (isThreeVal)
-    //                 thumbPoint = { slider.isHorizontal() ? sliderPos : (float) width * 0.5f,
-    //                             slider.isHorizontal() ? (float) height * 0.5f : sliderPos };
-
-    //             maxPoint = { slider.isHorizontal() ? maxSliderPos : (float) width * 0.5f,
-    //                         slider.isHorizontal() ? (float) height * 0.5f : maxSliderPos };
-    //         }
-    //         else
-    //         {
-    //             auto kx = slider.isHorizontal() ? sliderPos : ((float) x + (float) width * 0.5f);
-    //             auto ky = slider.isHorizontal() ? ((float) y + (float) height * 0.5f) : sliderPos;
-
-    //             minPoint = startPoint;
-    //             maxPoint = { kx, ky };
-    //         }
-
-    //         auto thumbWidth = getSliderThumbRadius (slider);
-
-    //         valueTrack.startNewSubPath (minPoint);
-    //         valueTrack.lineTo (isThreeVal ? thumbPoint : maxPoint);
-    //         g.setColour (slider.findColour (Slider::trackColourId));
-    //         g.strokePath (valueTrack, { trackWidth, PathStrokeType::curved, PathStrokeType::rounded });
-
-    //         if (! isTwoVal)
-    //         {
-    //             g.setColour (slider.findColour (Slider::thumbColourId));
-    //             g.fillEllipse (Rectangle<float> (static_cast<float> (thumbWidth), static_cast<float> (thumbWidth)).withCentre (isThreeVal ? thumbPoint : maxPoint));
-    //         }
-
-    //         if (isTwoVal || isThreeVal)
-    //         {
-    //             auto sr = jmin (trackWidth, (slider.isHorizontal() ? (float) height : (float) width) * 0.4f);
-    //             auto pointerColour = slider.findColour (Slider::thumbColourId);
-
-    //             if (slider.isHorizontal())
-    //             {
-    //                 drawPointer (g, minSliderPos - sr,
-    //                             jmax (0.0f, (float) y + (float) height * 0.5f - trackWidth * 2.0f),
-    //                             trackWidth * 2.0f, pointerColour, 2);
-
-    //                 drawPointer (g, maxSliderPos - trackWidth,
-    //                             jmin ((float) (y + height) - trackWidth * 2.0f, (float) y + (float) height * 0.5f),
-    //                             trackWidth * 2.0f, pointerColour, 4);
-    //             }
-    //             else
-    //             {
-    //                 drawPointer (g, jmax (0.0f, (float) x + (float) width * 0.5f - trackWidth * 2.0f),
-    //                             minSliderPos - trackWidth,
-    //                             trackWidth * 2.0f, pointerColour, 1);
-
-    //                 drawPointer (g, jmin ((float) (x + width) - trackWidth * 2.0f, (float) x + (float) width * 0.5f), maxSliderPos - sr,
-    //                             trackWidth * 2.0f, pointerColour, 3);
-    //             }
-    //         }
-
-    //         if (slider.isBar())
-    //             drawLinearSliderOutline (g, x, y, width, height, style, slider);
-    //     }
-    // }
-
-    // void drawButtonBackground (Graphics& g,
-    //                             Button& button,
-    //                             const Colour& backgroundColour,
-    //                             bool shouldDrawButtonAsHighlighted,
-    //                             bool shouldDrawButtonAsDown) override
-    // {
-    //     // button.setColour(ComboBox::backgroundColourId, Colours::darkgrey);
-    //     // button.setColour(ComboBox::outlineColourId, Colours::linen);
-    //     // button.setColour(ComboBox::arrowColourId, Colours::linen);
-
-    //     auto cornerSize = 6.0f;
-    //     auto bounds = button.getLocalBounds().toFloat().reduced (0.5f, 0.5f);
-
-    //     auto baseColour = backgroundColour.withMultipliedSaturation (button.hasKeyboardFocus (true) ? 1.3f : 0.9f)
-    //                                     .withMultipliedAlpha (button.isEnabled() ? 1.0f : 0.5f);
-
-    //     if (shouldDrawButtonAsDown || shouldDrawButtonAsHighlighted)
-    //         baseColour = baseColour.contrasting (shouldDrawButtonAsDown ? 0.2f : 0.05f);
-
-    //     g.setColour (baseColour);
-
-    //     auto flatOnLeft   = button.isConnectedOnLeft();
-    //     auto flatOnRight  = button.isConnectedOnRight();
-    //     auto flatOnTop    = button.isConnectedOnTop();
-    //     auto flatOnBottom = button.isConnectedOnBottom();
-
-    //     if (flatOnLeft || flatOnRight || flatOnTop || flatOnBottom)
-    //     {
-    //         Path path;
-    //         path.addRoundedRectangle (bounds.getX(), bounds.getY(),
-    //                                 bounds.getWidth(), bounds.getHeight(),
-    //                                 cornerSize, cornerSize,
-    //                                 ! (flatOnLeft  || flatOnTop),
-    //                                 ! (flatOnRight || flatOnTop),
-    //                                 ! (flatOnLeft  || flatOnBottom),
-    //                                 ! (flatOnRight || flatOnBottom));
-
-    //         g.fillPath (path);
-
-    //         g.setColour (button.findColour (ComboBox::outlineColourId));
-    //         g.strokePath (path, PathStrokeType (1.0f));
-    //     }
-    //     else
-    //     {
-    //         g.fillRoundedRectangle (bounds, cornerSize);
-
-    //         g.setColour (button.findColour (ComboBox::outlineColourId));
-    //         g.drawRoundedRectangle (bounds, cornerSize, 1.0f);
-    //     }
-    // }
-
-    // void drawToggleButton (Graphics& g, ToggleButton& button,
-    //                     bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) override
-    // {
-
-    //     // button.setColour(ToggleButton::textColourId, Colours::linen);
-    //     // button.setColour(ToggleButton::tickColourId, Colours::linen);
-
-    //     auto fontSize = jmin (15.0f, (float) button.getHeight() * 0.75f);
-    //     auto tickWidth = fontSize * 1.1f;
-
-    //     drawTickBox (g, button, 4.0f, ((float) button.getHeight() - tickWidth) * 0.5f,
-    //                 tickWidth, tickWidth,
-    //                 button.getToggleState(),
-    //                 button.isEnabled(),
-    //                 shouldDrawButtonAsHighlighted,
-    //                 shouldDrawButtonAsDown);
-
-    //     g.setColour (button.findColour (ToggleButton::textColourId));
-    //     g.setFont (fontSize);
-
-    //     if (! button.isEnabled())
-    //         g.setOpacity (0.5f);
-
-    //     g.drawFittedText (button.getButtonText(),
-    //                     button.getLocalBounds().withTrimmedLeft (roundToInt (tickWidth) + 10)
-    //                                             .withTrimmedRight (2),
-    //                     Justification::centredLeft, 10);
-    // }
-
 private:
 
 };
@@ -518,9 +258,13 @@ public:
             auto w = inputTypeCombo->getWidth();
             auto h = inputTypeCombo->getHeight();
 
-            auto zone = bounds.removeFromTop(25);
-            auto comboZone = zone.removeFromRight(200);
-            auto comboLabelZone = zone.removeFromLeft(150);
+            auto bounds2 = bounds;
+            auto zone = bounds.removeFromTop(15);
+            auto zone2 = bounds2.removeFromTop(25);
+            zone2.removeFromRight(235);
+            auto comboZone = zone.removeFromRight(234);
+            auto comboLabelZone = zone2.removeFromRight(100);
+            comboLabelZone.removeFromBottom(5);
 
             inputTypeCombo->setBounds(comboZone);
             inputTypeLabel->setBounds(comboLabelZone);
@@ -531,7 +275,9 @@ public:
         if (deviceSelector != nullptr)
         {
             auto h = deviceSelector->getHeight();
-            deviceSelector->setBounds(bounds.removeFromTop(h));
+            auto deviceSelectorBounds = bounds;
+            deviceSelector->setBounds(deviceSelectorBounds.removeFromTop(h));
+            bounds.removeFromTop(h - 20);
         }
 
         int j = 0;
@@ -567,20 +313,22 @@ public:
             // Sliders
             else if (auto* slider = dynamic_cast<Slider*>(ctrl))
             {
-                if (firstGainSlider == true)
-                {
-                    fadersLabel.setText("Faders", juce::dontSendNotification);
-                    fadersLabel.setJustificationType(Justification::centred);
-                    fadersLabel.setColour(Label::textColourId, Colours::linen);
-                    addAndMakeVisible(fadersLabel);
-                    fadersLabel.setBounds(bounds.removeFromTop(10));
-
-                    firstGainSlider = false;
-                }
-                
                 // Vertical gain sliders
                 if (slider->getSliderStyle() == Slider::SliderStyle::LinearVertical)
                 {
+                    if (firstGainSlider == true)
+                    {
+                        fadersLabel.setText("Faders", juce::dontSendNotification);
+                        juce::FontOptions fadersFont = {20.f, 0};
+                        fadersLabel.setFont(fadersFont);
+                        fadersLabel.setJustificationType(Justification::centred);
+                        fadersLabel.setColour(Label::textColourId, Colours::linen);
+                        addAndMakeVisible(fadersLabel);
+                        fadersLabel.setBounds(bounds.removeFromTop(20));
+    
+                        firstGainSlider = false;
+                    }
+
                     if (j == 0)
                     {
                         vSliderArea = bounds.removeFromTop(150);
@@ -690,7 +438,7 @@ public:
         setResizable(true, true);
         setContentOwned(settings.get(), true);
 
-        centreWithSize(400, 700);
+        centreWithSize(400, 730);
         setVisible(true);
     }
 

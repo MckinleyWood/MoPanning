@@ -58,7 +58,7 @@ MainController::MainController()
         },
         // inputType
         { 
-            "inputType", "Input Type", "Where to receive audio input from.", 
+            "inputType", "Input Type:", "Where to receive audio input from.", 
             "io", ParameterDescriptor::Type::Choice, 1, {}, 
             {"File", "Streaming"}, "",
             [this](float value) 
@@ -262,7 +262,7 @@ MainController::MainController()
             "track1ColourScheme", "Track 1 Colour Scheme", 
             "Colour scheme for visualization of track 1.",
             "colors", ParameterDescriptor::Type::Choice, 1, {},
-            {"Greyscale", "Rainbow", "Red", "Orange", "Yellow", "Light Green", "Dark Green", "Light Blue", "Dark Blue", "Purple", "Pink", "Warm", "Cool"}, "",
+            {"Greyscale", "Rainbow", "Red", "Orange", "Yellow", "Light Green", "Dark Green", "Light Blue", "Dark Blue", "Purple", "Pink", "Warm", "Cool"},  "",
             [this](float value) 
             {
                 if (visualizer != nullptr)
@@ -640,7 +640,20 @@ ParamLayout MainController::makeParameterLayout(
         if (d.type == ParameterDescriptor::Type::Float)
         {
             layout.add(std::make_unique<juce::AudioParameterFloat>(
-                d.id, d.displayName, d.range, d.defaultValue));
+            d.id,
+            d.displayName,
+            d.range,
+            d.defaultValue,
+            juce::String(), // label (unused)
+            juce::AudioProcessorParameter::genericParameter,
+
+            // value → text
+            [decimals = d.numDecimals]
+            (float value, int)
+            {
+                juce::String s(value, decimals);
+                return s;
+            }));
         }
         else if (d.type == ParameterDescriptor::Type::Choice)
         {
