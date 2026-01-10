@@ -54,7 +54,11 @@ MainController::MainController()
                     videoWriter->stop();
                 }
             },
+           #if JUCE_WINDOWS
+            false // Recording not supported on Windows :(
+           #else
             true
+           #endif
         },
         // inputType
         { 
@@ -105,6 +109,8 @@ MainController::MainController()
                     case 1: newSize = 256; break;
                     case 2: newSize = 512; break;
                     case 3: newSize = 1024; break;
+                    case 4: newSize = 2048; break;
+                    case 5: newSize = 4096; break;
                     default: newSize = 256; break;
                 }
                 if (analyzer != nullptr)
