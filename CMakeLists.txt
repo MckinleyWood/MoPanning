@@ -124,10 +124,10 @@ if (APPLE)
     COMMENT "Bundling ffmpeg into app (macOS)"
   )
 elseif (WIN32)
-  add_custom_command(TARGET MoPanning POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${FFMPEG_WINDOWS}"
-            "$<TARGET_FILE_DIR:MoPanning>/ffmpeg.exe"
-    COMMENT "Bundling ffmpeg next to exe (Windows)"
-  )
+  # add_custom_command(TARGET MoPanning POST_BUILD
+  #   COMMAND ${CMAKE_COMMAND} -E copy_if_different
+  #           "${FFMPEG_WINDOWS}"
+  #           "$<TARGET_FILE_DIR:MoPanning>/ffmpeg.exe"
+  #   COMMENT "Bundling ffmpeg next to exe (Windows)"
+  # )
 endif()
