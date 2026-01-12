@@ -29,7 +29,7 @@
 #include <JuceHeader.h>
 #include "MainController.h"
 #include "MainComponent.h"
-
+#include "WelcomeWindow.h"
 
 //=============================================================================
 class MoPanning final : public juce::JUCEApplication
@@ -53,6 +53,11 @@ public:
         return true; 
     }
 
+    juce::PropertiesFile* getSettings()
+    {
+        return appProperties.getUserSettings();
+    }
+
     //=========================================================================
     /*  This is function is called to initialize the application. It 
         creates the command manager, main controller, and main window,
@@ -64,6 +69,14 @@ public:
         // DBG("MoPanning Starting up!");
         juce::ignoreUnused(commandLine);
 
+        juce::PropertiesFile::Options options;
+        options.applicationName = getApplicationName();
+        options.filenameSuffix = "settings";
+        options.osxLibrarySubFolder = "Application Support";
+        options.folderName = getApplicationName();
+        options.storageFormat = juce::PropertiesFile::storeAsXML;
+        appProperties.setStorageParameters(options);
+
         commandManager = std::make_unique<juce::ApplicationCommandManager>();
         controller = std::make_unique<MainController>();
         mainComponent = std::make_unique<MainComponent>(*controller, 
@@ -73,7 +86,9 @@ public:
                                                   std::move(mainComponent),
                                                   *commandManager);
 
-        mainWindow->getContentComponent()->grabKeyboardFocus();
+        // mainWindow->getContentComponent()->grabKeyboardFocus();
+
+        ShowWelcomeWindow();
 
         controller->startAudio();
     }
@@ -169,6 +184,28 @@ public:
 
 private:
     //=========================================================================
+    void ShowWelcomeWindow()
+    {
+        auto* settings = getSettings();
+
+        const bool hasShownWelcome =
+            settings->getBoolValue("hasShownWelcome", false);
+
+        if (! hasShownWelcome)
+        {
+            WelcomeWindow::show();
+
+            settings->setValue("hasShownWelcome", true);
+            settings->saveIfNeeded();
+        }
+
+        // Show ever time - for testing
+        // WelcomeWindow::show();
+    }
+
+    //=========================================================================
+    juce::ApplicationProperties appProperties;
+
     /* unique_ptrs for all of our objects. These need to be initialized
     in initialise(). */
     std::unique_ptr<juce::ApplicationCommandManager> commandManager;
