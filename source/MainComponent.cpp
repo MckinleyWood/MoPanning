@@ -28,12 +28,11 @@ MainComponent::MainComponent(MainController& mc,
       commandManager(cm)
 {
     visualizer = std::make_unique<GLVisualizer>();
-    settings = std::make_unique<SettingsComponent>(controller);
+    settingsWindow = std::make_unique<SettingsWindow>(controller);   
 
-    jassert(visualizer != nullptr && settings != nullptr);
+    jassert(visualizer != nullptr && settingsWindow != nullptr);
     
     addAndMakeVisible(visualizer.get());
-    addChildComponent(settings.get());    
 
     controller.registerVisualizer(visualizer.get());
 
@@ -53,15 +52,12 @@ void MainComponent::resized()
     if (viewMode == ViewMode::Focus)
     {
         visualizer->setBounds(bounds);
-        settings->setVisible(false);
+        settingsWindow->setVisible(false);
     }
-    else // viewMode == Split
+    else // viewMode == Settings
     {
-        const int sidebarW = 300;
-        auto right = bounds.removeFromRight(sidebarW);
-        settings->setBounds(right);
-        visualizer->setBounds(bounds);
-        settings->setVisible(true);
+        settingsWindow->setVisible(true);
+        settingsWindow->toFront(true);
     }
 }
 
@@ -71,12 +67,12 @@ void MainComponent::paint(juce::Graphics& g)
 }
 
 //=============================================================================
-/*  This switches between the Focus (full window visualizer) and Split
-    (settings panel on sidebar) views. 
+/*  This switches between the Focus (full window visualizer) and Settings
+    (pop-up settings window) views. 
 */
-void MainComponent::toggleView()
+void MainComponent::toggleSettings()
 {
-    viewMode = (viewMode == ViewMode::Focus ? ViewMode::Split
+    viewMode = (viewMode == ViewMode::Focus ? ViewMode::Settings
                                             : ViewMode::Focus);
 
     resized(); // Forces a redraw of the subcomponents
@@ -176,7 +172,7 @@ bool MainComponent::perform(const InvocationInfo& info)
 {
     if (info.commandID == cmdToggleSettings)
     {
-        toggleView();
+        toggleSettings();
         return true;
     }
     if (info.commandID == cmdOpenFile)

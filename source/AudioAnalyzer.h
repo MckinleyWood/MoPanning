@@ -115,8 +115,6 @@ private:
                      juce::dsp::FFT& fftEngine,
                      std::vector<std::complex<float>>& crossSpectrum,
                      std::vector<std::complex<float>>& crossCorr);
-
-    float alphaForFreq(float f);
     float coherenceThresholdForFreq(float f);
 
     //=========================================================================

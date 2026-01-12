@@ -47,13 +47,15 @@ struct ParameterDescriptor
     juce::String id;
     juce::String displayName;
     juce::String description;
-    enum Type { Float, Choice } type;
+    juce::String group;
+    enum Type { Float, Choice, Bool } type;
     float defaultValue;
     juce::NormalisableRange<float> range; // For float parameters
     juce::StringArray choices; // For choice parameters
     juce::String unit;
     std::function<void(float)> onChanged;
     bool display = true;
+    int numDecimals = 2; // For float parameters
 };
 
 //=============================================================================
@@ -100,6 +102,7 @@ public:
 
     std::function<void(int)> onNumTracksChanged;
     std::function<void(int)> onDimChanged;
+    std::function<void(int)> onInputTypeChanged;
 
 private:
     //=========================================================================

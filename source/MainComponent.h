@@ -28,10 +28,10 @@
 
 //=============================================================================
 /*  This is the top-level UI container. It holds the GLVisualizer 
-    (OpenGL canvas), SettingsComponent (sidebar), and a MainController& 
+    (OpenGL canvas), SettingsComponent (separate window), and a MainController& 
     controller reference. It is responsible for	passing user actions to 
     the controller and switching between Focus (full visualizer) and 
-    Split (sidebar visible) views.
+    Settings (settings window visible) views.
 */
 class MainComponent final : public juce::Component,
                             public juce::ApplicationCommandTarget,
@@ -45,7 +45,7 @@ public:
         cmdOpenFile         = 0x2001,
         cmdPlayPause        = 0x2002,
     };
-    enum class ViewMode { Focus, Split };
+    enum class ViewMode { Focus, Settings };
 
     //=========================================================================
     explicit MainComponent(MainController&, juce::ApplicationCommandManager&);
@@ -56,7 +56,7 @@ public:
 
 private:
     //=========================================================================
-    void toggleView();
+    void toggleSettings();
     void launchOpenDialog();
 
     //=========================================================================
@@ -77,7 +77,7 @@ private:
     MainController& controller;
     juce::ApplicationCommandManager& commandManager;
     std::unique_ptr<GLVisualizer> visualizer;
-    std::unique_ptr<SettingsComponent> settings;
+    std::unique_ptr<SettingsWindow> settingsWindow;
     ViewMode viewMode { ViewMode::Focus };
 
     //=========================================================================
