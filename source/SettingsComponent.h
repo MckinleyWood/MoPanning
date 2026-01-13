@@ -184,54 +184,6 @@ private:
     String selectedText;
 };
 
-class epicLookAndFeel : public juce::LookAndFeel_V4
-{
-public:
-    epicLookAndFeel() 
-    {
-        // Combo box colors
-        setColour(ComboBox::backgroundColourId, Colours::darkgrey);
-        setColour(ComboBox::outlineColourId, Colours::linen);
-        setColour(ComboBox::arrowColourId, Colours::linen);
-        
-        // Slider colors
-        setColour(Slider::backgroundColourId, Colours::darkgrey);
-        setColour(Slider::thumbColourId, Colours::lightgrey);
-        setColour(Slider::trackColourId, Colours::grey);
-        
-        setColour(Slider::textBoxTextColourId, Colours::black);
-        setColour(Slider::textBoxBackgroundColourId, Colours::lightgrey);
-        setColour(Slider::textBoxOutlineColourId, Colours::grey);
-        setColour(Slider::textBoxHighlightColourId, Colours::lightblue);
-
-        // Button colors
-        setColour (TextButton::buttonColourId, Colours::darkgrey);
-        setColour(TextButton::textColourOnId, Colours::linen);
-        setColour(TextButton::textColourOffId, Colours::linen);
-        setColour(TextButton::buttonOnColourId, Colour::fromRGB(65, 65, 65));
-
-        setColour(ToggleButton::textColourId, Colours::linen);
-        setColour(ToggleButton::tickColourId, Colours::linen);
-
-        // List box colors
-        setColour(ListBox::backgroundColourId, Colours::darkgrey);
-        setColour(ListBox::textColourId, Colours::linen);
-        setColour(ListBox::outlineColourId, Colours::lightgrey);
-        setColour(ScrollBar::thumbColourId, Colours::lightgrey);
-        setColour(ScrollBar::trackColourId, Colour::fromRGB(65, 65, 65));
-
-        // Pop-up menu colors
-        setColour(PopupMenu::textColourId, Colours::linen);
-        setColour(PopupMenu::backgroundColourId, Colours::darkgrey);
-        setColour(PopupMenu::headerTextColourId, Colours::linen);
-        setColour(PopupMenu::highlightedTextColourId, Colours::linen);
-        setColour(PopupMenu::highlightedBackgroundColourId, Colours::grey);
-    }
-
-private:
-
-};
-
 //=============================================================================
 class PageComponent : public juce::Component
 {
@@ -387,8 +339,6 @@ public:
     std::unordered_map<juce::String, juce::Label*> parameterLabelMap;
     int numTracks = 1;
     int dim = 1;
-
-    epicLookAndFeel epicLookAndFeel;
 
 private:
     //=========================================================================

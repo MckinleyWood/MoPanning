@@ -26,7 +26,7 @@
 SettingsComponent::SettingsComponent(MainController& c) : controller(c)
 {
     // Set look and feel
-    setLookAndFeel(&epicLookAndFeel);
+    // setLookAndFeel(&epicLookAndFeel);
 
     // Update parameter visibility when numTracks changes
     controller.onNumTracksChanged = [this](int numTracksIn)
@@ -89,7 +89,7 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
     analysisPage = std::make_unique<PageComponent>();
     colorsPage = std::make_unique<PageComponent>();
 
-    Colour backgroundColour = Colour::fromRGB(30, 30, 30);
+    Colour backgroundColour = getLookAndFeel().findColour(ResizableWindow::backgroundColourId);
 
     tabs->addTab("I/O", backgroundColour, ioPage.get(), false);
     tabs->addTab("Visual", backgroundColour, visualPage.get(), false);

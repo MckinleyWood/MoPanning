@@ -21,6 +21,7 @@
 
 #pragma once
 #include <JuceHeader.h>
+#include "EpicLookAndFeel.h"
 #include "Utils.h"
 
 class WelcomeComponent : public juce::Component
@@ -28,6 +29,8 @@ class WelcomeComponent : public juce::Component
 public:
     WelcomeComponent()
     {
+        setLookAndFeel(&epicLookAndFeel);
+
         addAndMakeVisible(text);
         text.setText(
             "Welcome to MoPanning!",
@@ -46,10 +49,15 @@ public:
         setSize(400, 300);
     }
 
-    // void paint(juce::Graphics& g) override
-    // {
-    //     g.fillAll(juce::Colours::darkgrey);
-    // }
+    ~WelcomeComponent() override
+    {
+        setLookAndFeel(nullptr);
+    }
+
+    void paint(juce::Graphics& g) override
+    {
+        g.fillAll(getLookAndFeel().findColour(juce::DialogWindow::backgroundColourId));
+    }
 
     void resized() override
     {
@@ -59,6 +67,7 @@ public:
     }
 
 private:
+    EpicLookAndFeel epicLookAndFeel;
     juce::TextEditor text;
     juce::TextButton okButton;
 };
@@ -71,7 +80,6 @@ struct WelcomeWindow
         juce::DialogWindow::LaunchOptions options;
         options.content.setOwned(new WelcomeComponent());
         options.dialogTitle = "Welcome to MoPanning";
-        options.dialogBackgroundColour = juce::Colours::darkgrey;
         options.escapeKeyTriggersCloseButton = true;
         options.useNativeTitleBar = true;
         options.resizable = false;

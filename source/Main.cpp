@@ -27,6 +27,7 @@
 */
 
 #include <JuceHeader.h>
+#include "EpicLookAndFeel.h"
 #include "MainController.h"
 #include "MainComponent.h"
 #include "WelcomeWindow.h"
@@ -76,6 +77,8 @@ public:
         options.folderName = getApplicationName();
         options.storageFormat = juce::PropertiesFile::storeAsXML;
         appProperties.setStorageParameters(options);
+
+        LookAndFeel::setDefaultLookAndFeel(&epicLookAndFeel);
 
         commandManager = std::make_unique<juce::ApplicationCommandManager>();
         controller = std::make_unique<MainController>();
@@ -186,25 +189,26 @@ private:
     //=========================================================================
     void ShowWelcomeWindow()
     {
-        auto* settings = getSettings();
+        // auto* settings = getSettings();
 
-        const bool hasShownWelcome =
-            settings->getBoolValue("hasShownWelcome", false);
+        // const bool hasShownWelcome =
+        //     settings->getBoolValue("hasShownWelcome", false);
 
-        if (! hasShownWelcome)
-        {
-            WelcomeWindow::show();
+        // if (! hasShownWelcome)
+        // {
+        //     WelcomeWindow::show();
 
-            settings->setValue("hasShownWelcome", true);
-            settings->saveIfNeeded();
-        }
+        //     settings->setValue("hasShownWelcome", true);
+        //     settings->saveIfNeeded();
+        // }
 
-        // Show ever time - for testing
-        // WelcomeWindow::show();
+        // Show every time - for testing
+        WelcomeWindow::show();
     }
 
     //=========================================================================
     juce::ApplicationProperties appProperties;
+    EpicLookAndFeel epicLookAndFeel;
 
     /* unique_ptrs for all of our objects. These need to be initialized
     in initialise(). */

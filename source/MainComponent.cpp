@@ -38,6 +38,7 @@ MainComponent::MainComponent(MainController& mc,
 
     controller.setDefaultParameters();
 
+    // setLookAndFeel(&epicLookAndFeel);
     setSize(1200, 750);
 }
 

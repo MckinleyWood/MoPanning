@@ -21,6 +21,7 @@
 
 #pragma once
 #include <JuceHeader.h>
+#include "EpicLookAndFeel.h"
 #include "MainController.h"
 #include "GLVisualizer.h"
 #include "SettingsComponent.h"
@@ -74,6 +75,8 @@ private:
                           int /*topLevelIndex*/) override {}
 
     //=========================================================================
+    // EpicLookAndFeel epicLookAndFeel;
+
     MainController& controller;
     juce::ApplicationCommandManager& commandManager;
     std::unique_ptr<GLVisualizer> visualizer;
