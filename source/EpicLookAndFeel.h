@@ -80,6 +80,41 @@ public:
         setColour(AlertWindow::textColourId, epicText);
     }
 
+    void drawToggleButton (juce::Graphics& g,
+                       juce::ToggleButton& button,
+                       bool isHighlighted,
+                       bool isDown) override
+    {
+        // Only special-case record buttons
+        if (button.getButtonText() != "Record")
+        {
+            LookAndFeel_V4::drawToggleButton(g, button, isHighlighted, isDown);
+            return;
+        }
+
+        auto bounds = button.getLocalBounds().toFloat().reduced(2.0f);
+        auto diameter = juce::jmin(bounds.getWidth(), bounds.getHeight());
+        auto circle = bounds.withSizeKeepingCentre(diameter, diameter);
+
+        // Outer ring
+        g.setColour(juce::Colours::white);
+        g.fillEllipse(circle);
+
+        // Inner record light
+        g.setColour(button.getToggleState()
+                        ? juce::Colours::red
+                        : juce::Colours::darkred);
+
+        g.fillEllipse(circle.reduced(1.0f));
+
+        // Hover ring
+        if (isHighlighted)
+        {
+            g.setColour(juce::Colours::white.withAlpha(0.25f));
+            g.drawEllipse(circle, 2.0f);
+        }
+    }
+
 private:
 
 };

@@ -349,6 +349,7 @@ private:
 
     // Record button
     std::unique_ptr<juce::ToggleButton> recordButton;
+    std::unique_ptr<juce::Label> recordButtonLabel;
 
     // Label pointers
     std::vector<std::unique_ptr<juce::Label>> labels;

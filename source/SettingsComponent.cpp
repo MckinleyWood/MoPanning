@@ -25,14 +25,10 @@
 //=============================================================================
 SettingsComponent::SettingsComponent(MainController& c) : controller(c)
 {
-    // Set look and feel
-    // setLookAndFeel(&epicLookAndFeel);
-
     // Update parameter visibility when numTracks changes
     controller.onNumTracksChanged = [this](int numTracksIn)
     {
         numTracks = numTracksIn;
-        DBG("SettingsComponent: numTracks changed to " + juce::String(numTracks));
         updateParamVisibility(numTracks, dim);
     };
 
@@ -76,9 +72,18 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
     recordButton = std::make_unique<juce::ToggleButton>("Recording");
     recordButton->setButtonText("Record");
     addAndMakeVisible(recordButton.get());
+
     auto recordAttachment = std::make_unique<apvts::ButtonAttachment>(
         apvts, "recording", *recordButton);
     buttonAttachments.push_back(std::move(recordAttachment));
+
+    // Recording button label
+    recordButtonLabel = std::make_unique<juce::Label>();
+    recordButtonLabel->setText("Record", juce::dontSendNotification);
+    juce::FontOptions recordButtonFont = {14.f, 0};
+    recordButtonLabel->setFont(recordButtonFont);
+    recordButton->setClickingTogglesState(true);
+    addAndMakeVisible(recordButtonLabel.get());
 
     // Create tabs and pages for setting groups
     tabs = std::make_unique<juce::TabbedComponent>(juce::TabbedButtonBar::TabsAtTop);
@@ -236,7 +241,8 @@ void SettingsComponent::resized()
 
     // Lay out record button next to title
     auto recordButtonZone = titleZone.removeFromRight(80);
-    recordButton->setBounds(recordButtonZone);
+    recordButton->setBounds(recordButtonZone.getCentreX() + 10, recordButtonZone.getCentreY() - 9, 20, 20);
+    recordButtonLabel->setBounds(recordButtonZone.getCentreX() - 38, recordButtonZone.getCentreY() - 9, 50, 20);
 
     // Tabs below title
     tabs->setBounds(bounds);
