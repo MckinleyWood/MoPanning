@@ -31,22 +31,49 @@ public:
     {
         setLookAndFeel(&epicLookAndFeel);
 
-        addAndMakeVisible(text);
+        using Font = juce::FontOptions;
+
+        // Set the fonts
+        Font normalFont = {14.f, 0};
+        Font titleFont = normalFont.withHeight(30.0f).withStyle("Bold");
+
+        // Set up title label
+        title.setFont(titleFont);
+        title.setText("Welcome to MoPanning!", juce::dontSendNotification);
+        addAndMakeVisible(title);
+
+        // Set up text label
+        text.setFont(normalFont);
         text.setText(
-            "Welcome to MoPanning!",
+            "Thank you for installing MoPanning, A perception-based real-time "
+            "visualization program for stereo audio including music. To learn "
+            "more about what MoPanning is and how to use it, check out our "
+            "                         and our                     . "
+            "Otherwise, select 'MoPanning -> Settings...' from the menu bar "
+            "to open the settings window and get started!",
             juce::dontSendNotification);
+        addAndMakeVisible(text);
 
-        text.setReadOnly(true);
+        // Set up links
+        youtubeLink.setFont(normalFont.withUnderline(true), false);
+        youtubeLink.setButtonText("YouTube video");
+        youtubeLink.setURL(juce::URL("https://www.youtube.com/watch?v=dQw4w9WgXcQ"));
+        addAndMakeVisible(youtubeLink);
 
-        addAndMakeVisible(okButton);
+        githubLink.setFont(normalFont.withUnderline(true), false);
+        githubLink.setButtonText("GitHub page");
+        githubLink.setURL(juce::URL("https://github.com/MckinleyWood/MoPanning"));
+        addAndMakeVisible(githubLink);
+
         okButton.setButtonText("Got it!");
         okButton.onClick = [this]
         {
             if(auto* w = findParentComponentOfClass<juce::DialogWindow>())
                 w->exitModalState(0);
         };
+        addAndMakeVisible(okButton);
 
-        setSize(400, 300);
+        setSize(350, 250);
     }
 
     ~WelcomeComponent() override
@@ -57,18 +84,54 @@ public:
     void paint(juce::Graphics& g) override
     {
         g.fillAll(getLookAndFeel().findColour(juce::DialogWindow::backgroundColourId));
+
+        // paintOverChildren(g);
     }
 
     void resized() override
     {
-        auto area = getLocalBounds().reduced(20);
-        text.setBounds(area.removeFromTop(200));
-        okButton.setBounds(area.removeFromBottom(30));
+        auto bounds = getLocalBounds().reduced(10);
+
+        // Lay out the title at the top
+        auto titleZone = bounds.removeFromTop(30);
+        title.setBounds(titleZone);
+
+        // Lay out the text below the title
+        auto textZone = bounds.removeFromTop(98);
+        text.setBounds(textZone);
+
+        // Lay out the links within the text zone
+        youtubeLink.setBounds(textZone.withTrimmedTop(47)
+                                      .withTrimmedBottom(33)
+                                      .withTrimmedRight(125)
+                                      .withTrimmedLeft(113));
+
+        githubLink.setBounds(textZone.withTrimmedTop(47)
+                                     .withTrimmedBottom(33)
+                                     .withTrimmedRight(10)
+                                     .withTrimmedLeft(245));
+
+        okButton.setBounds(bounds.removeFromBottom(30));
     }
 
 private:
+    void paintOverChildren(juce::Graphics& g) override
+    {
+        // g.setColour(juce::Colours::yellow.withAlpha(0.9f));
+
+        // for (auto* child : getChildren())
+        // {
+        //     if (child->isVisible())
+        //         g.drawRect(child->getBounds(), 2);
+        // }
+    }
+
+
     EpicLookAndFeel epicLookAndFeel;
-    juce::TextEditor text;
+    juce::Label title;
+    juce::Label text;
+    juce::HyperlinkButton youtubeLink;
+    juce::HyperlinkButton githubLink;
     juce::TextButton okButton;
 };
 
@@ -79,7 +142,6 @@ struct WelcomeWindow
     {
         juce::DialogWindow::LaunchOptions options;
         options.content.setOwned(new WelcomeComponent());
-        options.dialogTitle = "Welcome to MoPanning";
         options.escapeKeyTriggersCloseButton = true;
         options.useNativeTitleBar = true;
         options.resizable = false;
