@@ -189,21 +189,21 @@ private:
     //=========================================================================
     void ShowWelcomeWindow()
     {
-        // auto* settings = getSettings();
+        auto* settings = getSettings();
 
-        // const bool hasShownWelcome =
-        //     settings->getBoolValue("hasShownWelcome", false);
+        const bool hasShownWelcome =
+            settings->getBoolValue("hasShownWelcome", false);
 
-        // if (! hasShownWelcome)
-        // {
-        //     WelcomeWindow::show();
+        if (! hasShownWelcome)
+        {
+            WelcomeWindow::show();
 
-        //     settings->setValue("hasShownWelcome", true);
-        //     settings->saveIfNeeded();
-        // }
+            settings->setValue("hasShownWelcome", true);
+            settings->saveIfNeeded();
+        }
 
         // Show every time - for testing
-        WelcomeWindow::show();
+        // WelcomeWindow::show();
     }
 
     //=========================================================================

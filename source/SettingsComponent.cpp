@@ -99,7 +99,7 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
     tabs->addTab("I/O", backgroundColour, ioPage.get(), false);
     tabs->addTab("Visual", backgroundColour, visualPage.get(), false);
     tabs->addTab("Analysis", backgroundColour, analysisPage.get(), false);
-    tabs->addTab("Colors", backgroundColour, colorsPage.get(), false);
+    tabs->addTab("Colours", backgroundColour, colorsPage.get(), false);
 
     tabs->setTabBarDepth(30);            // height of tab bar
     tabs->setOutline(0);                 // removes border
@@ -180,7 +180,7 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
             auto combo = std::make_unique<juce::ComboBox>(p.displayName);
             combo->addItemList(p.choices, 1); // JUCE items start at index 1
             combo->setSelectedItemIndex(static_cast<int>(p.defaultValue));
-            combo->setJustificationType(juce::Justification::centred);
+            combo->setJustificationType(juce::Justification::centredLeft);
 
             if (p.id == "inputType")
                 combo->setSize(160, 24);
@@ -236,7 +236,7 @@ void SettingsComponent::resized()
     auto bounds = getLocalBounds().reduced(10);
 
     // Lay out the title at the top
-    auto titleZone = bounds.removeFromTop(60);
+    auto titleZone = bounds.removeFromTop(30);
     title.setBounds(titleZone);
 
     // Lay out record button next to title
@@ -245,7 +245,7 @@ void SettingsComponent::resized()
     recordButtonLabel->setBounds(recordButtonZone.getCentreX() - 38, recordButtonZone.getCentreY() - 9, 50, 20);
 
     // Tabs below title
-    tabs->setBounds(bounds);
+    tabs->setBounds(bounds.withTrimmedTop(10));
 }
 
 //=============================================================================

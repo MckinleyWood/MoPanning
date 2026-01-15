@@ -47,22 +47,25 @@ public:
         text.setText(
             "Thank you for installing MoPanning, A perception-based real-time "
             "visualization program for stereo audio including music. To learn "
-            "more about what MoPanning is and how to use it, check out our "
-            "                         and our                     . "
-            "Otherwise, select 'MoPanning -> Settings...' from the menu bar "
-            "to open the settings window and get started!",
+            "more about what MoPanning is and how to use it, check out the "
+            "links below. Otherwise, select 'MoPanning -> Settings...' from "
+            "the menu bar to open the settings window and get started!",
             juce::dontSendNotification);
+        // text.setBorderSize(juce::BorderSize<int>(0));
+        text.setMinimumHorizontalScale(1.0f);
         addAndMakeVisible(text);
 
         // Set up links
         youtubeLink.setFont(normalFont.withUnderline(true), false);
         youtubeLink.setButtonText("YouTube video");
         youtubeLink.setURL(juce::URL("https://www.youtube.com/watch?v=dQw4w9WgXcQ"));
+        youtubeLink.setJustificationType(juce::Justification::centredLeft);
         addAndMakeVisible(youtubeLink);
 
         githubLink.setFont(normalFont.withUnderline(true), false);
         githubLink.setButtonText("GitHub page");
         githubLink.setURL(juce::URL("https://github.com/MckinleyWood/MoPanning"));
+        githubLink.setJustificationType(juce::Justification::centredLeft);
         addAndMakeVisible(githubLink);
 
         okButton.setButtonText("Got it!");
@@ -73,7 +76,7 @@ public:
         };
         addAndMakeVisible(okButton);
 
-        setSize(350, 250);
+        setSize(350, 220);
     }
 
     ~WelcomeComponent() override
@@ -97,21 +100,19 @@ public:
         title.setBounds(titleZone);
 
         // Lay out the text below the title
-        auto textZone = bounds.removeFromTop(98);
-        text.setBounds(textZone);
+        bounds.removeFromTop(10);
+        text.setBounds(bounds.removeFromTop(86));
 
-        // Lay out the links within the text zone
-        youtubeLink.setBounds(textZone.withTrimmedTop(47)
-                                      .withTrimmedBottom(33)
-                                      .withTrimmedRight(125)
-                                      .withTrimmedLeft(113));
+        // Lay out the links below the text zone
+        bounds.removeFromTop(10);
+        youtubeLink.setBounds(bounds.removeFromTop(16).withTrimmedLeft(5));
 
-        githubLink.setBounds(textZone.withTrimmedTop(47)
-                                     .withTrimmedBottom(33)
-                                     .withTrimmedRight(10)
-                                     .withTrimmedLeft(245));
+        bounds.removeFromTop(10);
+        githubLink.setBounds(bounds.removeFromTop(16).withTrimmedLeft(5));
 
-        okButton.setBounds(bounds.removeFromBottom(30));
+        // Lay out the OK button at the bottom
+        bounds.removeFromTop(10);
+        okButton.setBounds(bounds.reduced(5));
     }
 
 private:

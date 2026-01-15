@@ -376,7 +376,7 @@ class SettingsWindow : public juce::DocumentWindow
 {
 public:
     SettingsWindow(MainController& controller)
-        : DocumentWindow("Settings",
+        : DocumentWindow("",
                          juce::Colour::fromRGB(30, 30, 30),
                          DocumentWindow::allButtons,
                          true)   // addToDesktop
