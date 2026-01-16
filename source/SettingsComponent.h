@@ -80,14 +80,6 @@ public:
     {
         if (auto* panel = findAudioPanelRecursively(this))
         {
-            // DBG("Number of child components: " << panel->getNumChildComponents());
-
-            // for (int i = 0; i < panel->getNumChildComponents(); ++i)
-            // {
-            //     juce::Component* child = panel->getChildComponent(i);
-            //     DBG("  child[" << i << "] class = " << typeid(*child).name());
-            // }
-
             // Output elements
             const int outputButtonIndex       = 0;
             const int outputDropdownIndex     = 1;
@@ -118,20 +110,12 @@ public:
                 {
                     // Currently selected input for later
                     selected = inputBox->getSelectedId();
-                    // selectedName = inputBox->getSelectedIdAsValue();
                     
+                    // Set input to << none >>
                     inputBox->setSelectedId(-1);
-                    // auto noneText = inputBox->getItemText(-1);
-                    
-                    // // Set the displayed text without affecting the underlying item list
-                    // selectedText = inputBox->getText();
-                    // inputBox->setText("File", juce::dontSendNotification);
                     
                     // Lock the box so the user cannot change it
                     inputBox->setEnabled(false);
-
-                    // trySetVisible(inputListBoxIndex, false);
-
                 }
                 else 
                 {
@@ -156,12 +140,6 @@ public:
 
                 outputBox->setBounds(x - 50 , y, w, h);
             }
-
-
-            // trySetVisible(inputButtonIndex,   shouldBeVisible);
-            // trySetVisible(inputDropdownIndex, shouldBeVisible);
-            // trySetVisible(inputLabelIndex,    shouldBeVisible);
-            // trySetVisible(inputMeterIndex,    shouldBeVisible);
 
             panel->resized();
         }
@@ -254,8 +232,14 @@ public:
                 auto h = ctrl->getHeight();
 
                 auto zone = bounds.removeFromTop(25);
-                auto comboZone = zone.removeFromRight(200);
+                // auto comboZone = zone.removeFromRight(200);
                 auto comboLabelZone = zone.removeFromLeft(150);
+
+                const int comboCenterX = getWidth() - 100; // global anchor
+                const auto comboZone =
+                    ctrl->getBounds().withCentre(
+                        { comboCenterX, zone.getCentreY() }
+                    );
 
                 label->setBounds(comboLabelZone);
                 ctrl->setBounds(comboZone);
@@ -312,7 +296,8 @@ public:
                 }
             }
 
-            bounds.removeFromTop(12);
+            // Spacing
+            bounds.removeFromTop(20);
         }
     }
 };
@@ -386,7 +371,7 @@ public:
         // Create the settings component
         settings = std::make_unique<SettingsComponent>(controller);
 
-        setResizable(true, true);
+        setResizable(false, false);
         setContentOwned(settings.get(), true);
 
         centreWithSize(400, 730);

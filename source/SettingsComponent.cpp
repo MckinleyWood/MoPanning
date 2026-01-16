@@ -180,7 +180,7 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
             auto combo = std::make_unique<juce::ComboBox>(p.displayName);
             combo->addItemList(p.choices, 1); // JUCE items start at index 1
             combo->setSelectedItemIndex(static_cast<int>(p.defaultValue));
-            combo->setJustificationType(juce::Justification::centredLeft);
+            combo->setJustificationType(juce::Justification::centred);
 
             if (p.id == "inputType")
                 combo->setSize(160, 24);

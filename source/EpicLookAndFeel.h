@@ -40,7 +40,7 @@ public:
         setColour(ComboBox::arrowColourId, epicText);
         
         // Slider colours
-        setColour(Slider::backgroundColourId, epicBackGround);
+        setColour(Slider::backgroundColourId, Colours::darkgrey);
         setColour(Slider::thumbColourId, Colours::lightgrey);
         setColour(Slider::trackColourId, Colours::grey);
         

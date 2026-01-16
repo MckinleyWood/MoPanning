@@ -50,16 +50,16 @@ void MainComponent::resized()
 {
     auto bounds = getLocalBounds();
 
-    if (viewMode == ViewMode::Focus)
+    if (settingsWindow != nullptr && settingsWindow->isVisible())
     {
-        visualizer->setBounds(bounds);
         settingsWindow->setVisible(false);
+
+        // Update the toggle / parameter
+        if (viewMode == ViewMode::Settings)
+            viewMode = ViewMode::Focus;
     }
-    else // viewMode == Settings
-    {
-        settingsWindow->setVisible(true);
-        settingsWindow->toFront(true);
-    }
+
+    visualizer->setBounds(bounds);
 }
 
 void MainComponent::paint(juce::Graphics& g)
@@ -73,10 +73,17 @@ void MainComponent::paint(juce::Graphics& g)
 */
 void MainComponent::toggleSettings()
 {
-    viewMode = (viewMode == ViewMode::Focus ? ViewMode::Settings
-                                            : ViewMode::Focus);
-
-    resized(); // Forces a redraw of the subcomponents
+    if (viewMode == ViewMode::Focus)
+    {
+        viewMode = ViewMode::Settings;
+        settingsWindow->setVisible(true);
+        settingsWindow->toFront(true);
+    }
+    else
+    {
+        viewMode = ViewMode::Focus;
+        settingsWindow->setVisible(false);
+    }
 }
 
 /*  This launches an asynchronous dialog window that allows the user to
