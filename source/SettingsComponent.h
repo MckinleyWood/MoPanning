@@ -232,14 +232,14 @@ public:
                 auto h = ctrl->getHeight();
 
                 auto zone = bounds.removeFromTop(25);
-                // auto comboZone = zone.removeFromRight(200);
+                auto comboZone = zone.removeFromRight(200);
                 auto comboLabelZone = zone.removeFromLeft(150);
 
-                const int comboCenterX = getWidth() - 100; // global anchor
-                const auto comboZone =
-                    ctrl->getBounds().withCentre(
-                        { comboCenterX, zone.getCentreY() }
-                    );
+                // const int comboCenterX = getWidth() - 100; // global anchor
+                // const auto comboZone =
+                //     ctrl->getBounds().withCentre(
+                //         { comboCenterX, zone.getCentreY() }
+                //     );
 
                 label->setBounds(comboLabelZone);
                 ctrl->setBounds(comboZone);
