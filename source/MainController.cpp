@@ -172,16 +172,17 @@ MainController::MainController()
             "maxFrequency", "Maximum Frequency", 
             "Maximum frequency (Hz) to include in the analysis.",
             "analysis", ParameterDescriptor::Type::Choice, 2, {},
-            {"5000Hz", "10000Hz", "20000Hz", "24000Hz"}, "",
+            {"2500Hz  ", "5000Hz", "10000Hz", "20000Hz", "24000Hz"}, "",
             [this](float value) 
             {
                 float newMaxFrequency;
                 switch ((int)value)
                 {
-                    case 0: newMaxFrequency = 5000.0f; break;
-                    case 1: newMaxFrequency = 10000.0f; break;
-                    case 2: newMaxFrequency = 20000.0f; break;
-                    case 3: newMaxFrequency = 24000.0f; break;
+                    case 0: newMaxFrequency = 2500.0f; break;
+                    case 1: newMaxFrequency = 5000.0f; break;
+                    case 2: newMaxFrequency = 10000.0f; break;
+                    case 3: newMaxFrequency = 20000.0f; break;
+                    case 4: newMaxFrequency = 24000.0f; break;
                     default: jassertfalse;
                 }
                 visualizer->setMaxFrequency(newMaxFrequency);
@@ -194,7 +195,7 @@ MainController::MainController()
             "minFrequency", "Minimum Frequency", 
             "Minimum frequency (Hz) to include in the analysis.",
             "analysis", ParameterDescriptor::Type::Choice, 1, {},
-            {"5Hz", "20Hz", "50Hz", "100Hz"}, "",
+            {"5Hz", "20Hz", "50Hz", "100Hz", "250Hz", "500Hz", "1000Hz"}, "",
             [this](float value) 
             {
                 float newMinFreq;
@@ -204,6 +205,9 @@ MainController::MainController()
                     case 1: newMinFreq = 20.0f; break;
                     case 2: newMinFreq = 50.0f; break;
                     case 3: newMinFreq = 100.0f; break;
+                    case 4: newMinFreq = 250.0f; break;
+                    case 5: newMinFreq = 500.0f; break;
+                    case 6: newMinFreq = 1000.0f; break;
                     default: newMinFreq = 20.0f; break;
                 }
 
