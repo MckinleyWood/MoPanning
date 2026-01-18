@@ -374,7 +374,7 @@ public:
         setResizable(false, false);
         setContentOwned(settings.get(), true);
 
-        centreWithSize(400, 730);
+        centreWithSize(400, 700);
         setVisible(true);
     }
 
