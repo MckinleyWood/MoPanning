@@ -224,6 +224,21 @@ void AudioAnalyzer::setMinFrequency(float newMinFrequency)
     isPrepared.store(false);
 }
 
+void AudioAnalyzer::setMaxFrequency(float newMaxFrequency)
+{
+    if (std::abs(newMaxFrequency - maxCQTfreq) < 1e-6f) 
+        return; // No change
+
+    for (auto& worker : workers)
+    {
+        if (worker != nullptr) 
+            stopWorker(worker);
+    }
+
+    maxCQTfreq = newMaxFrequency;
+    isPrepared.store(false);
+}
+
 void AudioAnalyzer::setMaxAmplitude(float newMaxAmplitude)
 {
     maxAmplitude = newMaxAmplitude;
@@ -281,7 +296,7 @@ void AudioAnalyzer::setupCQT()
     // Set frequency from min to Nyquist
     const float nyquist = static_cast<float>(sampleRate * 0.5);
     const float logMin = std::log2(minCQTfreq);
-    const float logMax = std::log2(nyquist);
+    const float logMax = std::log2(std::min(nyquist, maxCQTfreq));
 
     // Precompute CQT kernels
     for (int bin = 0; bin < numBands; ++bin)

@@ -180,7 +180,7 @@ public:
         jassert (controls.size() == labels.size());
 
         firstGainSlider = true;
-        auto bounds = getLocalBounds();
+        auto bounds = getLocalBounds().withTrimmedTop(10);
 
         // Input type
         if (inputTypeCombo != nullptr && inputTypeLabel != nullptr)

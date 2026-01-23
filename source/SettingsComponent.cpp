@@ -190,12 +190,12 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
 
             if (p.id == "inputType")
                 combo->setSize(160, 24);
-            else if (p.choices[0].length() < 7 && p.choices[1].length() < 7)
-                combo->setSize(80, 24);
-            else if (p.choices[0].length() < 10 && p.choices[1].length() < 10)
-                combo->setSize(115, 24);
+            // else if (p.choices[0].length() < 7 && p.choices[1].length() < 7)
+            //     combo->setSize(80, 24);
+            // else if (p.choices[0].length() < 10 && p.choices[1].length() < 10)
+            //     combo->setSize(115, 24);
             else
-                combo->setSize(150, 24);
+                combo->setSize(190, 24);
             
             auto attachment = std::make_unique<apvts::ComboBoxAttachment>(
                 apvts, p.id, *combo);
@@ -257,7 +257,8 @@ void SettingsComponent::resized()
 //=============================================================================
 void SettingsComponent::updateParamVisibility(int numTracksIn, bool showGridSettingIn)
 {
-    const bool showGridSetting = (showGridSettingIn == 0);
+    // const bool showGridSetting = (showGridSettingIn == 0);
+    const bool showGridSetting = true; // Always show
 
     auto setVisibleIfFound = [this](const juce::String& id, bool visible)
     {

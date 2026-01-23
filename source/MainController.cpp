@@ -171,7 +171,7 @@ MainController::MainController()
         {
             "maxFrequency", "Maximum Frequency", 
             "Maximum frequency (Hz) to include in the analysis.",
-            "analysis", ParameterDescriptor::Type::Choice, 2, {},
+            "analysis", ParameterDescriptor::Type::Choice, 3, {},
             {"2500Hz  ", "5000Hz", "10000Hz", "20000Hz", "24000Hz"}, "",
             [this](float value) 
             {
@@ -186,6 +186,7 @@ MainController::MainController()
                     default: jassertfalse;
                 }
                 visualizer->setMaxFrequency(newMaxFrequency);
+                analyzer->setMaxFrequency(newMaxFrequency);
             },
             true
 
@@ -216,19 +217,6 @@ MainController::MainController()
             }
 
         },
-        // dimension
-        {
-            "dimension", "Dimension", "Visualization dimension.",
-            "visual", ParameterDescriptor::Type::Choice, 1, {},
-            {"2D", "3D"}, "",
-            [this](float value) 
-            {
-                if (visualizer != nullptr)
-                    visualizer->setDimension(static_cast<Dimension>(value));
-                if (onDimChanged)
-                    onDimChanged(static_cast<int>(value));
-            }
-        },
         // peakAmplitude
         {
             "peakAmplitude", "Peak Amplitude",
@@ -251,6 +239,19 @@ MainController::MainController()
             {
                 if (analyzer != nullptr)
                     analyzer->setThreshold(value);
+            },
+            false
+        },
+        // threshold
+        {
+            "contrast", "Contrast",
+            "",
+            "visual", ParameterDescriptor::Type::Float, 0.5f,
+            juce::NormalisableRange<float>(0.f, 1.f), {}, "",
+            [this](float value) 
+            {
+                if (analyzer != nullptr)
+                    analyzer->setThreshold(jmap(value, -100.0f, -10.0f));
             }
         },
         // freqWeighting
@@ -468,6 +469,55 @@ MainController::MainController()
                     trackGains[7] = value;
             }
         },
+        // dotSize
+        {
+            "dotSize", "Particle Size", 
+            "Size of each particle in the visualization.",
+            "visual", ParameterDescriptor::Type::Float, 0.1f,
+            juce::NormalisableRange<float>(0.01f, 1.0f, 0.0f, 0.5f), {}, "",
+            [this](float value) 
+            {
+                if (visualizer != nullptr)
+                    visualizer->setDotSize(jmap(value, 0.0f, 10.0f));
+            }
+        },
+        // recedeSpeed
+        {
+            "recedeSpeed", "Recede Speed", 
+            "How fast the particles recede into the distance.",
+            "visual", ParameterDescriptor::Type::Float, 0.25f,
+            juce::NormalisableRange<float>(0.01, 1.0f), {}, "",
+            [this](float value) 
+            {
+                if (visualizer != nullptr)
+                    visualizer->setRecedeSpeed(jmap(value, 0.0f, 20.0f));
+            }
+        },
+        // fadeEndZ
+        {
+            "fadeEndZ", "Fade Distance", 
+            "Distance at which particles are fully faded out.",
+            "visual", ParameterDescriptor::Type::Float, 0.5f,
+            juce::NormalisableRange<float>(0.01f, 1.0f), {}, "",
+            [this](float value) 
+            {
+                if (visualizer != nullptr)
+                    visualizer->setFadeEndZ(jmap(value, 0.0f, 10.0f));
+            }
+        },
+        // dimension
+        {
+            "dimension", "Dimension", "Visualization dimension.",
+            "visual", ParameterDescriptor::Type::Choice, 1, {},
+            {"2D", "3D"}, "",
+            [this](float value) 
+            {
+                if (visualizer != nullptr)
+                    visualizer->setDimension(static_cast<Dimension>(value));
+                if (onDimChanged)
+                    onDimChanged(static_cast<int>(value));
+            }
+        },
         // showGrid
         {
             "showGrid", "Show Grid", 
@@ -482,42 +532,6 @@ MainController::MainController()
                     visualizer->setShowGrid(showGrid);
             },
             true
-        },
-        // dotSize
-        {
-            "dotSize", "Particle Size", 
-            "Size of each particle in the visualization.",
-            "visual", ParameterDescriptor::Type::Float, 1.0f,
-            juce::NormalisableRange<float>(0.001f, 10.0, 0.0f, 0.5f), {}, "",
-            [this](float value) 
-            {
-                if (visualizer != nullptr)
-                    visualizer->setDotSize(value);
-            }
-        },
-        // recedeSpeed
-        {
-            "recedeSpeed", "Recede Speed", 
-            "How fast the particles recede into the distance.",
-            "visual", ParameterDescriptor::Type::Float, 5.f,
-            juce::NormalisableRange<float>(0.1f, 20.f), {}, "m/s",
-            [this](float value) 
-            {
-                if (visualizer != nullptr)
-                    visualizer->setRecedeSpeed(value);
-            }
-        },
-        // fadeEndZ
-        {
-            "fadeEndZ", "Fade Distance", 
-            "Distance at which particles are fully faded out.",
-            "visual", ParameterDescriptor::Type::Float, 5.f,
-            juce::NormalisableRange<float>(0.1f, 10.f), {}, "m",
-            [this](float value) 
-            {
-                if (visualizer != nullptr)
-                    visualizer->setFadeEndZ(value);
-            }
         }
     };
 

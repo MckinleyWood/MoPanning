@@ -57,6 +57,7 @@ public:
     void setPanMethod(PanMethod newPanMethod);
     void setNumCQTBins(int newNumCQTBins);
     void setMinFrequency(float newMinFrequency);
+    void setMaxFrequency(float newMaxFrequency);
     void setMaxAmplitude(float newMaxAmplitude);
     void setThreshold(float newThreshold);
     void setFreqWeighting(FrequencyWeighting newFreqWeighting);
@@ -131,6 +132,7 @@ private:
     
     int numCQTbins;
     float minCQTfreq; // Minimum CQT frequency in Hz
+    float maxCQTfreq;
     float maxAmplitude; // Maximum expected (linear) amplitude of input signal
     float threshold; // dB relative to maxAmplitude
 
