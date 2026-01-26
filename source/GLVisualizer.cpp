@@ -81,6 +81,8 @@ void GLVisualizer::openGLContextClosing()
 void GLVisualizer::resized()
 {
     displayProj = buildProjectionMatrix((float)getWidth(), (float)getHeight());
+    captureProj = buildProjectionMatrix(Constants::W, Constants::H); // In case this was called from setDimension()
+    captureProj.mat[5] *= -1.0f; // Becuase OpenGL has bottom-up row order
     grid->setSize(getWidth(), getHeight());
 }
 
