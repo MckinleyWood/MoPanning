@@ -58,7 +58,7 @@ public:
         // Set up links
         youtubeLink.setFont(normalFont.withUnderline(true), false);
         youtubeLink.setButtonText("YouTube video");
-        youtubeLink.setURL(juce::URL("https://www.youtube.com/watch?v=dQw4w9WgXcQ"));
+        youtubeLink.setURL(juce::URL("https://youtu.be/Z8oFoO5eTAc"));
         youtubeLink.setJustificationType(juce::Justification::centredLeft);
         addAndMakeVisible(youtubeLink);
 
