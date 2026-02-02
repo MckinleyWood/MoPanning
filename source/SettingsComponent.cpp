@@ -68,6 +68,7 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
     auto parameters = controller.getParameterDescriptors();
     auto& apvts = controller.getAPVTS();
 
+   #if JUCE_MAC
     // Recording button
     recordButton = std::make_unique<juce::ToggleButton>("Recording");
     recordButton->setButtonText("Record");
@@ -84,6 +85,7 @@ SettingsComponent::SettingsComponent(MainController& c) : controller(c)
     recordButtonLabel->setFont(recordButtonFont);
     recordButton->setClickingTogglesState(true);
     addAndMakeVisible(recordButtonLabel.get());
+   #endif
 
     // Create tabs and pages for setting groups
     tabs = std::make_unique<juce::TabbedComponent>(juce::TabbedButtonBar::TabsAtTop);
@@ -245,10 +247,12 @@ void SettingsComponent::resized()
     auto titleZone = bounds.removeFromTop(30);
     title.setBounds(titleZone);
 
+   #if JUCE_MAC
     // Lay out record button next to title
     auto recordButtonZone = titleZone.removeFromRight(80);
     recordButton->setBounds(recordButtonZone.getCentreX() + 10, recordButtonZone.getCentreY() - 9, 20, 20);
     recordButtonLabel->setBounds(recordButtonZone.getCentreX() - 38, recordButtonZone.getCentreY() - 9, 50, 20);
+   #endif
 
     // Tabs below title
     tabs->setBounds(bounds.withTrimmedTop(10));

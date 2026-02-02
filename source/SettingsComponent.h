@@ -68,6 +68,11 @@ public:
 
     void resized() override
     {
+        if (inResized)
+            return;
+
+        const juce::ScopedValueSetter<bool> guard(inResized, true);
+
         auto oldHeight = getHeight();
         juce::AudioDeviceSelectorComponent::resized();
         auto newHeight = getHeight();
@@ -160,6 +165,7 @@ private:
 
     int selected = 0;
     String selectedText;
+    bool inResized = false;
 };
 
 //=============================================================================
